@@ -2,8 +2,9 @@ use super::error::ToCommandResult;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 use tauri::{AppHandle, Manager};
-use tracing::debug;
+use tracing::{debug, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabState {
@@ -180,6 +181,7 @@ pub async fn create_db_script(
     content: Option<String>,
     app: AppHandle,
 ) -> Result<ScriptInfo, String> {
+    let start = Instant::now();
     let root = get_scripts_root_dir(&app)?;
     let conn_dir = normalize_dir_name(&connection_id);
     let db_dir_name = normalize_dir_name(&database);
@@ -206,12 +208,21 @@ pub async fn create_db_script(
         .to_cmd_result()?
         .as_secs();
     
-    Ok(ScriptInfo {
+    let script = ScriptInfo {
         name: file_name,
         path: path.to_string_lossy().to_string().replace("\\", "/"),
         last_modified,
         size: metadata.len(),
-    })
+    };
+
+    info!(
+        connection_id = %connection_id,
+        database = %database,
+        total_ms = start.elapsed().as_millis(),
+        "数据库脚本文件已创建"
+    );
+
+    Ok(script)
 }
 
 /// 保存会话状态
@@ -220,6 +231,7 @@ pub async fn save_session(
     state: SessionState,
     app: AppHandle,
 ) -> Result<(), String> {
+    let start = Instant::now();
     let app_dir = app.path().app_data_dir().to_cmd_result()?;
     let session_file = app_dir.join("session.json");
     
@@ -229,6 +241,8 @@ pub async fn save_session(
 
     let json = serde_json::to_string_pretty(&state).to_cmd_result()?;
     fs::write(session_file, json).to_cmd_result()?;
+
+    info!(tabs = state.open_tabs.len(), total_ms = start.elapsed().as_millis(), "工作区会话已保存");
     
     Ok(())
 }
@@ -238,15 +252,28 @@ pub async fn save_session(
 pub async fn load_session(
     app: AppHandle,
 ) -> Result<Option<SessionState>, String> {
+    let start = Instant::now();
     let app_dir = app.path().app_data_dir().to_cmd_result()?;
     let session_file = app_dir.join("session.json");
     
     if !session_file.exists() {
+        info!(total_ms = start.elapsed().as_millis(), "未找到工作区会话文件");
         return Ok(None);
     }
 
+    let read_start = Instant::now();
     let json = fs::read_to_string(session_file).to_cmd_result()?;
+    let read_ms = read_start.elapsed().as_millis();
+    let parse_start = Instant::now();
     let state: SessionState = serde_json::from_str(&json).to_cmd_result()?;
+
+    info!(
+        tabs = state.open_tabs.len(),
+        read_ms = read_ms,
+        parse_ms = parse_start.elapsed().as_millis(),
+        total_ms = start.elapsed().as_millis(),
+        "工作区会话加载完成"
+    );
     
     Ok(Some(state))
 }

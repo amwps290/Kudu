@@ -161,6 +161,7 @@ import DatabaseTree from '@/components/database/DatabaseTree.vue'
 import CreateDatabaseDialog from '@/components/database/CreateDatabaseDialog.vue'
 import { Icon } from '@iconify/vue'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { createStartupTimer, logStartupStage } from '@/utils/startupProfiler'
 
 const { t } = useI18n()
 const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts'])
@@ -302,8 +303,11 @@ function getStatusBadge(id: string) {
   return s === 'connected' ? 'success' : s === 'connecting' ? 'processing' : s === 'error' ? 'error' : 'default'
 }
 
-onMounted(() => {
-  connectionStore.fetchConnections()
+onMounted(async () => {
+  const finishFetchConnections = createStartupTimer('ConnectionPanel.fetchConnections')
+  await connectionStore.fetchConnections()
+  await finishFetchConnections(`count=${connectionStore.connections.length}`)
+  await logStartupStage('ConnectionPanel ready')
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideContextMenu() })
 })
 </script>

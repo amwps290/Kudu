@@ -111,9 +111,6 @@ import {
 import { useAppStore } from '@/stores/app'
 import { useConnectionStore } from '@/stores/connection'
 import { useWorkspaceStore } from '@/stores/workspace'
-import ConnectionPanel from '@/components/connection/ConnectionPanel.vue'
-import ConnectionDialog from '@/components/connection/ConnectionDialog.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
 import { invoke } from '@tauri-apps/api/core'
 import { message } from 'ant-design-vue'
 import type { ConnectionConfig, ScriptInfo } from '@/types/database'
@@ -122,8 +119,12 @@ import { useSidebarResize } from '@/composables/useSidebarResize'
 import { useTabManager, type DataTab } from '@/composables/useTabManager'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { getDatabaseSupportProfile, supportsDataCompare, supportsQueryBuilder, supportsSqlWorkspace } from '@/utils/databaseSupport'
+import { logStartupStage, createStartupTimer } from '@/utils/startupProfiler'
 
 // Step 34: 重量级组件懒加载
+const AppHeader = defineAsyncComponent(() => import('@/components/layout/AppHeader.vue'))
+const ConnectionPanel = defineAsyncComponent(() => import('@/components/connection/ConnectionPanel.vue'))
+const ConnectionDialog = defineAsyncComponent(() => import('@/components/connection/ConnectionDialog.vue'))
 const SqlEditor = defineAsyncComponent(() => import('@/components/editor/SqlEditor.vue'))
 const RedisEditor = defineAsyncComponent(() => import('@/components/editor/RedisEditor.vue'))
 const TableDataGrid = defineAsyncComponent(() => import('@/components/data/TableDataGrid.vue'))
@@ -168,20 +169,34 @@ function scheduleSessionReconnect(connectionIds: string[]) {
   clearSessionReconnectTimer()
   if (connectionIds.length === 0) return
 
+  void logStartupStage('sessionReconnect:scheduled', `count=${connectionIds.length}`, true)
+
   sessionReconnectTimer = window.setTimeout(async () => {
+    const finishReconnect = createStartupTimer('sessionReconnect.total')
     sessionReconnectTimer = null
     await nextTick()
 
-    for (const [index, id] of connectionIds.entries()) {
+    const reconnectOne = async (id: string) => {
       const conn = connectionStore.connections.find(item => item.id === id)
-      if (!conn || connectionStore.getConnectionStatus(id) === 'connected') continue
+      if (!conn || connectionStore.getConnectionStatus(id) === 'connected') return
 
-      await connectionStore.connectToDatabase(id).catch(() => {})
-
-      if (index < connectionIds.length - 1) {
-        await wait(180)
-      }
+      const finishSingleReconnect = createStartupTimer(`sessionReconnect.${id}`)
+      await connectionStore.connectToDatabase(id, { showErrorMessage: false }).catch(() => {})
+      await finishSingleReconnect(conn.name)
     }
+
+    const [firstId, ...remainingIds] = connectionIds
+    if (firstId) {
+      await reconnectOne(firstId)
+    }
+
+    if (remainingIds.length > 0) {
+      await Promise.allSettled(
+        remainingIds.map((id, index) => wait(index * 120).then(() => reconnectOne(id)))
+      )
+    }
+
+    await finishReconnect(`count=${connectionIds.length}`)
   }, 450)
 }
 
@@ -257,25 +272,38 @@ function handleGlobalClipboardEvent(event: ClipboardEvent) {
 
 async function restoreSession() {
   workspaceStore.isRestoring = true
+  const finishRestore = createStartupTimer('restoreSession')
   let pendingReconnectIds: string[] = []
   try {
+    await logStartupStage('restoreSession:start')
     const session = await workspaceStore.loadSession()
+    await logStartupStage('restoreSession:session-loaded', session ? `tabs=${session.open_tabs.length}` : 'tabs=0')
     if (session && session.open_tabs.length > 0) {
       dataTabs.value = session.open_tabs.map(tab => ({
         ...tab,
         type: tab.type,
       })) as DataTab[]
       mainTabKey.value = session.active_tab_key
-      if (connectionStore.connections.length === 0) await connectionStore.fetchConnections()
-      const connectionIds = [...new Set(dataTabs.value.map(tab => tab.connectionId).filter(Boolean))] as string[]
+      await logStartupStage('restoreSession:tabs-applied', `active=${session.active_tab_key}`)
+      if (connectionStore.connections.length === 0) {
+        const finishFetchConnections = createStartupTimer('restoreSession.fetchConnections')
+        await connectionStore.fetchConnections()
+        await finishFetchConnections(`count=${connectionStore.connections.length}`)
+      }
       const activeTabConnectionId = dataTabs.value.find(tab => tab.key === mainTabKey.value)?.connectionId
-      pendingReconnectIds = activeTabConnectionId
-        ? [activeTabConnectionId, ...connectionIds.filter(id => id !== activeTabConnectionId)]
-        : connectionIds
-    } else if (isSqlSupported.value) { handleNewQuery({}) }
-  } catch (_e) { if (isSqlSupported.value) handleNewQuery({}) } finally {
+      pendingReconnectIds = activeTabConnectionId ? [activeTabConnectionId] : []
+      await logStartupStage('restoreSession:pending-reconnects', pendingReconnectIds.join(',') || 'none')
+    } else if (isSqlSupported.value) {
+      handleNewQuery({})
+      await logStartupStage('restoreSession:created-default-query')
+    }
+  } catch (_e) {
+    if (isSqlSupported.value) handleNewQuery({})
+    await logStartupStage('restoreSession:error-fallback', undefined, true)
+  } finally {
     workspaceStore.isRestoring = false
     scheduleSessionReconnect(pendingReconnectIds)
+    await finishRestore(`reconnects=${pendingReconnectIds.length}`)
   }
 }
 
@@ -285,6 +313,7 @@ function handleEditorDatabaseChange(tabKey: string, database: string) {
 }
 
 onMounted(async () => {
+  await logStartupStage('HomeView mounted')
   window.addEventListener('keydown', handleGlobalClipboardKeydown, true)
   window.addEventListener('copy', handleGlobalClipboardEvent, true)
   window.addEventListener('cut', handleGlobalClipboardEvent, true)

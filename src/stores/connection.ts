@@ -5,16 +5,23 @@ import { connectionApi } from '@/api'
 import { withErrorHandler } from '@/utils/errorHandler'
 import { useAppStore } from './app'
 
+interface ConnectToDatabaseOptions {
+  showErrorMessage?: boolean
+}
+
 export const useConnectionStore = defineStore('connection', () => {
   const appStore = useAppStore()
   // 状态
   const connections = ref<ConnectionConfig[]>([])
   const activeConnectionId = ref<string | null>(null)
   const connectionStatuses = ref<Map<string, ConnectionStatus>>(new Map())
+  let fetchConnectionsPromise: Promise<void> | null = null
 
   // 获取所有连接
   async function fetchConnections() {
-    return withErrorHandler(async () => {
+    if (fetchConnectionsPromise) return fetchConnectionsPromise
+
+    fetchConnectionsPromise = withErrorHandler(async () => {
       const loadedConnections = await connectionApi.getConnections()
       const previousStatuses = new Map(connectionStatuses.value)
 
@@ -26,6 +33,11 @@ export const useConnectionStore = defineStore('connection', () => {
         ])
       )
     }, { messagePrefix: '获取连接列表失败' })
+      .finally(() => {
+        fetchConnectionsPromise = null
+      })
+
+    return fetchConnectionsPromise
   }
 
   /**
@@ -133,17 +145,20 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   // 连接到数据库
-  async function connectToDatabase(id: string) {
+  async function connectToDatabase(id: string, options: ConnectToDatabaseOptions = {}) {
     const conn = connections.value.find(c => c.id === id)
     if (!conn) {
       throw new Error('连接配置不存在')
     }
 
+    const { showErrorMessage = true } = options
+
     return withErrorHandler(async () => {
       updateConnectionStatus(id, 'connecting')
       await connectionApi.createConnection(id, getConnectionOverrides(conn))
       updateConnectionStatus(id, 'connected')
-    }, { 
+    }, {
+      showMessage: showErrorMessage,
       messagePrefix: '连接数据库失败',
       onError: () => updateConnectionStatus(id, 'error')
     })

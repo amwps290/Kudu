@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
+use tracing::info;
 use crate::utils::logger;
 
 /// 验证路径是否在允许的目录内（应用数据目录下的 scripts 子目录）
@@ -58,4 +59,15 @@ pub async fn write_file(path: String, content: String, app: AppHandle) -> Result
 #[tauri::command]
 pub async fn set_log_level(level: String) -> Result<String, String> {
     logger::set_log_level(&level)
+}
+
+#[tauri::command]
+pub async fn log_frontend_timing(stage: String, elapsed_ms: f64, details: Option<String>) -> Result<(), String> {
+    info!(
+        stage = %stage,
+        elapsed_ms = format_args!("{:.2}", elapsed_ms),
+        details = details.as_deref().unwrap_or(""),
+        "前端启动计时"
+    );
+    Ok(())
 }

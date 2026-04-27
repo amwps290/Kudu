@@ -6,11 +6,16 @@ use kudu::database::ConnectionManager;
 use kudu::utils;
 use kudu::AppState;
 use std::sync::Arc;
+use std::time::Instant;
 use tauri::Manager;
 
 fn main() {
+    let startup_begin = Instant::now();
+
     // 直接初始化连接管理器 (Arc 即可)
+    let manager_start = Instant::now();
     let connection_manager = Arc::new(ConnectionManager::new());
+    eprintln!("[startup][rust] ConnectionManager::new took {} ms", manager_start.elapsed().as_millis());
 
     let run_result = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -69,36 +74,47 @@ fn main() {
             commands::utils::read_file,
             commands::utils::write_file,
             commands::utils::set_log_level,
+            commands::utils::log_frontend_timing,
             commands::redis::execute_redis_command,
             commands::redis::get_redis_info,
             commands::redis::get_redis_key_value,
             commands::redis::set_redis_key_value,
             commands::redis::delete_redis_key,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            let setup_start = Instant::now();
+            let app_dir_start = Instant::now();
             let app_dir = app
                 .path()
                 .app_data_dir()
                 .ok()
                 .or_else(|| std::env::current_dir().ok())
                 .unwrap_or_else(std::env::temp_dir);
+            eprintln!("[startup][rust] resolve app_dir took {} ms", app_dir_start.elapsed().as_millis());
+
+            let logger_start = Instant::now();
             let guard = utils::logger::init_logger(app_dir);
             Box::leak(Box::new(guard));
+            tracing::info!(elapsed_ms = logger_start.elapsed().as_millis(), "日志初始化完成");
 
+            let crypto_start = Instant::now();
             if let Err(error) = utils::crypto::initialize_master_key() {
                 tracing::warn!(error = %error, "密钥初始化失败");
             }
+            tracing::info!(elapsed_ms = crypto_start.elapsed().as_millis(), "主密钥初始化完成");
 
             #[cfg(debug_assertions)]
             {
+                let devtools_start = Instant::now();
                 if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
+                    tracing::info!(elapsed_ms = devtools_start.elapsed().as_millis(), "DevTools 已打开");
                 } else {
                     tracing::warn!("未找到 main 窗口，无法自动打开 DevTools");
                 }
             }
 
-            tracing::info!("Tauri 应用启动完成");
+            tracing::info!(elapsed_ms = setup_start.elapsed().as_millis(), total_since_main_ms = startup_begin.elapsed().as_millis(), "Tauri setup 完成");
             Ok(())
         })
         .run(tauri::generate_context!());

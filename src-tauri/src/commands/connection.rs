@@ -5,6 +5,7 @@ use crate::AppState;
 use super::error::ToCommandResult;
 use serde_json::{json, Value};
 use std::sync::Arc;
+use std::time::Instant;
 use tauri::{AppHandle, State};
 use tauri_plugin_store::{Store, StoreExt};
 use tracing::{info, instrument};
@@ -122,11 +123,25 @@ pub async fn update_connection(
 
 #[tauri::command]
 pub async fn get_connections(app: AppHandle) -> Result<Vec<StoredConnection>, String> {
+    let start = Instant::now();
+    let store_open_start = Instant::now();
     let store = get_connection_store(&app)?;
+    let store_open_elapsed = store_open_start.elapsed().as_millis();
+
+    let parse_start = Instant::now();
     let mut connections = Vec::new();
     for (_, value) in store.entries() {
         if let Ok(conn) = serde_json::from_value::<StoredConnection>(value.clone()) { connections.push(conn); }
     }
+
+    info!(
+        count = connections.len(),
+        store_open_ms = store_open_elapsed,
+        parse_ms = parse_start.elapsed().as_millis(),
+        total_ms = start.elapsed().as_millis(),
+        "已加载连接配置"
+    );
+
     Ok(connections)
 }
 
@@ -146,6 +161,7 @@ pub async fn create_connection(
     overrides: Option<ConnectionOverrides>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    let start = Instant::now();
     let store = get_connection_store(&app)?;
     let stored_value = store.get(connection_id.clone()).ok_or("连接配置不存在")?;
     let stored_conn: StoredConnection = serde_json::from_value(stored_value).map_err(|e| format!("解析连接配置失败: {}", e))?;
@@ -162,6 +178,7 @@ pub async fn create_connection(
     }
     let manager = &state.connection_manager;
     manager.create_connection(config).await.to_cmd_result()?;
+    info!(connection_id = %connection_id, total_ms = start.elapsed().as_millis(), "数据库连接创建完成");
     Ok(())
 }
 

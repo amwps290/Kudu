@@ -6,6 +6,7 @@ import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import './style.css'
+import { logStartupStage, createStartupTimer } from './utils/startupProfiler'
 
 // 引入 vxe-table 高性能表格库
 import VxeTable from 'vxe-table'
@@ -24,8 +25,12 @@ import 'vxe-pc-ui/lib/style.css'
   }
 }
 
+void logStartupStage('main.ts imports ready')
+const finishBootstrap = createStartupTimer('frontend bootstrap')
+
 const app = createApp(App)
 const pinia = createPinia()
+void logStartupStage('vue app created')
 
 // 关键：必须在所有可能用到 Store 的插件之前安装 Pinia
 app.use(pinia)
@@ -36,3 +41,5 @@ app.use(VxeUI)
 app.use(VxeTable)
 
 app.mount('#app')
+void logStartupStage('app mounted')
+void finishBootstrap()
