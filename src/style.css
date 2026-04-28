@@ -33,9 +33,14 @@ select,
   -webkit-user-select: text !important;
 }
 
+/* 兜底确保 Monaco 编辑器使用设置的等宽字体 */
+.monaco-editor .view-lines,
+.monaco-editor .view-line {
+  font-family: var(--editor-font-family) !important;
+}
+
 :root {
   --app-font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-family: var(--app-font-family);
   font-size: 13px;
   line-height: 1.5;
   font-weight: 400;

@@ -50,7 +50,14 @@
               <div class="setting-label">{{ $t('settings_page.interface_font') }}</div>
               <div class="setting-help">{{ $t('settings_page.interface_font_help') }}</div>
             </div>
-            <a-select v-model:value="interfaceFontModel" class="setting-select" :options="interfaceFontOptions" />
+            <a-select
+              v-model:value="interfaceFontModel"
+              class="setting-select"
+              show-search
+              :filter-option="filterFontOption"
+              :options="interfaceFontOptionsEffective"
+              placeholder="搜索或选择界面字体"
+            />
           </div>
 
           <div class="setting-row">
@@ -82,7 +89,14 @@
               <div class="setting-label">{{ $t('settings_page.editor_font') }}</div>
               <div class="setting-help">{{ $t('settings_page.editor_font_help') }}</div>
             </div>
-            <a-select v-model:value="editorFontModel" class="setting-select" :options="editorFontOptions" />
+            <a-select
+              v-model:value="editorFontModel"
+              class="setting-select"
+              show-search
+              :filter-option="filterFontOption"
+              :options="editorFontOptionsEffective"
+              placeholder="搜索或选择编辑器字体"
+            />
           </div>
 
           <div class="setting-row">
@@ -159,9 +173,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, type Language, type LogLevel, type ThemeMode } from '@/stores/app'
+import { utilsApi } from '@/api'
 
 withDefaults(defineProps<{
   embedded?: boolean
@@ -177,18 +192,107 @@ const appStore = useAppStore()
 const { t } = useI18n()
 const selectedKeys = ref<string[]>(['interface'])
 
-const interfaceFontOptions = [
-  { label: 'Inter / SF Pro', value: `Inter, "SF Pro Display", "Segoe UI", sans-serif` },
-  { label: 'IBM Plex Sans', value: `"IBM Plex Sans", "Segoe UI", sans-serif` },
-  { label: 'Source Sans 3', value: `"Source Sans 3", "Segoe UI", sans-serif` },
+const filterFontOption = (input: string, option: { label: string; value: string }) => {
+  return option.label.toLowerCase().includes(input.toLowerCase()) || option.value.toLowerCase().includes(input.toLowerCase())
+}
+
+// 从 CSS font-family 值中提取首个字体名（用于自定义选项的 label）
+function extractFirstFont(value: string): string {
+  // 去掉引号，取出第一个逗号前的字体名
+  const first = value.split(',')[0].trim().replace(/^["']|["']$/g, '')
+  return first || value
+}
+
+// 兜底字体选项（系统字体列表加载失败时使用）
+const FALLBACK_INTERFACE_FONTS = [
+  { label: 'Inter / SF Pro Display (默认)', value: `Inter, "SF Pro Display", "Segoe UI", sans-serif` },
+  { label: 'System UI', value: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` },
 ]
 
-const editorFontOptions = [
-  { label: 'JetBrains Mono', value: `"JetBrains Mono", "Fira Code", "Cascadia Code", monospace` },
-  { label: 'Fira Code', value: `"Fira Code", "JetBrains Mono", "Cascadia Code", monospace` },
-  { label: 'SF Mono', value: `"SFMono-Regular", "SF Mono", "Cascadia Code", monospace` },
-  { label: 'Source Code Pro', value: `"Source Code Pro", "JetBrains Mono", monospace` },
+const FALLBACK_EDITOR_FONTS = [
+  { label: 'JetBrains Mono (默认)', value: `"JetBrains Mono"` },
+  { label: 'Fira Code', value: `"Fira Code"` },
+  { label: 'Cascadia Code', value: `"Cascadia Code"` },
+  { label: 'Consolas', value: `"Consolas"` },
+  { label: 'Courier New', value: `"Courier New"` },
 ]
+
+const interfaceFontOptions = ref<{ label: string; value: string }[]>([...FALLBACK_INTERFACE_FONTS])
+const editorFontOptions = ref<{ label: string; value: string }[]>([...FALLBACK_EDITOR_FONTS])
+
+// 确保当前选中的值始终出现在下拉列表中（大小写不敏感去重）
+function hasOptionWithValue(options: { label: string; value: string }[], value: string): boolean {
+  const norm = value.toLowerCase().replace(/^["']|["']$/g, '').trim()
+  return options.some(o => {
+    const optNorm = o.value.toLowerCase().replace(/^["']|["']$/g, '').trim()
+    return optNorm === norm
+  })
+}
+
+const interfaceFontOptionsEffective = computed(() => {
+  const options = [...interfaceFontOptions.value]
+  const current = appStore.interfaceSettings.fontFamily
+  if (current && !hasOptionWithValue(options, current)) {
+    options.unshift({ label: `${extractFirstFont(current)} (当前)`, value: current })
+  }
+  return options
+})
+
+const editorFontOptionsEffective = computed(() => {
+  const options = [...editorFontOptions.value]
+  const current = appStore.editorSettings.fontFamily
+  if (current && !hasOptionWithValue(options, current)) {
+    options.unshift({ label: `${extractFirstFont(current)} (当前)`, value: current })
+  }
+  return options
+})
+
+async function loadSystemFonts() {
+  try {
+    const fonts = await utilsApi.getSystemFonts()
+    if (!fonts || fonts.length === 0) return
+
+    // 构建所有系统字体的选项（供界面字体使用）
+    const allFonts = fonts.map(f => ({
+      label: f.family,
+      value: `"${f.family}", sans-serif`,
+    }))
+
+    // 等宽字体优先（供编辑器字体使用）
+    const monoFonts = fonts
+      .filter(f => f.is_monospace)
+      .map(f => ({
+        label: f.family,
+        value: `"${f.family}"`,
+      }))
+    const otherFonts = fonts
+      .filter(f => !f.is_monospace)
+      .map(f => ({
+        label: f.family + ' (非等宽)',
+        value: `"${f.family}"`,
+      }))
+
+    // 界面字体：常用兜底字体 + 所有系统字体
+    interfaceFontOptions.value = [
+      ...FALLBACK_INTERFACE_FONTS,
+      ...allFonts,
+    ]
+
+    // 编辑器字体：常用兜底字体 + 等宽系统字体优先 + 其他字体
+    editorFontOptions.value = [
+      ...FALLBACK_EDITOR_FONTS,
+      ...monoFonts,
+      ...otherFonts.slice(0, 150),
+    ]
+  } catch {
+    // 系统字体加载失败，保留兜底选项
+    console.warn('无法加载系统字体列表，使用内置选项')
+  }
+}
+
+onMounted(() => {
+  loadSystemFonts()
+})
 
 const logLevelOptions = [
   { label: 'Error', value: 'error' },

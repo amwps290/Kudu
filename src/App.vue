@@ -1,6 +1,6 @@
 <template>
   <a-config-provider :theme="themeConfig">
-    <div id="app" :class="{ 'dark-mode': isDark }" :style="appStyleVars">
+    <div id="app" :class="{ 'dark-mode': isDark }">
       <router-view v-slot="{ Component, route }">
         <transition name="page-shell" mode="out-in">
           <keep-alive v-if="route.meta.keepAlive">
@@ -24,11 +24,21 @@ const isDark = computed(() => appStore.theme === 'dark')
 
 const themeConfig = computed(() => ({
   algorithm: isDark.value ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
+  token: {
+    fontFamily: appStore.interfaceSettings.fontFamily,
+  },
 }))
 
-const appStyleVars = computed(() => ({
-  '--app-font-family': appStore.interfaceSettings.fontFamily,
-}))
+// 将界面字体和编辑器字体设置到 :root 上
+// 界面字体：body/#app 通过 var(--app-font-family) 继承
+// 编辑器字体：Monaco 通过 CSS !important 作为兜底覆盖
+watch(() => appStore.interfaceSettings.fontFamily, (fontFamily) => {
+  document.documentElement.style.setProperty('--app-font-family', fontFamily)
+}, { immediate: true })
+
+watch(() => appStore.editorSettings.fontFamily, (fontFamily) => {
+  document.documentElement.style.setProperty('--editor-font-family', fontFamily)
+}, { immediate: true })
 
 // 在组件挂载后再开始监听 Store 变化，确保 Pinia 已完全激活
 onMounted(() => {

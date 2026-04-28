@@ -51,6 +51,9 @@ sha2 = "0.10"
 # SQL 解析
 sqlformat = "0.2"
 
+# 系统字体读取
+font-kit = "0.14"
+
 # 工具库
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.7", features = ["v4", "serde"] }

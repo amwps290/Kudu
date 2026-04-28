@@ -1,5 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 
+export interface SystemFont {
+  family: string
+  is_monospace: boolean
+}
+
 export const utilsApi = {
   /**
    * 读取文件内容
@@ -20,5 +25,12 @@ export const utilsApi = {
    */
   async setLogLevel(level: string): Promise<string> {
     return invoke<string>('set_log_level', { level })
+  },
+
+  /**
+   * 获取系统已安装的字体列表
+   */
+  async getSystemFonts(): Promise<SystemFont[]> {
+    return invoke<SystemFont[]>('list_system_fonts')
   }
 }

@@ -75,6 +75,7 @@ fn main() {
             commands::utils::write_file,
             commands::utils::set_log_level,
             commands::utils::log_frontend_timing,
+            commands::fonts::list_system_fonts,
             commands::redis::execute_redis_command,
             commands::redis::get_redis_info,
             commands::redis::get_redis_key_value,
