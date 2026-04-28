@@ -81,15 +81,17 @@ impl PostgreSqlDatabase {
 
     async fn create_client(config: &ConnectionConfig) -> DbResult<Client> {
         let db_name = config.database.as_deref().unwrap_or("postgres");
+        let timeout_secs = if config.connection_timeout > 0 { config.connection_timeout } else { 5 };
         let application_name = Self::build_application_name(config);
         let conn_str = format!(
-            "host={} port={} user={} password={} dbname={} application_name={}",
+            "host={} port={} user={} password={} dbname={} application_name={} connect_timeout={}",
             Self::escape_connstr_value(&config.host),
             config.port,
             Self::escape_connstr_value(&config.username),
             Self::escape_connstr_value(&config.password),
             Self::escape_connstr_value(db_name),
-            Self::escape_connstr_value(&application_name)
+            Self::escape_connstr_value(&application_name),
+            timeout_secs
         );
         
         debug!(

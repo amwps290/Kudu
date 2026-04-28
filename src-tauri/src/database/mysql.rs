@@ -47,6 +47,12 @@ impl MySqlDatabase {
         builder.into()
     }
 
+    /// 获取用户配置的超时秒数（默认 5 秒）
+    fn timeout_duration(config: &ConnectionConfig) -> std::time::Duration {
+        let secs = if config.connection_timeout > 0 { config.connection_timeout } else { 5 };
+        std::time::Duration::from_secs(secs)
+    }
+
     fn json_to_mysql_value(value: &serde_json::Value) -> mysql_async::Value {
         match value {
             serde_json::Value::Null => mysql_async::Value::NULL,
@@ -212,18 +218,30 @@ impl MySqlDatabase {
 #[async_trait]
 impl DatabaseOperations for MySqlDatabase {
     async fn test_connection(&self, config: &ConnectionConfig) -> DbResult<bool> {
+        let timeout = Self::timeout_duration(config);
         let opts = Self::create_opts(config);
         let pool = Pool::new(opts);
-        match pool.get_conn().await {
-            Ok(mut conn) => {
-                Self::configure_connection(&mut conn, config).await?;
-                conn.query_drop("SELECT 1").await.map_err(|e| DbError::QueryFailed(Self::format_mysql_error(e)))?;
-                pool.disconnect().await.ok();
-                Ok(true)
-            },
-            Err(e) => {
+        
+        let result = tokio::time::timeout(timeout, async {
+            let mut conn = pool.get_conn().await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
+            Self::configure_connection(&mut conn, config).await?;
+            conn.query_drop("SELECT 1").await.map_err(|e| DbError::QueryFailed(Self::format_mysql_error(e)))?;
+            Ok::<_, DbError>(true)
+        }).await;
+
+        pool.disconnect().await.ok();
+
+        match result {
+            Ok(Ok(true)) => Ok(true),
+            Ok(Ok(false)) => Err(DbError::ConnectionFailed("连接测试返回失败".into())),
+            Ok(Err(e)) => {
                 error!("MySQL 连接测试失败: {}", e);
-                Err(DbError::ConnectionFailed(e.to_string()))
+                Err(e)
+            }
+            Err(_elapsed) => {
+                let msg = format!("连接超时 ({}s)", timeout.as_secs());
+                error!("MySQL 连接测试超时: {}", msg);
+                Err(DbError::ConnectionFailed(msg))
             }
         }
     }
