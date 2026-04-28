@@ -653,7 +653,7 @@ async function confirmSaveChanges() {
     resetPreviewState()
     message.success(t('designer.save_success'))
     await loadStructure()
-  } catch (error: any) {
+  } catch (error: unknown) {
     message.error(`${t('common.fail')}: ${error}`)
   } finally {
     saving.value = false
@@ -675,7 +675,7 @@ async function loadDDL() {
       setDdlValue(formattedResult)
       nextTick(() => ddlEditor.value?.layout())
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     message.error(`${t('designer.ddl')} ${t('common.fail')}: ${error}`)
     if (ddlEditor.value) setDdlValue(`-- Error: ${error}`)
   } finally {
@@ -712,13 +712,13 @@ async function handleAddIndex() {
 }
 
 // 删除索引
-async function removeIndex(record: any) {
+async function removeIndex(record: { index_name: string; _isNew?: boolean; name?: string; [key: string]: unknown }) {
   if (effectiveReadOnly.value) {
     warnReadOnly()
     return
   }
-  if (!record._isNew) pendingDeletions.indexes.push(record.name)
-  tableIndexes.value = tableIndexes.value.filter(i => i.name !== record.name)
+  if (!record._isNew) pendingDeletions.indexes.push(record.name!)
+  tableIndexes.value = tableIndexes.value.filter(i => i.name !== record.name!)
 }
 
 // 添加外键
@@ -749,12 +749,12 @@ async function handleAddForeignKey() {
 }
 
 // 删除外键
-async function removeForeignKey(record: any) {
+async function removeForeignKey(record: { fk_name: string; _isNew?: boolean; name?: string; [key: string]: unknown }) {
   if (effectiveReadOnly.value) {
     warnReadOnly()
     return
   }
-  if (!record._isNew) pendingDeletions.foreignKeys.push(record.name)
+  if (!record._isNew) pendingDeletions.foreignKeys.push(record.name!)
   tableForeignKeys.value = tableForeignKeys.value.filter(f => f.name !== record.name)
 }
 

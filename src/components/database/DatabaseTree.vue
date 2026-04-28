@@ -96,6 +96,7 @@ import {
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { metadataApi, workspaceApi, utilsApi } from '@/api'
+import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'
 import TreeNodeItem from './TreeNodeItem.vue'
 import BackupDatabaseDialog from './BackupDatabaseDialog.vue'
@@ -158,7 +159,7 @@ async function loadDatabases() {
         metadata: { ...db, database: db.name }
       }))
     }
-  } catch (e: any) { message.error(e) } finally { loading.value = false }
+  } catch (e: unknown) { message.error(getErrorMessage(e)) } finally { loading.value = false }
 }
 
 async function handleRefreshNode(node: TreeNode) {
@@ -213,7 +214,7 @@ async function onLoadData(treeNode: TreeNode) {
       const children = res.map(s => ({ key: `${treeNode.key}-${s.name}`, title: s.name, type: 'schema', isLeaf: false, metadata: { database: treeNode.metadata.database, name: s.name } }))
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children)
       treeData.value = [...treeData.value]
-    } catch (e: any) { message.error(e) }
+    } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
   else if (treeNode.type === 'schema') {
     const db = treeNode.metadata.database, schema = treeNode.metadata.name
@@ -242,7 +243,7 @@ async function onLoadData(treeNode: TreeNode) {
       const children = res.map(t => ({ key: `${treeNode.key}-${t.name}`, title: t.name, type: isViews ? 'view' : 'table', isLeaf: false, metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema } }))
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children.length ? children : [{ key: `${treeNode.key}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }])
       treeData.value = [...treeData.value]
-    } catch (e: any) { message.error(e) }
+    } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
   else if (['schema-indexes', 'schema-functions', 'schema-procedures', 'schema-aggregates', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
@@ -285,7 +286,7 @@ async function onLoadData(treeNode: TreeNode) {
       })
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children.length ? children : [{ key: `${treeNode.key}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }])
       treeData.value = [...treeData.value]
-    } catch (e: any) { message.error(e) }
+    } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
   else if (['table', 'view'].includes(treeNode.type)) {
     try {
@@ -293,7 +294,7 @@ async function onLoadData(treeNode: TreeNode) {
       const children = res.map(c => ({ key: `${treeNode.key}-col-${c.name}`, title: `${c.name}${c.data_type ? ' : ' + c.data_type : ''}${c.is_primary_key ? ' [PK]' : ''}`, type: 'column', isLeaf: true, metadata: { ...c, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema } }))
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children.length ? children : [{ key: `${treeNode.key}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }])
       treeData.value = [...treeData.value]
-    } catch (e: any) { message.error(e) }
+    } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
 }
 
@@ -314,7 +315,7 @@ async function handleDoubleClick(node: TreeNode) {
   else if (['table', 'view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
 
-function onRightClick({ event, node }: any) {
+function onRightClick({ event, node }: { event: MouseEvent; node: TreeNode }) {
   selectedNode.value = node; showContextMenu(event);
 }
 
@@ -342,7 +343,7 @@ async function refreshDatabaseNode(databaseName: string) {
   }
 }
 
-async function handleMenuClick({ key }: any) {
+async function handleMenuClick({ key }: { key: string | number }) {
   hideContextMenu(); if (!selectedNode.value) return
   if (key === 'new-query') emit('new-query', { database: selectedNode.value.metadata.name || selectedNode.value.metadata.database, connectionId: props.connectionId })
   else if (key === 'open-scripts') { showScriptsModal.value = true; loadingScripts.value = true; try { savedScripts.value = await workspaceApi.listDbScripts(props.connectionId!, selectedNode.value.metadata.name || selectedNode.value.metadata.database) } finally { loadingScripts.value = false } }
@@ -386,7 +387,7 @@ async function handleMenuClick({ key }: any) {
         await createDdlEditor()
         setDdlValue(ddl)
       }
-    } catch (e: any) { message.error(e) }
+    } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
 }
 
@@ -401,7 +402,7 @@ async function handleDatabaseRestored() {
   }
 }
 
-async function openSavedScript(s: any) { try { const content = await utilsApi.readFile(s.path); emit('new-query', { database: selectedNode.value?.metadata.database || selectedNode.value?.title, connectionId: props.connectionId, content, filePath: s.path, title: s.name }); showScriptsModal.value = false } catch (e: any) { message.error(e) } }
+async function openSavedScript(s: { path: string; name: string }) { try { const content = await utilsApi.readFile(s.path); emit('new-query', { database: selectedNode.value?.metadata?.database || selectedNode.value?.title, connectionId: props.connectionId, content, filePath: s.path, title: s.name }); showScriptsModal.value = false } catch (e: unknown) { message.error(getErrorMessage(e)) } }
 
 watch(() => props.connectionId, (id) => { if (id) loadDatabases(); else treeData.value = []; }, { immediate: true })
 watch(() => connectionStore.getConnectionStatus(props.connectionId || ''), (s) => { if (s === 'connected' && treeData.value.length === 0 && !loading.value) loadDatabases(); })

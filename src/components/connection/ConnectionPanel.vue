@@ -155,6 +155,7 @@ import {
   DisconnectOutlined, DownOutlined, RightOutlined, SearchOutlined
 } from '@ant-design/icons-vue'
 import { message, Modal, Empty } from 'ant-design-vue'
+import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'
 import type { ConnectionConfig } from '@/types/database'
 import DatabaseTree from '@/components/database/DatabaseTree.vue'
@@ -260,7 +261,7 @@ async function handleConnectToDatabase(conn: ConnectionConfig) {
     newExpanded.add(conn.id)
     expandedConnections.value = newExpanded
     message.success(`${t('connection.success')}: ${conn.name}`)
-  } catch (error: any) { connectionStore.updateConnectionStatus(conn.id, 'error'); message.error(`${t('connection.fail')}: ${error}`) }
+  } catch (error: unknown) { connectionStore.updateConnectionStatus(conn.id, 'error'); message.error(`${t('connection.fail')}: ${getErrorMessage(error)}`) }
 }
 
 async function handleDisconnect(conn: ConnectionConfig) {
@@ -271,14 +272,14 @@ async function handleDisconnect(conn: ConnectionConfig) {
     newExpanded.delete(conn.id)
     expandedConnections.value = newExpanded
     message.success(`${t('common.close')}: ${conn.name}`)
-  } catch (error: any) { message.error(`${error}`) }
+  } catch (error: unknown) { message.error(getErrorMessage(error)) }
 }
 
 function handleContextMenu(event: MouseEvent, conn: ConnectionConfig) {
   selectedConnection.value = conn; showContextMenu(event);
 }
 
-async function handleMenuClick({ key }: any) {
+async function handleMenuClick({ key }: { key: string | number }) {
   if (!selectedConnection.value) return
   hideContextMenu()
   if (key === 'connect') await handleConnectToDatabase(selectedConnection.value)
@@ -290,7 +291,7 @@ async function handleMenuClick({ key }: any) {
       title: t('common.delete'), content: `${t('connection.delete_confirm')} "${selectedConnection.value.name}"?`,
       async onOk() {
         try { await connectionStore.deleteConnection(selectedConnection.value!.id); message.success(t('common.save')) }
-        catch (error: any) { message.error(`${error}`) }
+        catch (error: unknown) { message.error(getErrorMessage(error)) }
       }
     })
   }

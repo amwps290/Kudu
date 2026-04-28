@@ -144,6 +144,7 @@
 import { reactive, watch, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message, Modal } from 'ant-design-vue'
+import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'
 import type { ConnectionConfig, DatabaseType } from '@/types/database'
 import { open, save } from '@tauri-apps/plugin-dialog'
@@ -153,7 +154,7 @@ import { getDatabaseSupportProfile } from '@/utils/databaseSupport'
 const { t } = useI18n()
 const props = defineProps<{
   visible: boolean
-  editingConnection?: any
+  editingConnection?: import('@/types/database').ConnectionConfig | null
 }>()
 
 const emit = defineEmits(['update:visible', 'close'])
@@ -205,7 +206,7 @@ function getTypeOptionLabel(dbType: DatabaseType, displayName: string) {
 
 // 表单验证规则
 const rules = computed(() => {
-  const baseRules: any = {
+  const baseRules: Record<string, { required?: boolean; message: string }[]> = {
     name: [{ required: true, message: t('connection.form.placeholders.name') }],
     db_type: [{ required: true, message: t('connection.form.placeholders.type') }],
     host: [{ required: true, message: formData.db_type === 'sqlite' ? t('connection.form.placeholders.sqlite_file') : t('connection.form.host') }],
@@ -280,8 +281,8 @@ async function handleTest() {
     if (result) {
       message.success(t('connection.test_success_ping', { ms: result.ping_time_ms }))
     }
-  } catch (error: any) {
-    Modal.error({ title: t('connection.test_fail'), content: error?.message || t('connection.fail'), width: 500 })
+  } catch (error: unknown) {
+    Modal.error({ title: t('connection.test_fail'), content: getErrorMessage(error) || t('connection.fail'), width: 500 })
   } finally {
     testing.value = false
   }
@@ -312,10 +313,10 @@ async function handleSubmit() {
     message.success(isNew ? t('connection.save_success') : t('connection.update_success'))
     dialogVisible.value = false
     resetForm()
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 处理 Ant Design Vue 表单验证失败的情况
-    if (error?.errorFields) return;
-    message.error(error?.message || t('common.fail'))
+    const err = error as { errorFields?: unknown }; if (err.errorFields) return;
+    message.error(getErrorMessage(error) || t('common.fail'))
   } finally {
     submitting.value = false
   }
@@ -336,8 +337,8 @@ async function handleSelectFile() {
       filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3', 'db3'] }]
     })
     if (selected) formData.host = selected as string
-  } catch (error: any) {
-    message.error(`${t('common.fail')}: ${error.message || error}`)
+  } catch (error: unknown) {
+    message.error(`${t('common.fail')}: ${getErrorMessage(error)}`)
   }
 }
 
@@ -355,8 +356,8 @@ async function handleCreateFile() {
       if (!formData.name) formData.name = fileName
       message.success(t('connection.sqlite_created'))
     }
-  } catch (error: any) {
-    message.error(`${t('common.fail')}: ${error.message || error}`)
+  } catch (error: unknown) {
+    message.error(`${t('common.fail')}: ${getErrorMessage(error)}`)
   }
 }
 
