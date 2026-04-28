@@ -5,6 +5,7 @@ use tauri::State;
 use serde_json::Value;
 use serde::Serialize;
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 #[tauri::command]
 pub async fn get_databases(connection_id: String, state: State<'_, AppState>) -> Result<Vec<DatabaseInfo>, String> {
@@ -110,7 +111,7 @@ pub async fn get_view_definition(
         .to_cmd_result()
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct AutocompleteColumn {
     name: String,
     data_type: String,
@@ -274,22 +275,42 @@ pub async fn get_autocomplete_data(
         let mut schemas = BTreeSet::new();
         let mut function_schemas = BTreeSet::new();
 
-        for table in table_list {
+        // 收集所有 schema
+        for table in &table_list {
             if let Some(schema) = &table.schema {
                 schemas.insert(schema.clone());
             }
+        }
 
-            let columns = manager
-                .get_table_structure(&connection_id, &table.name, table.schema.as_deref(), Some(&db_name))
-                .await
-                .unwrap_or_default()
-                .into_iter()
-                .map(|column| AutocompleteColumn {
-                    name: column.name,
-                    data_type: column.data_type,
-                })
-                .collect::<Vec<_>>();
+        // 按批次并行获取所有表的列信息（避免 N+1 串行查询）
+        let cm = Arc::clone(&state.connection_manager);
+        const BATCH_SIZE: usize = 10;
+        let mut all_columns: Vec<Vec<AutocompleteColumn>> = Vec::with_capacity(table_list.len());
 
+        for chunk in table_list.chunks(BATCH_SIZE) {
+            let futures: Vec<_> = chunk.iter().map(|table| {
+                let conn_id = connection_id.clone();
+                let tname = table.name.clone();
+                let tschema = table.schema.clone();
+                let db = db_name.clone();
+                let mgr = Arc::clone(&cm);
+                async move {
+                    mgr.get_table_structure(&conn_id, &tname, tschema.as_deref(), Some(&db))
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|col| AutocompleteColumn { name: col.name, data_type: col.data_type })
+                        .collect::<Vec<_>>()
+                }
+            }).collect();
+
+            let chunk_results = futures::future::join_all(futures).await;
+            all_columns.extend(chunk_results);
+        }
+
+        // 将列信息关联回对应的表
+        for (i, table) in table_list.into_iter().enumerate() {
+            let columns = all_columns.get(i).cloned().unwrap_or_default();
             tables.push(AutocompleteTable {
                 name: table.name,
                 schema: table.schema,

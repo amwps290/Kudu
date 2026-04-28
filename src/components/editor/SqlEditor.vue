@@ -142,7 +142,7 @@
     </div>
 
     <SaveQueryDialog v-model="showSaveDialog" :sql="editor?.getValue() || ''" @saved="handleQuerySaved" />
-    <SqlSnippetsManager v-model:visible="showSnippets" />
+    <SqlSnippetsManager v-model:visible="showSnippets" @insert="handleSnippetInsert" />
   </div>
 </template>
 
@@ -450,7 +450,7 @@ async function formatSql() { if (!editor) return; try { const f = await queryApi
 function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'empty'; messages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
 function handleQuerySaved() { message.success(t('common.save')) }
 async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: any) { if (!isAuto) message.error(`${t('common.fail')}: ${err}`) } }
-let autoSaveTimer: any = null
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 function triggerAutoSave() { if (autoSaveTimer) clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { handleSave(true) }, 2000) }
 async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
 
@@ -470,6 +470,21 @@ const showSnippets = ref(false)
 
 function openHistory() { historySearch.value = ''; showHistory.value = true }
 function openSnippets() { showSnippets.value = true }
+function handleSnippetInsert(sql: string) {
+  if (!editor) return
+  const selection = editor.getSelection()
+  if (selection && !selection.isEmpty()) {
+    editor.executeEdits('snippet-insert', [{ range: selection, text: sql }])
+  } else {
+    const position = editor.getPosition()
+    if (position) {
+      editor.executeEdits('snippet-insert', [{ range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), text: sql }])
+    } else {
+      editor.setValue(sql)
+    }
+  }
+  editor.focus()
+}
 function useHistorySql(sql: string) { editor?.setValue(sql); showHistory.value = false }
 
 const historyEmptyDescription = computed(() =>

@@ -161,10 +161,6 @@ function clearSessionReconnectTimer() {
   }
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
-}
-
 function scheduleSessionReconnect(connectionIds: string[]) {
   clearSessionReconnectTimer()
   if (connectionIds.length === 0) return
@@ -176,25 +172,16 @@ function scheduleSessionReconnect(connectionIds: string[]) {
     sessionReconnectTimer = null
     await nextTick()
 
-    const reconnectOne = async (id: string) => {
-      const conn = connectionStore.connections.find(item => item.id === id)
-      if (!conn || connectionStore.getConnectionStatus(id) === 'connected') return
-
-      const finishSingleReconnect = createStartupTimer(`sessionReconnect.${id}`)
-      await connectionStore.connectToDatabase(id, { showErrorMessage: false }).catch(() => {})
-      await finishSingleReconnect(conn.name)
-    }
-
-    const [firstId, ...remainingIds] = connectionIds
-    if (firstId) {
-      await reconnectOne(firstId)
-    }
-
-    if (remainingIds.length > 0) {
-      await Promise.allSettled(
-        remainingIds.map((id, index) => wait(index * 120).then(() => reconnectOne(id)))
-      )
-    }
+    // 所有连接并行重连，不做串行等待
+    await Promise.allSettled(
+      connectionIds.map(async (id) => {
+        const conn = connectionStore.connections.find(item => item.id === id)
+        if (!conn || connectionStore.getConnectionStatus(id) === 'connected') return
+        const finish = createStartupTimer(`sessionReconnect.${id}`)
+        await connectionStore.connectToDatabase(id, { showErrorMessage: false }).catch(() => {})
+        await finish(conn.name)
+      })
+    )
 
     await finishReconnect(`count=${connectionIds.length}`)
   }, 450)
@@ -222,7 +209,13 @@ const isSqlSupported = computed(() => {
   return !activeConnection.value || supportsSqlWorkspace(activeConnection.value.db_type)
 })
 
-watch([dataTabs, mainTabKey], () => { workspaceStore.saveSession(dataTabs.value, mainTabKey.value) }, { deep: true })
+let sessionSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch([dataTabs, mainTabKey], () => {
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer)
+  sessionSaveTimer = setTimeout(() => {
+    workspaceStore.saveSession(dataTabs.value, mainTabKey.value)
+  }, 500)
+}, { deep: true })
 watch(mainTabKey, async () => {
   await nextTick()
   if (activeTabType.value === 'query') {
@@ -248,7 +241,9 @@ function routeClipboardAction(action: 'copy' | 'cut' | 'paste') {
 }
 
 function handleGlobalClipboardKeydown(event: KeyboardEvent) {
+  // 快速退出：非 Ctrl/Cmd 组合键、非 query tab、焦点在无关元素
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+  if (activeTabType.value !== 'query') return
   if (!shouldRouteClipboardToActiveEditor(event.target)) return
 
   const key = event.key.toLowerCase()

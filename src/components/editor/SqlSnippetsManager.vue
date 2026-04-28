@@ -118,6 +118,9 @@
                 <SaveOutlined />
                 {{ $t('common.save') }}
               </a-button>
+              <a-button @click="insertSnippet">
+                {{ $t('common.insert_to_editor') }}
+              </a-button>
               <a-button @click="copySnippet(selectedSnippet)">
                 <CopyOutlined />
                 {{ $t('common.copy') }}
@@ -160,7 +163,7 @@ const props = defineProps<{
   visible: boolean
 }>()
 
-const emit = defineEmits(['update:visible'])
+const emit = defineEmits(['update:visible', 'insert'])
 
 const searchText = ref('')
 const categoryFilter = ref('__all__')
@@ -377,6 +380,14 @@ async function copySnippet(snippet: SqlSnippet | null = selectedSnippet.value) {
   if (!snippet) return
   await writeClipboardText(snippet.sql)
   message.success(t('dialog.snippets.copy_success'))
+}
+
+// 插入片段到 SQL 编辑器
+function insertSnippet() {
+  if (!selectedSnippet.value) return
+  emit('insert', selectedSnippet.value.sql)
+  message.success(t('dialog.snippets.insert_success'))
+  emit('update:visible', false)
 }
 
 // 取消
