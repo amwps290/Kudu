@@ -11,7 +11,6 @@
         @database-change="handleToolbarDbChange"
       />
 
-      <!-- 编辑器区域 -->
       <div class="editor-section">
         <div ref="editorContainer" class="monaco-container"></div>
       </div>
@@ -31,29 +30,20 @@
       </div>
 
       <a-tabs v-if="resultPanelVisible" v-model:activeKey="resultTabKey" size="small" class="result-tabs">
-        <!-- 动态渲染多个结果页签 -->
         <a-tab-pane v-for="(result, index) in queryResults" :key="'result-' + index">
           <template #tab>
             <span class="result-tab-label" @contextmenu.prevent="handleResultTabContextMenu($event, index)">
               <span class="result-tab-title">
                 {{ queryResults.length > 1 ? $t('editor.result_n', { n: index + 1 }) : $t('editor.result') }}
               </span>
-              <button
-                class="result-tab-close"
-                type="button"
-                :title="$t('common.close')"
-                @click.stop="closeResultAt(index)"
-              >
-                ×
-              </button>
+              <button class="result-tab-close" type="button" :title="$t('common.close')" @click.stop="closeResultAt(index)">×</button>
             </span>
           </template>
           <div class="result-content">
             <div v-if="executing" class="executing-overlay">
               <a-spin :tip="$t('editor.executing')" />
-              <a-button danger size="small" @click="stopExecution" style="margin-top: 16px">{{ $t('editor.stop_exec') }}</a-button>
+              <a-button danger size="small" @click="stopExec" style="margin-top: 16px">{{ $t('editor.stop_exec') }}</a-button>
             </div>
-            
             <div class="result-info">
               <a-space>
                 <a-tag color="success">{{ $t('editor.loaded_rows', { n: result.rows.length }) }}</a-tag>
@@ -65,20 +55,12 @@
                 <a-dropdown>
                   <template #overlay>
                     <a-menu @click="handleCopyMenuClick(index, $event)">
-                      <a-menu-item key="cell" :disabled="!hasResultClipboardSelection(index)">
-                        {{ $t('editor.copy_cell') }}
-                      </a-menu-item>
-                      <a-menu-item key="row" :disabled="!hasResultClipboardSelection(index)">
-                        {{ $t('editor.copy_row') }}
-                      </a-menu-item>
-                      <a-menu-item key="result" :disabled="result.columns.length === 0">
-                        {{ $t('editor.copy_result_set') }}
-                      </a-menu-item>
+                      <a-menu-item key="cell" :disabled="!hasResultClipboardSelection(index)">{{ $t('editor.copy_cell') }}</a-menu-item>
+                      <a-menu-item key="row" :disabled="!hasResultClipboardSelection(index)">{{ $t('editor.copy_row') }}</a-menu-item>
+                      <a-menu-item key="result" :disabled="result.columns.length === 0">{{ $t('editor.copy_result_set') }}</a-menu-item>
                     </a-menu>
                   </template>
-                  <a-button size="small" :icon="h(CopyOutlined)" :disabled="result.columns.length === 0">
-                    {{ $t('common.copy') }}
-                  </a-button>
+                  <a-button size="small" :icon="h(CopyOutlined)" :disabled="result.columns.length === 0">{{ $t('common.copy') }}</a-button>
                 </a-dropdown>
                 <a-dropdown>
                   <template #overlay>
@@ -88,13 +70,10 @@
                       <a-menu-item key="sql">{{ $t('data.export_sql') }}</a-menu-item>
                     </a-menu>
                   </template>
-                  <a-button size="small" :icon="h(ExportOutlined)" :disabled="result.columns.length === 0">
-                    {{ $t('editor.export_result') }}
-                  </a-button>
+                  <a-button size="small" :icon="h(ExportOutlined)" :disabled="result.columns.length === 0">{{ $t('editor.export_result') }}</a-button>
                 </a-dropdown>
               </a-space>
             </div>
-            
             <div class="table-wrapper">
               <vxe-grid
                 :ref="(el: any) => setGridRef(el, index)"
@@ -112,17 +91,13 @@
           </div>
         </a-tab-pane>
 
-        <!-- 默认空状态页签 (如果没有结果) -->
         <a-tab-pane v-if="queryResults.length === 0" key="empty" :tab="$t('editor.result')">
           <div class="result-content">
-            <div v-if="executing" class="executing-overlay">
-              <a-spin :tip="$t('editor.executing')" />
-            </div>
+            <div v-if="executing" class="executing-overlay"><a-spin :tip="$t('editor.executing')" /></div>
             <a-empty :description="$t('editor.no_result')" />
           </div>
         </a-tab-pane>
 
-        <!-- 消息页签 -->
         <a-tab-pane key="messages" :tab="$t('editor.messages')">
           <div class="messages-content">
             <div v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.type]">
@@ -139,16 +114,10 @@
     <a-drawer :title="$t('editor.history_title')" placement="right" v-model:open="showHistory" width="400">
       <div class="history-panel">
         <div class="history-toolbar">
-          <a-input
-            v-model:value="historySearch"
-            allow-clear
-            size="small"
-            :placeholder="$t('editor.history_search_placeholder')"
-          />
-          <span class="history-count">{{ filteredSqlHistory.length }}</span>
+          <a-input v-model:value="historySearch" allow-clear size="small" :placeholder="$t('editor.history_search_placeholder')" />
+          <span class="history-count">{{ filteredHistory.length }}</span>
         </div>
-
-        <a-list v-if="filteredSqlHistory.length > 0" :data-source="filteredSqlHistory" size="small" class="history-list">
+        <a-list v-if="filteredHistory.length > 0" :data-source="filteredHistory" size="small" class="history-list">
           <template #renderItem="{ item }">
             <a-list-item class="history-item" @click="useHistorySql(item.sql)">
               <div class="history-entry">
@@ -158,31 +127,16 @@
             </a-list-item>
           </template>
         </a-list>
-
         <a-empty v-else :description="historyEmptyDescription" />
       </div>
     </a-drawer>
 
-    <div
-      v-if="resultContextMenuVisible"
-      class="result-context-menu-overlay"
-      @click="hideResultContextMenu()"
-    >
-      <div
-        class="result-context-menu"
-        :style="{ left: resultContextMenuX + 'px', top: resultContextMenuY + 'px' }"
-        @click.stop
-      >
+    <div v-if="resultContextMenuVisible" class="result-context-menu-overlay" @click="hideResultContextMenu()">
+      <div class="result-context-menu" :style="{ left: resultContextMenuX + 'px', top: resultContextMenuY + 'px' }" @click.stop>
         <a-menu @click="handleResultMenuClick" size="small">
-          <a-menu-item key="close-current" :disabled="resultContextIndex < 0">
-            {{ $t('common.close') }}
-          </a-menu-item>
-          <a-menu-item key="close-left" :disabled="!hasResultTabsOnLeft">
-            {{ $t('common.close_left') }}
-          </a-menu-item>
-          <a-menu-item key="close-right" :disabled="!hasResultTabsOnRight">
-            {{ $t('common.close_right') }}
-          </a-menu-item>
+          <a-menu-item key="close-current" :disabled="resultContextIndex < 0">{{ $t('common.close') }}</a-menu-item>
+          <a-menu-item key="close-left" :disabled="!hasResultTabsOnLeft">{{ $t('common.close_left') }}</a-menu-item>
+          <a-menu-item key="close-right" :disabled="!hasResultTabsOnRight">{{ $t('common.close_right') }}</a-menu-item>
         </a-menu>
       </div>
     </div>
@@ -197,69 +151,54 @@ import { onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h 
 import { useI18n } from 'vue-i18n'
 import * as monaco from 'monaco-editor'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
-import { message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { ExportOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportApi, queryApi, metadataApi, utilsApi } from '@/api'
 import type { QueryResult } from '@/types/database'
-import type { PreparedSqlStatement, QueryBatchExecutionResult } from '@/api/query'
-import { createIdleExecutionState, type SqlExecutionState, type SqlExecutionStatus } from '@/types/sqlExecution'
 import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
-import { getStorageItem, setStorageItem, STORAGE_KEYS } from '@/utils/storageService'
+import { getStorageItem, setStorageItem } from '@/utils/storageService'
 import { readClipboardText, writeClipboardText } from '@/utils/clipboard'
-import { analyzeSqlSafety, analyzeSqlWrites, type SqlDangerIssue } from '@/utils/sqlSafety'
+import SqlToolbar from '@/components/layout/SqlToolbar.vue'
 import SaveQueryDialog from './SaveQueryDialog.vue'
 import SqlSnippetsManager from './SqlSnippetsManager.vue'
 import type { VxeGridProps } from 'vxe-table'
-import SqlToolbar from '@/components/layout/SqlToolbar.vue'
+import { useSqlHistory } from '@/composables/useSqlHistory'
+import { useSqlExecution } from '@/composables/useSqlExecution'
 
+// ── 基础设置 ──
 const { t } = useI18n()
-const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string; }>()
+const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string }>()
 const emit = defineEmits(['contentChange', 'fileSaved', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
 const connectionStore = useConnectionStore()
 const appStore = useAppStore()
+const autocompleteManager = getSqlAutocompleteManager()
+
 const RESULT_PANEL_HEIGHT_KEY = 'sql_result_panel_height'
 const RESULT_PANEL_VISIBLE_KEY = 'sql_result_panel_visible'
 const RESULT_PANEL_MIN_HEIGHT = 180
 const RESULT_PANEL_COLLAPSED_HEIGHT = 0
 
+// ── 会话身份 ──
 const internalSessionId = ref(props.tabId || props.filePath || `editor-${Math.random().toString(36).substring(2, 9)}`)
 const sessionConnectionId = computed(() => {
   const baseId = props.connectionId || connectionStore.activeConnectionId
   if (!baseId) return ''
-  const sid = internalSessionId.value.replace(/[^a-zA-Z0-9]/g, '_')
-  return `${baseId}:tab_${sid}`
+  return `${baseId}:tab_${internalSessionId.value.replace(/[^a-zA-Z0-9]/g, '_')}`
 })
 
+// ── Monaco 编辑器 ──
 const sqlEditorRoot = ref<HTMLElement>()
 const editorContainer = ref<HTMLElement>()
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
-const autocompleteManager = getSqlAutocompleteManager()
 
-const isSplitResizing = ref(false)
+// ── 数据库上下文 ──
 const availableDatabases = ref<any[]>([])
 const selectedDatabase = ref(props.initialDatabase || '')
-const executing = ref(false)
-const executionSeq = ref(0)
-const activeExecutionId = ref(0)
-const executionState = ref<SqlExecutionState>(createIdleExecutionState())
-const queryResults = ref<QueryResult[]>([])
-const resultTabKey = ref('empty')
-const messages = ref<any[]>([])
-const showHistory = ref(false)
-const historySearch = ref('')
-const sqlHistory = ref<Array<{ sql: string; timestamp: number; database?: string }>>([])
-const showSaveDialog = ref(false)
-const showSnippets = ref(false)
-const resultPanelVisible = ref(getStorageItem(RESULT_PANEL_VISIBLE_KEY, false))
-const resultPanelHeight = ref(getStorageItem(RESULT_PANEL_HEIGHT_KEY, 260))
-const executionSummaryVisible = ref(false)
-let executionSummaryTimer: number | null = null
-const currentConnection = computed(() => {
-  const connectionId = props.connectionId || connectionStore.activeConnectionId
-  return connectionStore.connections.find(c => c.id === connectionId) || null
-})
+const currentConnection = computed(() =>
+  connectionStore.connections.find(c => c.id === (props.connectionId || connectionStore.activeConnectionId)) || null
+)
 const currentDatabaseLabel = computed(() => {
   const conn = currentConnection.value
   if (selectedDatabase.value) return selectedDatabase.value
@@ -268,1230 +207,419 @@ const currentDatabaseLabel = computed(() => {
   if (conn?.db_type === 'sqlite') return 'main'
   return t('editor.default_database')
 })
-const executionStatusLabel = computed(() => t(`editor.status.${executionState.value.status}`))
-const executionStatusColorMap: Record<SqlExecutionStatus, string> = {
-  idle: 'default',
-  running: 'processing',
-  success: 'success',
-  failed: 'error',
-  cancelled: 'warning',
-  partial_success: 'gold',
-}
-const executionStatusColor = computed(() => executionStatusColorMap[executionState.value.status])
-const showExecutionSummary = computed(() => executionSummaryVisible.value && executionState.value.status !== 'idle' && Boolean(executionState.value.summary))
-const executionSummaryMeta = computed(() => {
-  const state = executionState.value
-  const parts: string[] = []
 
-  if (state.statementCount > 0) {
-    parts.push(t('editor.statement_progress', { completed: state.completedStatements, total: state.statementCount }))
-  }
-  if (state.resultSetCount > 0) {
-    parts.push(`${state.resultSetCount} ${t('editor.messages_result_sets')}`)
-  }
-  if (state.affectedRows > 0) {
-    parts.push(t('editor.affected_rows_short', { n: state.affectedRows }))
-  }
+// ── 结果管理 ──
+const queryResults = ref<QueryResult[]>([])
+const resultTabKey = ref('empty')
+const messages = ref<{ type: string; text: string; time: string }[]>([])
+const resultPanelVisible = ref(getStorageItem(RESULT_PANEL_VISIBLE_KEY, false))
+const resultPanelHeight = ref(getStorageItem(RESULT_PANEL_HEIGHT_KEY, 260))
+const isSplitResizing = ref(false)
 
-  return parts.join(' · ')
-})
-const resultDockHeight = computed(() => resultPanelVisible.value ? resultPanelHeight.value : RESULT_PANEL_COLLAPSED_HEIGHT)
-function normalizeHistoryText(value: string) {
-  return value.replace(/\s+/g, ' ').trim().toLowerCase()
+const queryResultStates = reactive<Record<number, { pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>>({})
+
+function addMessage(type: string, text: string) {
+  messages.value.unshift({ type, text, time: new Date().toLocaleTimeString() })
 }
 
-function buildHistoryDateKeywords(timestamp: number) {
-  const date = new Date(timestamp)
-  const year = String(date.getFullYear())
-  const month = String(date.getMonth() + 1)
-  const day = String(date.getDate())
-  const monthPadded = month.padStart(2, '0')
-  const dayPadded = day.padStart(2, '0')
-
-  return [
-    `${year}/${month}/${day}`,
-    `${year}/${monthPadded}/${dayPadded}`,
-    `${year}-${month}-${day}`,
-    `${year}-${monthPadded}-${dayPadded}`,
-    `${year}${monthPadded}${dayPadded}`,
-    `${month}/${day}`,
-    `${monthPadded}/${dayPadded}`,
-    `${month}-${day}`,
-    `${monthPadded}-${dayPadded}`,
-  ]
-}
-
-const normalizedHistorySearch = computed(() => normalizeHistoryText(historySearch.value))
-const filteredSqlHistory = computed(() => {
-  const keyword = normalizedHistorySearch.value
-  if (!keyword) return sqlHistory.value
-  return sqlHistory.value.filter((item) => {
-    const haystack = [
-      item.sql,
-      item.database || '',
-      new Date(item.timestamp).toLocaleString(),
-      formatHistoryMeta(item),
-      ...buildHistoryDateKeywords(item.timestamp),
-    ]
-      .map((text) => normalizeHistoryText(text))
-      .join(' ')
-    return haystack.includes(keyword)
-  })
-})
-const historyEmptyDescription = computed(() => normalizedHistorySearch.value
-  ? t('editor.history_no_match')
-  : t('editor.history_empty'))
-
-interface ResultClipboardSelection {
-  row: Record<string, any>
-  rowIndex: number
-  field: string
-  title: string
-}
-
-const gridRefs = reactive<Record<number, any>>({})
-function setGridRef(el: any, index: number) { if (el) gridRefs[index] = el; else delete gridRefs[index]; }
-const resultContextMenuVisible = ref(false)
-const resultContextMenuX = ref(0)
-const resultContextMenuY = ref(0)
-const resultContextIndex = ref(-1)
-const resultClipboardSelections = reactive<Record<number, ResultClipboardSelection>>({})
-const activeResultIndex = computed(() => {
-  const match = /^result-(\d+)$/.exec(resultTabKey.value)
-  return match ? Number(match[1]) : -1
-})
-const hasResultTabsOnLeft = computed(() => resultContextIndex.value > 0)
-const hasResultTabsOnRight = computed(() => resultContextIndex.value >= 0 && resultContextIndex.value < queryResults.value.length - 1)
-
-function hideResultContextMenu() {
-  resultContextMenuVisible.value = false
-  resultContextIndex.value = -1
-}
-
-function showExecutionSummaryTemporarily(duration = 3600) {
-  executionSummaryVisible.value = true
-  if (executionSummaryTimer !== null) {
-    clearTimeout(executionSummaryTimer)
-    executionSummaryTimer = null
-  }
-
-  if (duration > 0) {
-    executionSummaryTimer = window.setTimeout(() => {
-      executionSummaryVisible.value = false
-      executionSummaryTimer = null
-    }, duration)
-  }
-}
-
-function keepExecutionSummaryVisible() {
-  showExecutionSummaryTemporarily(0)
-}
-
-function hideExecutionSummary() {
-  executionSummaryVisible.value = false
-  if (executionSummaryTimer !== null) {
-    clearTimeout(executionSummaryTimer)
-    executionSummaryTimer = null
-  }
-}
-
-function revealResultPanel() {
-  resultPanelVisible.value = true
-}
-
-function toggleResultPanel() {
-  resultPanelVisible.value = !resultPanelVisible.value
-  setStorageItem(RESULT_PANEL_VISIBLE_KEY, resultPanelVisible.value)
-}
-
-function getMaxResultPanelHeight() {
-  const containerHeight = sqlEditorRoot.value?.clientHeight || 0
-  if (containerHeight <= 0) return 420
-  return Math.max(RESULT_PANEL_MIN_HEIGHT, containerHeight - 180)
-}
-
-function handleResultTabContextMenu(event: MouseEvent, index: number) {
-  resultContextIndex.value = index
-  resultContextMenuX.value = event.clientX
-  resultContextMenuY.value = event.clientY
-  resultContextMenuVisible.value = true
-}
-
-// 结果集状态追踪
-const queryResultStates = reactive<Record<number, {
-  pagination: { current: number; pageSize: number };
-  loading: boolean;
-  hasMore: boolean;
-  sql: string;
-}>>({})
-
-function getGridOptions(result: QueryResult, index: number): VxeGridProps {
-  const state = queryResultStates[index]
-  return {
-    border: true,
-    height: 'auto',
-    loading: state?.loading || false,
-    columnConfig: { resizable: true },
-    rowConfig: { isHover: true, isCurrent: true, height: 36 },
-    mouseConfig: { selected: true },
-    scrollX: { enabled: true, gt: 20 },
-    scrollY: { enabled: true, gt: 0 },
-    columns: result.columns.map(col => ({ field: col, title: col, minWidth: 150, showOverflow: true, slots: { default: 'cell_default' } })),
-    data: result.rows
-  }
-}
-
-function getResultClipboardSelection(index: number) {
-  return resultClipboardSelections[index] || null
-}
-
-function hasResultClipboardSelection(index: number) {
-  return Boolean(getResultClipboardSelection(index))
-}
-
-function formatClipboardScalar(value: unknown) {
-  if (value === null || value === undefined) return 'NULL'
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-function formatClipboardTsvValue(value: unknown) {
-  const text = formatClipboardScalar(value)
-  if (!/[\t\r\n"]/.test(text)) return text
-  return `"${text.replace(/"/g, '""')}"`
-}
-
-function buildClipboardRowText(result: QueryResult, row: Record<string, any>) {
-  return result.columns.map((column) => formatClipboardTsvValue(row[column])).join('\t')
-}
-
-function buildClipboardResultText(result: QueryResult) {
-  if (result.columns.length === 0) return ''
-  const header = result.columns.map((column) => formatClipboardTsvValue(column)).join('\t')
-  const rows = result.rows.map((row) => buildClipboardRowText(result, row as Record<string, any>))
-  return [header, ...rows].join('\n')
-}
-
-async function copyTextToClipboard(text: string, successMessage: string) {
-  await writeClipboardText(text)
-  message.success(successMessage)
-}
-
-function getEditorSelections() {
-  if (!editor) return []
-  return editor.getSelections() || (editor.getSelection() ? [editor.getSelection()!] : [])
-}
-
-function getEditorClipboardEntries() {
-  const model = editor?.getModel()
-  if (!editor || !model) return []
-
-  return getEditorSelections().map((selection) => {
-    if (!selection.isEmpty()) {
-      return {
-        text: model.getValueInRange(selection),
-        deleteRange: selection,
-      }
-    }
-
-    const lineNumber = selection.positionLineNumber
-    const lineMaxColumn = model.getLineMaxColumn(lineNumber)
-    const isLastLine = lineNumber === model.getLineCount()
-
-    if (!isLastLine) {
-      return {
-        text: `${model.getLineContent(lineNumber)}${model.getEOL()}`,
-        deleteRange: new monaco.Range(lineNumber, 1, lineNumber + 1, 1),
-      }
-    }
-
-    if (lineNumber > 1) {
-      const previousLine = lineNumber - 1
-      return {
-        text: model.getLineContent(lineNumber),
-        deleteRange: new monaco.Range(previousLine, model.getLineMaxColumn(previousLine), lineNumber, lineMaxColumn),
-      }
-    }
-
-    return {
-      text: model.getLineContent(lineNumber),
-      deleteRange: new monaco.Range(lineNumber, 1, lineNumber, lineMaxColumn),
-    }
-  })
-}
-
-async function copyEditorSelectionToSystemClipboard() {
-  const entries = getEditorClipboardEntries()
-  if (entries.length === 0) return
-  await writeClipboardText(entries.map((entry) => entry.text).join(''))
-}
-
-async function cutEditorSelectionToSystemClipboard() {
-  if (!editor) return
-
-  const entries = getEditorClipboardEntries()
-  if (entries.length === 0) return
-
-  await writeClipboardText(entries.map((entry) => entry.text).join(''))
-  editor.executeEdits('system-clipboard-cut', entries.map((entry) => ({
-    range: entry.deleteRange,
-    text: '',
-  })))
-  editor.focus()
-}
-
-function getHistoryPreview(sql: string) {
-  return sql.substring(0, 100) + (sql.length > 100 ? '...' : '')
-}
-
-function getHistoryDatabaseLabel(database?: string) {
-  return database || (t('common.ok') === 'OK' ? 'Default' : '默认')
-}
-
-function formatHistoryMeta(item: { timestamp: number; database?: string }) {
-  return `${new Date(item.timestamp).toLocaleString()} • ${getHistoryDatabaseLabel(item.database)}`
-}
-
-function handleResultCellClick({ row, column, index }: { row: Record<string, any>; column: any; index: number }) {
-  if (!column?.field || column.type === 'seq' || column.type === 'checkbox') return
-  resultClipboardSelections[index] = {
-    row,
-    rowIndex: Number(row.__rowIndex ?? -1),
-    field: String(column.field),
-    title: String(column.title || column.field),
-  }
-}
-
-async function copyResultCell(index: number) {
-  const selection = getResultClipboardSelection(index)
-  if (!selection) {
-    message.warning(t('editor.copy_cell_select_first'))
-    return
-  }
-  await copyTextToClipboard(
-    formatClipboardScalar(selection.row[selection.field]),
-    t('editor.copy_cell_success'),
-  )
-}
-
-async function copyResultRow(index: number) {
-  const selection = getResultClipboardSelection(index)
-  const result = queryResults.value[index]
-  if (!selection || !result) {
-    message.warning(t('editor.copy_row_select_first'))
-    return
-  }
-  await copyTextToClipboard(
-    buildClipboardRowText(result, selection.row),
-    t('editor.copy_row_success'),
-  )
-}
-
-async function copyResultSet(index: number) {
-  const result = queryResults.value[index]
-  if (!result || result.columns.length === 0) {
-    message.warning(t('editor.copy_result_empty'))
-    return
-  }
-  await copyTextToClipboard(
-    buildClipboardResultText(result),
-    t('editor.copy_result_success', { n: result.rows.length }),
-  )
-}
-
-function buildResultState(statement: PreparedSqlStatement | undefined, result: QueryResult) {
-  return {
-    pagination: { current: 1, pageSize: 100 },
-    loading: false,
-    hasMore: Boolean(statement?.can_page) && result.rows.length === 100,
-    sql: statement?.sql || '',
-  }
-}
+function revealResultPanel() { resultPanelVisible.value = true }
+function toggleResultPanel() { resultPanelVisible.value = !resultPanelVisible.value; setStorageItem(RESULT_PANEL_VISIBLE_KEY, resultPanelVisible.value) }
 
 function appendQueryResults(results: QueryResult[], states: Array<{ pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>) {
   const startIndex = queryResults.value.length
   queryResults.value = [...queryResults.value, ...results]
   states.forEach((state, offset) => {
-    queryResultStates[startIndex + offset] = {
-      pagination: { ...state.pagination },
-      loading: state.loading,
-      hasMore: state.hasMore,
-      sql: state.sql,
-    }
+    queryResultStates[startIndex + offset] = { ...state }
   })
   return startIndex
 }
 
 function replaceResultTabs(keptSourceIndices: number[]) {
-  const nextResults = keptSourceIndices.map((sourceIndex) => queryResults.value[sourceIndex])
-  const nextStates = keptSourceIndices.map((sourceIndex) => queryResultStates[sourceIndex])
-  const nextClipboardSelections = keptSourceIndices.map((sourceIndex) => resultClipboardSelections[sourceIndex])
-  const previousActiveIndex = activeResultIndex.value
+  const nextResults = keptSourceIndices.map(i => queryResults.value[i])
+  const nextStates = keptSourceIndices.map(i => queryResultStates[i])
+  const nextSelections = keptSourceIndices.map(i => resultClipboardSelections[i])
+  const prevActive = activeResultIndex.value
 
   queryResults.value = nextResults
-  Object.keys(queryResultStates).forEach((key) => delete queryResultStates[Number(key)])
-  Object.keys(resultClipboardSelections).forEach((key) => delete resultClipboardSelections[Number(key)])
-  nextStates.forEach((state, index) => {
-    if (!state) return
-    queryResultStates[index] = {
-      pagination: { ...state.pagination },
-      loading: state.loading,
-      hasMore: state.hasMore,
-      sql: state.sql,
-    }
-  })
-  nextClipboardSelections.forEach((selection, index) => {
-    if (!selection) return
-    resultClipboardSelections[index] = selection
-  })
+  Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)])
+  Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)])
+  nextStates.forEach((s, i) => { if (s) queryResultStates[i] = { ...s } })
+  nextSelections.forEach((s, i) => { if (s) resultClipboardSelections[i] = s })
 
-  if (previousActiveIndex < 0) {
-    if (queryResults.value.length === 0 && resultTabKey.value !== 'messages') {
-      resultTabKey.value = 'empty'
-    }
+  if (prevActive < 0) {
+    if (queryResults.value.length === 0 && resultTabKey.value !== 'messages') resultTabKey.value = 'empty'
     return
   }
-
-  const preservedIndex = keptSourceIndices.indexOf(previousActiveIndex)
-  if (preservedIndex >= 0) {
-    resultTabKey.value = `result-${preservedIndex}`
-    return
-  }
-
-  if (queryResults.value.length === 0) {
-    resultTabKey.value = 'empty'
-    return
-  }
-
-  const nearestRightIndex = keptSourceIndices.findIndex((sourceIndex) => sourceIndex > previousActiveIndex)
-  resultTabKey.value = nearestRightIndex >= 0
-    ? `result-${nearestRightIndex}`
-    : `result-${queryResults.value.length - 1}`
+  const preserved = keptSourceIndices.indexOf(prevActive)
+  if (preserved >= 0) { resultTabKey.value = `result-${preserved}`; return }
+  if (queryResults.value.length === 0) { resultTabKey.value = 'empty'; return }
+  resultTabKey.value = `result-${keptSourceIndices.findIndex(i => i > prevActive) >= 0 ? keptSourceIndices.findIndex(i => i > prevActive) : queryResults.value.length - 1}`
 }
 
 function closeResultAt(index: number) {
   if (index < 0 || index >= queryResults.value.length) return
-  replaceResultTabs(queryResults.value.map((_, itemIndex) => itemIndex).filter((itemIndex) => itemIndex !== index))
+  replaceResultTabs(queryResults.value.map((_, i) => i).filter(i => i !== index))
 }
-
 function closeResultTabsLeftOf(index: number) {
   if (index <= 0) return
-  replaceResultTabs(queryResults.value.map((_, itemIndex) => itemIndex).filter((itemIndex) => itemIndex >= index))
+  replaceResultTabs(queryResults.value.map((_, i) => i).filter(i => i >= index))
 }
-
 function closeResultTabsRightOf(index: number) {
   if (index < 0 || index >= queryResults.value.length - 1) return
-  replaceResultTabs(queryResults.value.map((_, itemIndex) => itemIndex).filter((itemIndex) => itemIndex <= index))
+  replaceResultTabs(queryResults.value.map((_, i) => i).filter(i => i <= index))
 }
 
-function handleResultMenuClick({ key }: { key: string | number }) {
-  const action = String(key)
-  const targetIndex = resultContextIndex.value
-  if (action === 'close-current') {
-    closeResultAt(targetIndex)
-  } else if (action === 'close-left') {
-    closeResultTabsLeftOf(targetIndex)
-  } else if (action === 'close-right') {
-    closeResultTabsRightOf(targetIndex)
+function getMaxResultPanelHeight() {
+  const h = sqlEditorRoot.value?.clientHeight || 0
+  return h <= 0 ? 420 : Math.max(RESULT_PANEL_MIN_HEIGHT, h - 180)
+}
+const resultDockHeight = computed(() => resultPanelVisible.value ? resultPanelHeight.value : RESULT_PANEL_COLLAPSED_HEIGHT)
+
+function getGridOptions(result: QueryResult, index: number): VxeGridProps {
+  const state = queryResultStates[index]
+  return {
+    border: true, height: 'auto', loading: state?.loading || false,
+    columnConfig: { resizable: true }, rowConfig: { isHover: true, isCurrent: true, height: 36 },
+    mouseConfig: { selected: true }, scrollX: { enabled: true, gt: 20 }, scrollY: { enabled: true, gt: 0 },
+    columns: result.columns.map(col => ({ field: col, title: col, minWidth: 150, showOverflow: true, slots: { default: 'cell_default' } })),
+    data: result.rows,
   }
-  hideResultContextMenu()
 }
 
-// 滚动触发加载
+// ── 滚动分页 ──
 const handleScroll = ({ isY, scrollTop, bodyHeight, scrollHeight, index }: any) => {
-  if (isY && !executing.value && queryResultStates[index]?.hasMore && !queryResultStates[index]?.loading) {
-    if (scrollTop + bodyHeight + 50 >= scrollHeight) {
-      loadNextPage(index)
-    }
+  if (isY && !execution.executing.value && queryResultStates[index]?.hasMore && !queryResultStates[index]?.loading) {
+    if (scrollTop + bodyHeight + 50 >= scrollHeight) loadNextPage(index)
   }
 }
 
 async function loadNextPage(index: number) {
   const state = queryResultStates[index]
   if (!state || state.loading || !state.hasMore) return
-  
   state.loading = true
   state.pagination.current++
   const offset = (state.pagination.current - 1) * state.pagination.pageSize
-  
-  // 剥离末尾分号以追加 LIMIT
   let baseSql = state.sql.trim()
   if (baseSql.endsWith(';')) baseSql = baseSql.slice(0, -1).trim()
-
-  // 判定逻辑：剥离注释后检查特征
-  const cleanSql = baseSql
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(--|#).*$/gm, '')
-    .trim()
-  
-  const normalizedClean = cleanSql.toUpperCase()
-  const isSelect = normalizedClean.startsWith('SELECT')
-  const hasLimit = /\bLIMIT\b/i.test(normalizedClean)
-
-  // 仅针对单条 SELECT 语句且不含 LIMIT 的情况尝试追加
+  const cleanSql = baseSql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(--|#).*$/gm, '').trim()
+  const isSelect = cleanSql.toUpperCase().startsWith('SELECT')
+  const hasLimit = /\bLIMIT\b/i.test(cleanSql)
   if (isSelect && !hasLimit && !cleanSql.includes(';')) {
     const pagedSql = `${baseSql} LIMIT ${state.pagination.pageSize} OFFSET ${offset};`
     try {
-      const results = await queryApi.executeQuery(
-        sessionConnectionId.value,
-        pagedSql,
-        selectedDatabase.value || null,
-      )
+      const results = await queryApi.executeQuery(sessionConnectionId.value, pagedSql, selectedDatabase.value || null)
       if (results.length > 0) {
-        const result = results[0]
-        state.hasMore = result.rows.length === state.pagination.pageSize
-        const newRows = [...queryResults.value[index].rows, ...result.rows]
-        queryResults.value[index] = { ...queryResults.value[index], rows: newRows }
-      } else {
-        state.hasMore = false
-      }
+        const r = results[0]
+        state.hasMore = r.rows.length === state.pagination.pageSize
+        queryResults.value[index] = { ...queryResults.value[index], rows: [...queryResults.value[index].rows, ...r.rows] }
+      } else { state.hasMore = false }
     } catch (e: any) {
-      const errorMessage = getErrorMessage(e)
-      message.error(errorMessage)
-      addMessage('error', errorMessage)
-      state.hasMore = false
-    } finally {
-      state.loading = false
-    }
-  } else {
-    state.hasMore = false
-    state.loading = false
-  }
+      message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)); state.hasMore = false
+    } finally { state.loading = false }
+  } else { state.hasMore = false; state.loading = false }
 }
 
-function addMessage(type: string, text: string) { messages.value.unshift({ type, text, time: new Date().toLocaleTimeString() }) }
+// ── 结果上下文菜单 & 剪贴板 ──
+interface ResultClipboardSelection { row: Record<string, any>; rowIndex: number; field: string; title: string }
+const gridRefs = reactive<Record<number, any>>({})
+function setGridRef(el: any, index: number) { if (el) gridRefs[index] = el; else delete gridRefs[index] }
+const resultContextMenuVisible = ref(false)
+const resultContextMenuX = ref(0)
+const resultContextMenuY = ref(0)
+const resultContextIndex = ref(-1)
+const resultClipboardSelections = reactive<Record<number, ResultClipboardSelection>>({})
+const activeResultIndex = computed(() => { const m = /^result-(\d+)$/.exec(resultTabKey.value); return m ? Number(m[1]) : -1 })
+const hasResultTabsOnLeft = computed(() => resultContextIndex.value > 0)
+const hasResultTabsOnRight = computed(() => resultContextIndex.value >= 0 && resultContextIndex.value < queryResults.value.length - 1)
+function hideResultContextMenu() { resultContextMenuVisible.value = false; resultContextIndex.value = -1 }
+function handleResultTabContextMenu(event: MouseEvent, index: number) {
+  resultContextIndex.value = index; resultContextMenuX.value = event.clientX; resultContextMenuY.value = event.clientY; resultContextMenuVisible.value = true
+}
+function handleResultMenuClick({ key }: { key: string | number }) {
+  const a = String(key); const idx = resultContextIndex.value
+  if (a === 'close-current') closeResultAt(idx)
+  else if (a === 'close-left') closeResultTabsLeftOf(idx)
+  else if (a === 'close-right') closeResultTabsRightOf(idx)
+  hideResultContextMenu()
+}
+function handleResultCellClick({ row, column, index }: { row: Record<string, any>; column: any; index: number }) {
+  if (!column?.field || column.type === 'seq' || column.type === 'checkbox') return
+  resultClipboardSelections[index] = { row, rowIndex: Number(row.__rowIndex ?? -1), field: String(column.field), title: String(column.title || column.field) }
+}
+function getResultClipboardSelection(index: number) { return resultClipboardSelections[index] || null }
+function hasResultClipboardSelection(index: number) { return Boolean(getResultClipboardSelection(index)) }
 
-function handleToolbarAction(method: string) {
-  const actionMap: Record<string, () => void | Promise<void>> = {
-    executeQuery,
-    explainQuery,
-    stopExecution,
-    handleSave,
-    formatSql,
-    clearEditor,
-    openHistory,
-    openSnippets,
-    refreshAutocomplete,
-    toggleResultPanel,
-  }
+function formatClipboardScalar(value: unknown) {
+  if (value === null || value === undefined) return 'NULL'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
+  try { return JSON.stringify(value) } catch { return String(value) }
+}
+function formatClipboardTsvValue(value: unknown) { const t = formatClipboardScalar(value); return /[\t\r\n"]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t }
+function buildClipboardRowText(result: QueryResult, row: Record<string, any>) { return result.columns.map(c => formatClipboardTsvValue(row[c])).join('\t') }
+function buildClipboardResultText(result: QueryResult) {
+  if (result.columns.length === 0) return ''
+  return [result.columns.map(c => formatClipboardTsvValue(c)).join('\t'), ...result.rows.map(r => buildClipboardRowText(result, r as Record<string, any>))].join('\n')
+}
+async function copyTextToClipboard(text: string, successMsg: string) { await writeClipboardText(text); message.success(successMsg) }
 
-  const action = actionMap[method]
-  if (!action) return
-  void action()
+async function copyResultCell(index: number) {
+  const sel = getResultClipboardSelection(index)
+  if (!sel) { message.warning(t('editor.copy_cell_select_first')); return }
+  await copyTextToClipboard(formatClipboardScalar(sel.row[sel.field]), t('editor.copy_cell_success'))
+}
+async function copyResultRow(index: number) {
+  const sel = getResultClipboardSelection(index); const result = queryResults.value[index]
+  if (!sel || !result) { message.warning(t('editor.copy_row_select_first')); return }
+  await copyTextToClipboard(buildClipboardRowText(result, sel.row), t('editor.copy_row_success'))
+}
+async function copyResultSet(index: number) {
+  const result = queryResults.value[index]
+  if (!result || result.columns.length === 0) { message.warning(t('editor.copy_result_empty')); return }
+  await copyTextToClipboard(buildClipboardResultText(result), t('editor.copy_result_success', { n: result.rows.length }))
 }
 
-function handleToolbarDbChange(database: string) {
-  void handleDatabaseChange(database)
-}
-
-function getMessageTypeForStatus(status: SqlExecutionStatus) {
-  switch (status) {
-    case 'success':
-      return 'success'
-    case 'failed':
-      return 'error'
-    case 'cancelled':
-    case 'partial_success':
-      return 'warning'
-    default:
-      return 'info'
-  }
-}
-
-function updateExecutionState(patch: Partial<SqlExecutionState> & { status?: SqlExecutionStatus }) {
-  executionState.value = {
-    ...executionState.value,
-    ...patch,
-    updatedAt: Date.now(),
-  }
-  emit('executionStateChange', { ...executionState.value })
-}
-
-function resetExecutionState() {
-  hideExecutionSummary()
-  executionState.value = createIdleExecutionState()
-  emit('executionStateChange', { ...executionState.value })
-}
-
-function finalizeExecutionState(
-  status: SqlExecutionStatus,
-  summary: string,
-  options: Partial<Omit<SqlExecutionState, 'status' | 'summary' | 'updatedAt'>> = {}
-) {
-  updateExecutionState({
-    status,
-    summary,
-    detail: options.detail || '',
-    mode: options.mode ?? executionState.value.mode,
-    statementCount: options.statementCount ?? executionState.value.statementCount,
-    completedStatements: options.completedStatements ?? executionState.value.completedStatements,
-    resultSetCount: options.resultSetCount ?? executionState.value.resultSetCount,
-    affectedRows: options.affectedRows ?? executionState.value.affectedRows,
-  })
-
-  addMessage(getMessageTypeForStatus(status), summary)
-  if (options.detail) {
-    addMessage('error', options.detail)
-  }
-
-  showExecutionSummaryTemporarily()
-}
-
-function getAffectedRows(results: QueryResult[]) {
-  return results.reduce((acc, result) => acc + result.affected_rows, 0)
-}
-
-function isCancelledMessage(messageText: string) {
-  const normalized = messageText.toLowerCase()
-  return normalized.includes('查询已取消')
-    || normalized.includes('cancelled')
-    || normalized.includes('canceled')
-    || normalized.includes('canceling statement due to user request')
-    || normalized.includes('interrupted')
-}
-
-function applyBatchExecutionState(response: QueryBatchExecutionResult) {
-  const resultSetCount = response.results.length
-  const affectedRows = getAffectedRows(response.results)
-  const completedStatements = response.statements_succeeded
-  const statementCount = response.statements_total
-
-  if (response.was_cancelled) {
-    const status: SqlExecutionStatus = completedStatements > 0 ? 'partial_success' : 'cancelled'
-    const summary = completedStatements > 0
-      ? t('editor.summary.query_cancelled_partial', { success: completedStatements, total: statementCount })
-      : t('editor.summary.query_cancelled')
-
-    finalizeExecutionState(status, summary, {
-      mode: 'query',
-      statementCount,
-      completedStatements,
-      resultSetCount,
-      affectedRows,
-    })
-    return
-  }
-
-  if (response.error_message) {
-    const status: SqlExecutionStatus = completedStatements > 0 ? 'partial_success' : 'failed'
-    const summary = completedStatements > 0
-      ? t('editor.summary.query_partial', {
-          success: completedStatements,
-          total: statementCount,
-          failed: response.failed_statement_index || completedStatements + 1,
-        })
-      : t('editor.summary.query_failed', {
-          failed: response.failed_statement_index || 1,
-        })
-
-    finalizeExecutionState(status, summary, {
-      mode: 'query',
-      detail: response.error_message,
-      statementCount,
-      completedStatements,
-      resultSetCount,
-      affectedRows,
-    })
-    return
-  }
-
-  const summary = resultSetCount > 0
-    ? t('editor.summary.query_success', { count: completedStatements, sets: resultSetCount })
-    : t('editor.summary.query_success_empty', { count: completedStatements })
-
-  finalizeExecutionState('success', summary, {
-    mode: 'query',
-    statementCount,
-    completedStatements,
-    resultSetCount,
-    affectedRows,
+// ── 编辑器剪贴板 ──
+function getEditorSelections() { if (!editor) return []; return editor.getSelections() || (editor.getSelection() ? [editor.getSelection()!] : []) }
+function getEditorClipboardEntries() {
+  const model = editor?.getModel(); if (!editor || !model) return []
+  return getEditorSelections().map(sel => {
+    if (!sel.isEmpty()) return { text: model.getValueInRange(sel), deleteRange: sel }
+    const ln = sel.positionLineNumber; const mc = model.getLineMaxColumn(ln)
+    if (ln !== model.getLineCount()) return { text: `${model.getLineContent(ln)}${model.getEOL()}`, deleteRange: new monaco.Range(ln, 1, ln + 1, 1) }
+    if (ln > 1) return { text: model.getLineContent(ln), deleteRange: new monaco.Range(ln - 1, model.getLineMaxColumn(ln - 1), ln, mc) }
+    return { text: model.getLineContent(ln), deleteRange: new monaco.Range(ln, 1, ln, mc) }
   })
 }
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[\\/:*?"<>|]+/g, '_').trim() || t('editor.export_default_name')
+async function copyEditorSelectionToSystemClipboard() { const e = getEditorClipboardEntries(); if (e.length) await writeClipboardText(e.map(en => en.text).join('')) }
+async function cutEditorSelectionToSystemClipboard() {
+  if (!editor) return; const e = getEditorClipboardEntries(); if (!e.length) return
+  await writeClipboardText(e.map(en => en.text).join(''))
+  editor.executeEdits('system-clipboard-cut', e.map(en => ({ range: en.deleteRange, text: '' }))); editor.focus()
+}
+async function pasteFromSystemClipboard() {
+  if (!editor) return; const text = await readClipboardText(); const sels = getEditorSelections(); if (!sels.length) return
+  editor.executeEdits('system-clipboard-paste', sels.map(r => ({ range: r, text }))); editor.focus()
+}
+async function handleSystemClipboardAction(action: 'copy' | 'cut' | 'paste') {
+  if (!editor) return
+  try { focusEditor(); await new Promise<void>(r => requestAnimationFrame(() => r())); if (action === 'copy') await copyEditorSelectionToSystemClipboard(); else if (action === 'cut') await cutEditorSelectionToSystemClipboard(); else await pasteFromSystemClipboard() }
+  catch (e: any) { message.error(getErrorMessage(e)) }
 }
 
-function unquoteIdentifier(name: string) {
-  return name.replace(/^["'`[]+|["'`\]]+$/g, '')
-}
-
+// ── 导出 ──
+function sanitizeFileName(name: string) { return name.replace(/[\\/:*?"<>|]+/g, '_').trim() || t('editor.export_default_name') }
 function inferInsertTargetTable(index: number) {
   const sql = queryResultStates[index]?.sql?.trim() || ''
-  const normalized = sql.replace(/\s+/g, ' ')
-  const match = normalized.match(/\bFROM\s+((?:["`\[]?[\w$]+["`\]]?\.)?["`\[]?[\w$]+["`\]]?)/i)
-  const target = match?.[1]?.split('.').pop()
-  return target ? unquoteIdentifier(target) : `query_result_${index + 1}`
+  const m = sql.replace(/\s+/g, ' ').match(/\bFROM\s+((?:["`\[]?[\w$]+["`\]]?\.)?["`\[]?[\w$]+["`\]]?)/i)
+  const target = m?.[1]?.split('.').pop()
+  return target ? target.replace(/^["'`[]+|["'`\]]+$/g, '') : `query_result_${index + 1}`
 }
-
 function inferExportBaseName(index: number, format: string) {
-  const tableName = inferInsertTargetTable(index)
-  const databaseName = selectedDatabase.value || currentDatabaseLabel.value || t('editor.export_default_name')
-  return sanitizeFileName(`${databaseName}_${tableName}.${format}`)
+  return sanitizeFileName(`${selectedDatabase.value || currentDatabaseLabel.value || t('editor.export_default_name')}_${inferInsertTargetTable(index)}.${format}`)
 }
-
 async function handleExportResult(index: number, format: string) {
-  const result = queryResults.value[index]
-  if (!result || result.columns.length === 0) return
-
+  const result = queryResults.value[index]; if (!result || result.columns.length === 0) return
   try {
-    const defaultPath = inferExportBaseName(index, format)
-    const path = await save({
-      defaultPath,
-      filters: [{ name: format.toUpperCase(), extensions: [format] }],
-    })
+    const path = await save({ defaultPath: inferExportBaseName(index, format), filters: [{ name: format.toUpperCase(), extensions: [format] }] })
     if (!path) return
-
-    if (format === 'csv') {
-      await exportApi.toCsv(result, path)
-    } else if (format === 'json') {
-      await exportApi.toJson(result, path)
-    } else if (format === 'sql') {
-      await exportApi.toSql(result, inferInsertTargetTable(index), path)
-    } else {
-      throw new Error(`Unsupported export format: ${format}`)
-    }
-
+    if (format === 'csv') await exportApi.toCsv(result, path)
+    else if (format === 'json') await exportApi.toJson(result, path)
+    else if (format === 'sql') await exportApi.toSql(result, inferInsertTargetTable(index), path)
     message.success(t('data.export_success', { path }))
-  } catch (e: any) {
-    const errorMessage = getErrorMessage(e)
-    message.error(errorMessage)
-    addMessage('error', errorMessage)
-  }
+  } catch (e: any) { message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)) }
 }
-
-function handleExportMenuClick(index: number, { key }: { key: string | number }) {
-  return handleExportResult(index, String(key))
-}
-
+function handleExportMenuClick(index: number, { key }: { key: string | number }) { return handleExportResult(index, String(key)) }
 async function handleCopyMenuClick(index: number, { key }: { key: string | number }) {
-  try {
-    const action = String(key)
-    if (action === 'cell') {
-      await copyResultCell(index)
-    } else if (action === 'row') {
-      await copyResultRow(index)
-    } else if (action === 'result') {
-      await copyResultSet(index)
-    }
-  } catch (e: any) {
-    message.error(getErrorMessage(e))
-  }
+  try { const a = String(key); if (a === 'cell') await copyResultCell(index); else if (a === 'row') await copyResultRow(index); else if (a === 'result') await copyResultSet(index) }
+  catch (e: any) { message.error(getErrorMessage(e)) }
 }
 
+// ── 通用工具 ──
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   if (error instanceof Error) return error.message
   if (error && typeof error === 'object') {
-    const messageValue = Reflect.get(error, 'message')
-    if (typeof messageValue === 'string' && messageValue.trim()) return messageValue
-    const errorValue = Reflect.get(error, 'error')
-    if (typeof errorValue === 'string' && errorValue.trim()) return errorValue
-    const causeValue = Reflect.get(error, 'cause')
-    if (causeValue) {
-      const causeMessage: string = getErrorMessage(causeValue)
-      if (causeMessage && causeMessage !== '[object Object]') return causeMessage
-    }
-    const propertyMap = Object.fromEntries(
-      Object.getOwnPropertyNames(error).map((key) => [key, Reflect.get(error, key)])
-    )
-    if (Object.keys(propertyMap).length > 0) {
-      try {
-        return JSON.stringify(propertyMap)
-      } catch {
-        // ignore
-      }
-    }
-    try {
-      return JSON.stringify(error)
-    } catch {
-      return String(error)
-    }
+    const msg = Reflect.get(error, 'message'); if (typeof msg === 'string' && msg.trim()) return msg
+    const err = Reflect.get(error, 'error'); if (typeof err === 'string' && err.trim()) return err
+    const cause = Reflect.get(error, 'cause'); if (cause) { const cm = getErrorMessage(cause); if (cm && cm !== '[object Object]') return cm }
+    try { return JSON.stringify(error) } catch { return String(error) }
   }
   return String(error)
 }
 
-function beginExecution(mode: 'query' | 'explain', statementCount = 1) {
-  const executionId = executionSeq.value + 1
-  executionSeq.value = executionId
-  activeExecutionId.value = executionId
-  executing.value = true
-  updateExecutionState({
-    status: 'running',
-    mode,
-    summary: mode === 'query'
-      ? t('editor.summary.running_query', { count: statementCount })
-      : t('editor.summary.running_explain'),
-    detail: '',
-    statementCount,
-    completedStatements: 0,
-    resultSetCount: 0,
-    affectedRows: 0,
-  })
-  keepExecutionSummaryVisible()
-  return executionId
+// ── 分隔条拖拽 ──
+function startResize(e: MouseEvent) {
+  isSplitResizing.value = true; const sy = e.clientY; const sh = resultPanelHeight.value
+  const move = (ev: MouseEvent) => { if (!isSplitResizing.value) return; resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, sh - (ev.clientY - sy))) }
+  const stop = () => { isSplitResizing.value = false; setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = '' }
+  document.body.style.cursor = 'row-resize'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
 }
 
-function isExecutionStale(executionId: number) {
-  return executionId !== activeExecutionId.value
-}
+// ── 编辑器操作 ──
+function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
+async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: any) { message.error(getErrorMessage(e)) } }
+function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'empty'; messages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
+function handleQuerySaved() { message.success(t('common.save')) }
+async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: any) { if (!isAuto) message.error(`${t('common.fail')}: ${err}`) } }
+let autoSaveTimer: any = null
+function triggerAutoSave() { if (autoSaveTimer) clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { handleSave(true) }, 2000) }
+async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
 
-function getDangerIssueLabel(issue: SqlDangerIssue) {
-  return t(`editor.danger.${issue.type}`)
-}
+// ── 历史记录（composable） ──
+const {
+  searchText: historySearch,
+  filteredHistory: filteredHistory,
+  load: loadHistory,
+  add: saveToHistory,
+  getPreview: getHistoryPreview,
+  formatMeta: formatHistoryMeta,
+} = useSqlHistory()
 
-function formatDangerSqlPreview(sql: string) {
-  return sql.replace(/\s+/g, ' ').trim().slice(0, 160)
-}
+const showHistory = ref(false)
+const showSaveDialog = ref(false)
+const showSnippets = ref(false)
 
-async function confirmDangerousExecution(issues: SqlDangerIssue[]) {
-  if (issues.length === 0) return true
+function openHistory() { historySearch.value = ''; showHistory.value = true }
+function openSnippets() { showSnippets.value = true }
+function useHistorySql(sql: string) { editor?.setValue(sql); showHistory.value = false }
 
-  return new Promise<boolean>((resolve) => {
-    const content = h('div', { class: 'danger-confirm-content' }, [
-      h('p', { class: 'danger-confirm-intro' }, t('editor.danger.confirm_intro')),
-      h('ul', { class: 'danger-confirm-list' }, issues.map((issue, index) =>
-        h('li', { key: `${issue.type}-${index}` }, `${getDangerIssueLabel(issue)}: ${formatDangerSqlPreview(issue.statement)}`)
-      )),
-    ])
+const historyEmptyDescription = computed(() =>
+  historySearch.value ? t('editor.history_no_match') : t('editor.history_empty')
+)
 
-    Modal.confirm({
-      title: t('editor.danger.confirm_title'),
-      content,
-      okText: t('editor.danger.confirm_ok'),
-      cancelText: t('common.cancel'),
-      okType: 'danger',
-      width: 720,
-      onOk: () => {
-        addMessage('warning', t('editor.danger.confirmed'))
-        resolve(true)
-      },
-      onCancel: () => {
-        addMessage('info', t('editor.danger.cancelled'))
-        resultTabKey.value = 'messages'
-        resolve(false)
-      },
-    })
-  })
-}
+// ── 执行管线（composable） ──
+const execution = useSqlExecution({
+  getSql: () => editor?.getValue() || '',
+  getSelectionSql: () => {
+    const sel = editor?.getSelection(); const model = editor?.getModel()
+    if (sel && model && !sel.isEmpty()) return model.getValueInRange(sel).trim() || null
+    return null
+  },
+  isReadOnly: () => Boolean(currentConnection.value?.read_only),
+  onAppendResults: (results, states) => appendQueryResults(results, states),
+  onSwitchToResultTab: (tabKey: string) => { resultTabKey.value = tabKey },
+  onRevealPanel: revealResultPanel,
+  onAddMessage: addMessage,
+  onSaveHistory: (sql: string) => saveToHistory(sql, selectedDatabase.value),
+  t: (key: string, options?: Record<string, unknown>) => t(key, options ?? {}) as string,
+})
 
+const {
+  executing, executionState, executionStatusColor, showExecutionSummary,
+} = execution
+
+const executionStatusLabel = computed(() => t(`editor.status.${executionState.value.status}`))
+
+const executionSummaryMeta = computed(() => {
+  const s = executionState.value; const p: string[] = []
+  if (s.statementCount > 0) p.push(t('editor.statement_progress', { completed: s.completedStatements, total: s.statementCount }))
+  if (s.resultSetCount > 0) p.push(`${s.resultSetCount} ${t('editor.messages_result_sets')}`)
+  if (s.affectedRows > 0) p.push(t('editor.affected_rows_short', { n: s.affectedRows }))
+  return p.join(' · ')
+})
+
+// 模板级别的包装器（组合 composable 函数与连接上下文）
 async function executeQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
-  
-  const selection = editor?.getSelection()
-  const model = editor?.getModel()
-  let fullSql = editor?.getValue().trim() || ''
-  let isSelection = false
-  let executionId: number | null = null
-
-  if (selection && model && !selection.isEmpty()) {
-    const selectedText = model.getValueInRange(selection).trim()
-    if (selectedText) { fullSql = selectedText; isSelection = true; }
-  }
-
-  if (!fullSql) return message.warning(t('editor.input_sql_warn'))
-
-  try {
-    const preparedStatements = await queryApi.prepareSqlScript(connId, fullSql)
-    if (preparedStatements.length === 0) {
-      return
-    }
-
-    const writeAnalysis = analyzeSqlWrites(preparedStatements.map(statement => statement.sql))
-    if (currentConnection.value?.read_only && writeAnalysis.hasWrites) {
-      const warningText = t('editor.read_only_blocked', { count: writeAnalysis.writeStatements.length })
-      message.warning(warningText)
-      addMessage('warning', warningText)
-      resultTabKey.value = 'messages'
-      return
-    }
-
-    const safetyAnalysis = analyzeSqlSafety(preparedStatements.map(statement => statement.sql))
-    const confirmed = await confirmDangerousExecution(safetyAnalysis.issues)
-    if (!confirmed) {
-      return
-    }
-
-    executionId = beginExecution('query', preparedStatements.length)
-
-    if (isSelection) addMessage('info', t('editor.executing_selection'))
-    addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
-    console.info('[SQL] execute', {
-      connectionId: connId,
-      database: selectedDatabase.value || null,
-      displayDatabase: currentDatabaseLabel.value,
-    })
-
-    const processedStatements = preparedStatements.map((statement: PreparedSqlStatement) =>
-      statement.can_page ? `${statement.sql} LIMIT 100` : statement.sql
-    )
-
-    const response = await queryApi.executeQueryBatch(
-      connId,
-      processedStatements,
-      selectedDatabase.value || null,
-      executionId,
-    )
-
-    if (isExecutionStale(executionId)) {
-      return
-    }
-
-    const appendedIndex = appendQueryResults(
-      response.results,
-      response.results.map((r, i) => {
-        const config = preparedStatements[i] || preparedStatements[preparedStatements.length - 1]
-        return buildResultState(config, r)
-      })
-    )
-
-    applyBatchExecutionState(response)
-    revealResultPanel()
-
-    if (response.results.length > 0) {
-      resultTabKey.value = `result-${appendedIndex}`
-    } else {
-      resultTabKey.value = 'messages'
-    }
-    if (!response.error_message && !response.was_cancelled) {
-      saveToHistory(fullSql)
-    }
-  } catch (e: any) {
-    if (executionId !== null && isExecutionStale(executionId)) {
-      return
-    }
-    const errorMessage = getErrorMessage(e)
-
-    if (isCancelledMessage(errorMessage)) {
-      finalizeExecutionState('cancelled', t('editor.summary.query_cancelled'), {
-        mode: 'query',
-        statementCount: executionState.value.statementCount,
-        completedStatements: executionState.value.completedStatements,
-      })
-    } else {
-      message.error(errorMessage)
-      finalizeExecutionState('failed', t('editor.summary.query_failed', { failed: 1 }), {
-        mode: 'query',
-        detail: errorMessage,
-        statementCount: executionState.value.statementCount || 1,
-        completedStatements: 0,
-      })
-    }
-    resultTabKey.value = 'messages'
-  } finally {
-    if (executionId !== null && !isExecutionStale(executionId)) {
-      executing.value = false
-    }
-  }
+  addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
+  await execution.executeQuery(connId, selectedDatabase.value || null)
 }
-
 async function explainQuery() {
   const connId = sessionConnectionId.value
-  if (!connId || !editor) return
-  const sql = editor.getValue().trim()
-  if (!sql) return message.warning(t('editor.input_sql_warn'))
+  if (!connId) return
+  addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
+  await execution.explainQuery(connId, selectedDatabase.value || null)
+}
+function stopExec() { execution.stopExecution(sessionConnectionId.value) }
 
-  const executionId = beginExecution('explain')
-  try {
-    addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
-    console.info('[SQL] explain', {
-      connectionId: connId,
-      database: selectedDatabase.value || null,
-      displayDatabase: currentDatabaseLabel.value,
-    })
-    const results = await queryApi.explainQuery(connId, sql, selectedDatabase.value || null, executionId)
-    if (isExecutionStale(executionId)) {
-      return
-    }
-    const appendedIndex = appendQueryResults(
-      results,
-      results.map((result) => buildResultState(undefined, result))
-    )
-    revealResultPanel()
-    resultTabKey.value = `result-${appendedIndex}`
-    finalizeExecutionState('success', t('editor.summary.explain_success', { sets: results.length }), {
-      mode: 'explain',
-      statementCount: 1,
-      completedStatements: 1,
-      resultSetCount: results.length,
-      affectedRows: getAffectedRows(results),
-    })
-  } catch (e: any) {
-    if (isExecutionStale(executionId)) {
-      return
-    }
-    const errorMessage = getErrorMessage(e)
-    if (isCancelledMessage(errorMessage)) {
-      finalizeExecutionState('cancelled', t('editor.summary.explain_cancelled'), {
-        mode: 'explain',
-        statementCount: 1,
-        completedStatements: 0,
-      })
-    } else {
-      message.error(errorMessage)
-      finalizeExecutionState('failed', t('editor.summary.explain_failed'), {
-        mode: 'explain',
-        detail: errorMessage,
-        statementCount: 1,
-        completedStatements: 0,
-      })
-    }
-    resultTabKey.value = 'messages'
-  } finally {
-    if (!isExecutionStale(executionId)) {
-      executing.value = false
-    }
+// ── 工具栏分发 ──
+function handleToolbarAction(method: string) {
+  const actions: Record<string, () => void | Promise<void>> = {
+    executeQuery, explainQuery, stopExecution: stopExec, handleSave, formatSql,
+    clearEditor, openHistory, openSnippets, refreshAutocomplete, toggleResultPanel,
   }
+  actions[method]?.()
 }
+function handleToolbarDbChange(db: string) { void handleDatabaseChange(db) }
 
-async function stopExecution() {
-  console.info('[SQL] stop requested', {
-    connectionId: sessionConnectionId.value,
-    executionId: activeExecutionId.value,
-    executing: executing.value,
-    status: executionState.value.status,
-  })
-
-  if (!executing.value) {
-    console.warn('[SQL] stop ignored because editor is not executing', {
-      connectionId: sessionConnectionId.value,
-      executionId: activeExecutionId.value,
-      status: executionState.value.status,
-    })
-    return
-  }
-
-  const connId = sessionConnectionId.value
-  const executionId = activeExecutionId.value
-  const previousState = executionState.value
-  activeExecutionId.value = executionSeq.value + 1
-  executing.value = false
-  resultTabKey.value = 'messages'
-
-  if (connId && executionId > 0) {
-    try {
-      console.info('[SQL] sending cancel request', {
-        connectionId: connId,
-        executionId,
-      })
-      const cancelled = await queryApi.cancelQuery(connId, executionId)
-      console.info('[SQL] cancel request completed', {
-        connectionId: connId,
-        executionId,
-        cancelled,
-      })
-      if (!cancelled) {
-        console.warn('[SQL] backend reported no active query to cancel', {
-          connectionId: connId,
-          executionId,
-        })
-      }
-    } catch (e: any) {
-      console.error('[SQL] cancel failed', {
-        connectionId: connId,
-        executionId,
-        error: e,
-      })
-    }
-  } else {
-    console.warn('[SQL] cancel request skipped because execution context is missing', {
-      connectionId: connId,
-      executionId,
-    })
-  }
-
-  finalizeExecutionState('cancelled', t('editor.manual_stop'), {
-    mode: previousState.mode,
-    statementCount: previousState.statementCount,
-    completedStatements: previousState.completedStatements,
-    resultSetCount: previousState.resultSetCount,
-    affectedRows: previousState.affectedRows,
-  })
-}
-async function formatSql() { if (!editor) return; try { const formatted = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(formatted); message.success(t('editor.format_success')) } catch (e: any) { message.error(getErrorMessage(e)) } }
-function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'empty'; messages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); resetExecutionState(); }
-function handleQuerySaved() { message.success(t('common.save')) }
-async function pasteFromSystemClipboard() {
-  if (!editor) return
-
-  const text = await readClipboardText()
-  const selections = getEditorSelections()
-  if (selections.length === 0) return
-
-  editor.executeEdits('system-clipboard-paste', selections.map((range) => ({ range, text })))
-  editor.focus()
-}
-function focusEditor() {
-  if (!editor) return
-  editor.layout()
-  editor.focus()
-}
-async function handleSystemClipboardAction(action: 'copy' | 'cut' | 'paste') {
-  if (!editor) return
-
-  try {
-    focusEditor()
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
-
-    if (action === 'copy') {
-      await copyEditorSelectionToSystemClipboard()
-    } else if (action === 'cut') {
-      await cutEditorSelectionToSystemClipboard()
-    } else if (action === 'paste') {
-      await pasteFromSystemClipboard()
-    }
-  } catch (e: any) {
-    message.error(getErrorMessage(e))
-  }
-}
-function openHistory() { historySearch.value = ''; showHistory.value = true }
-function openSnippets() { showSnippets.value = true }
-function useHistorySql(sql: string) { editor?.setValue(sql); showHistory.value = false; }
-function saveToHistory(sql: string) { sqlHistory.value.unshift({ sql, timestamp: Date.now(), database: selectedDatabase.value }); if (sqlHistory.value.length > 100) sqlHistory.value.pop(); setStorageItem(STORAGE_KEYS.SQL_HISTORY, sqlHistory.value) }
-async function refreshAutocomplete() { const baseId = props.connectionId || connectionStore.activeConnectionId; if (!baseId) return; autocompleteManager.clearCache(baseId); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
-async function setSelectedDatabase(database: string) {
-  if (availableDatabases.value.length === 0) await loadAvailableDatabases()
-  selectedDatabase.value = database
-  updateAutocompleteContext()
-  emit('databaseChange', database)
-}
-async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const content = editor.getValue(); if (!content.trim()) return; try { await utilsApi.writeFile(props.filePath, content); if (!isAuto) message.success(t('common.save')) } catch (err: any) { if (!isAuto) message.error(`${t('common.fail')}: ${err}`) } }
-function startResize(e: MouseEvent) {
-  isSplitResizing.value = true
-  const startY = e.clientY
-  const startHeight = resultPanelHeight.value
-  const doResize = (ev: MouseEvent) => {
-    if (!isSplitResizing.value) return
-    const nextHeight = Math.min(
-      getMaxResultPanelHeight(),
-      Math.max(RESULT_PANEL_MIN_HEIGHT, startHeight - (ev.clientY - startY))
-    )
-    resultPanelHeight.value = nextHeight
-  }
-  const stopResize = () => {
-    isSplitResizing.value = false
-    setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value)
-    document.removeEventListener('mousemove', doResize)
-    document.removeEventListener('mouseup', stopResize)
-    document.body.style.cursor = ''
-  }
-  document.body.style.cursor = 'row-resize'
-  document.addEventListener('mousemove', doResize)
-  document.addEventListener('mouseup', stopResize)
-}
+// ── 数据库上下文 ──
 function updateAutocompleteContext() {
-  const model = editor?.getModel(), baseId = props.connectionId || connectionStore.activeConnectionId
-  if (model && baseId && connectionStore.connections.length > 0) {
-    const conn = connectionStore.connections.find(c => c.id === baseId)
-    const fallbackDatabase = selectedDatabase.value || props.initialDatabase || conn?.database || (conn?.db_type === 'sqlite' ? 'main' : null)
-    autocompleteManager.bindModel(model, { connectionId: baseId, database: fallbackDatabase || null, dbType: conn?.db_type || null })
+  const model = editor?.getModel(); const bid = props.connectionId || connectionStore.activeConnectionId
+  if (model && bid && connectionStore.connections.length > 0) {
+    const conn = connectionStore.connections.find(c => c.id === bid)
+    const fb = selectedDatabase.value || props.initialDatabase || conn?.database || (conn?.db_type === 'sqlite' ? 'main' : null)
+    autocompleteManager.bindModel(model, { connectionId: bid, database: fb || null, dbType: conn?.db_type || null })
   }
 }
-async function loadAvailableDatabases() { const baseId = props.connectionId || connectionStore.activeConnectionId; if (!baseId) return; try { const dbs = await metadataApi.getDatabases(baseId); availableDatabases.value = dbs; emit('databasesLoaded', dbs) } catch (e) { console.error(e) } }
+async function loadAvailableDatabases() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; try { availableDatabases.value = await metadataApi.getDatabases(bid); emit('databasesLoaded', availableDatabases.value) } catch (e) { console.error(e) } }
 function handleDatabaseChange(dbName: string) {
-  selectedDatabase.value = dbName
-  updateAutocompleteContext()
-  emit('databaseChange', dbName)
+  selectedDatabase.value = dbName; updateAutocompleteContext(); emit('databaseChange', dbName)
   const notice = t('editor.database_switched', { database: currentDatabaseLabel.value })
-  addMessage('info', notice)
-  message.info(notice)
-  console.info('[SQL] database switched', {
-    connectionId: sessionConnectionId.value,
-    database: dbName || null,
-    displayDatabase: currentDatabaseLabel.value,
-  })
+  addMessage('info', notice); message.info(notice)
 }
+async function setSelectedDatabase(db: string) { if (availableDatabases.value.length === 0) await loadAvailableDatabases(); selectedDatabase.value = db; updateAutocompleteContext(); emit('databaseChange', db) }
 
+// ── 生命周期 ──
 onMounted(() => {
   if (!editorContainer.value) return
   resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, resultPanelHeight.value))
-  editor = monaco.editor.create(editorContainer.value, { value: props.initialValue || t('editor.placeholder'), language: 'sql', theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true, readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers, renderLineHighlight: 'all', quickSuggestions: { other: true, comments: false, strings: false }, suggestOnTriggerCharacters: true, acceptSuggestionOnCommitCharacter: true, acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false })
-  updateAutocompleteContext(); editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || ''); triggerAutoSave() }); editor.onKeyUp((event) => { if (event.keyCode === monaco.KeyCode.Space || event.keyCode === monaco.KeyCode.Period) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) }); editor.addCommand(monaco.KeyCode.F5, () => executeQuery()); editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave());
-  sqlHistory.value = getStorageItem(STORAGE_KEYS.SQL_HISTORY, [])
-  loadAvailableDatabases();
-  window.requestAnimationFrame(() => focusEditor())
+  editor = monaco.editor.create(editorContainer.value, {
+    value: props.initialValue || t('editor.placeholder'), language: 'sql',
+    theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true,
+    readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
+    fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap },
+    scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers,
+    renderLineHighlight: 'all', quickSuggestions: { other: true, comments: false, strings: false },
+    suggestOnTriggerCharacters: true, acceptSuggestionOnCommitCharacter: true,
+    acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false,
+  })
+  updateAutocompleteContext()
+  editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || ''); triggerAutoSave() })
+  editor.onKeyUp(e => { if (e.keyCode === monaco.KeyCode.Space || e.keyCode === monaco.KeyCode.Period) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
+  editor.addCommand(monaco.KeyCode.F5, () => executeQuery())
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave())
+  loadHistory()
+  loadAvailableDatabases()
+  requestAnimationFrame(() => focusEditor())
 })
-let autoSaveTimer: any = null; function triggerAutoSave() { if (autoSaveTimer) clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { handleSave(true) }, 2000) }
-onActivated(() => { window.requestAnimationFrame(() => focusEditor()) })
-onUnmounted(() => { hideExecutionSummary(); hideResultContextMenu(); const model = editor?.getModel(); if (model) autocompleteManager.unbindModel(model); editor?.dispose(); })
+onActivated(() => { requestAnimationFrame(() => focusEditor()) })
+onUnmounted(() => { execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
+
+// ── 设置变更监听 ──
 watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], ([theme]) => {
   if (!editor) return
   monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
-  editor.updateOptions({
-    readOnly: false,
-    domReadOnly: false,
-    fontSize: appStore.editorSettings.fontSize,
-    fontFamily: appStore.editorSettings.fontFamily,
-    minimap: { enabled: appStore.editorSettings.minimap },
-    lineNumbers: appStore.editorSettings.lineNumbers,
-  })
+  editor.updateOptions({ readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, lineNumbers: appStore.editorSettings.lineNumbers })
 }, { immediate: true })
-watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases(); })
-watch(resultPanelVisible, (value) => { setStorageItem(RESULT_PANEL_VISIBLE_KEY, value) })
-watch(resultPanelHeight, (value) => { setStorageItem(RESULT_PANEL_HEIGHT_KEY, value) })
-defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete, handleSave })
+watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases() })
+watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
+watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
+watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
+
+defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete, handleSave })
 </script>
 
 <style scoped>
-.sql-editor-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  background: #ffffff;
-}
+.sql-editor-container { display: flex; flex-direction: column; height: 100%; overflow: hidden; background: #ffffff; }
 .dark-mode .sql-editor-container { background: #1f1f1f; }
-.editor-workbench {
-  display: flex;
-  flex: 1;
-  min-height: 120px;
-  overflow: hidden;
-  background: #ffffff;
-}
-.dark-mode .editor-workbench {
-  background: #1f1f1f;
-}
-.editor-section {
-  flex: 1;
-  min-width: 0;
-  min-height: 100px;
-  overflow: hidden;
-  position: relative;
-  background: inherit;
-}
-.editor-section::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 1px;
-  background: #e5e7eb;
-  pointer-events: none;
-  z-index: 2;
-}
-.dark-mode .editor-section::before {
-  background: #303030;
-}
-.monaco-container {
-  height: 100%;
-  width: 100%;
-  background: transparent;
-}
-.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid #e5e7eb; background: rgba(255, 255, 255, 0.96); box-shadow: 0 -12px 24px rgba(15, 23, 42, 0.06); transition: height 0.18s ease; }
-.dark-mode .result-dock { background: rgba(24, 24, 24, 0.98); border-top-color: #303030; box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.24); }
+.editor-workbench { display: flex; flex: 1; min-height: 120px; overflow: hidden; background: #ffffff; }
+.dark-mode .editor-workbench { background: #1f1f1f; }
+.editor-section { flex: 1; min-width: 0; min-height: 100px; overflow: hidden; position: relative; background: inherit; }
+.editor-section::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 1px; background: #e5e7eb; pointer-events: none; z-index: 2; }
+.dark-mode .editor-section::before { background: #303030; }
+.monaco-container { height: 100%; width: 100%; background: transparent; }
+.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid #e5e7eb; background: rgba(255,255,255,0.96); box-shadow: 0 -12px 24px rgba(15,23,42,0.06); transition: height 0.18s ease; }
+.dark-mode .result-dock { background: rgba(24,24,24,0.98); border-top-color: #303030; box-shadow: 0 -12px 24px rgba(0,0,0,0.24); }
 .result-dock.collapsed { border-top-color: transparent; box-shadow: none; }
 .split-resizer { height: 1px; background: #e5e7eb; cursor: row-resize; display: block; transition: background-color 0.2s; flex-shrink: 0; position: relative; overflow: visible; }
 .split-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -4px; bottom: -4px; cursor: row-resize; }
 .split-resizer:hover { background: #1677ff; }
 .dark-mode .split-resizer { background: #303030; }
 .resizer-handle { display: none; }
-.result-dock-header { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; border-bottom: 1px solid #f0f0f0; background: rgba(248, 250, 252, 0.92); flex-shrink: 0; }
-.dark-mode .result-dock-header { border-bottom-color: #2c2c2c; background: rgba(24, 24, 24, 0.96); }
+.result-dock-header { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; border-bottom: 1px solid #f0f0f0; background: rgba(248,250,252,0.92); flex-shrink: 0; }
+.dark-mode .result-dock-header { border-bottom-color: #2c2c2c; background: rgba(24,24,24,0.96); }
 .result-dock.collapsed .result-dock-header { border-bottom: 0; }
 .execution-summary-tag { margin-inline-end: 0; }
 .execution-summary-text { color: #262626; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1502,8 +630,8 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-tabs :deep(.ant-tabs-content) { flex: 1; overflow: hidden; }
 .result-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
 .result-content { flex: 1; display: flex; flex-direction: column; padding: 12px; overflow: hidden; position: relative; }
-.executing-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.7); display: flex; align-items: center; justify-content: center; z-index: 10; }
-.dark-mode .executing-overlay { background: rgba(0, 0, 0, 0.6); }
+.executing-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.dark-mode .executing-overlay { background: rgba(0,0,0,0.6); }
 .result-info { margin-bottom: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .affected-text { font-size: 12px; color: #8c8c8c; }
 .table-wrapper { flex: 1; min-height: 0; overflow: hidden; }
@@ -1527,36 +655,20 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-tab-label { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; }
 .result-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-tab-close { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: #8c8c8c; font-size: 12px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: background-color 0.2s, color 0.2s; }
-.result-tab-close:hover { background: rgba(0, 0, 0, 0.08); color: #262626; }
+.result-tab-close:hover { background: rgba(0,0,0,0.08); color: #262626; }
 .dark-mode .result-tab-close { color: #a6a6a6; }
-.dark-mode .result-tab-close:hover { background: rgba(255, 255, 255, 0.12); color: #f5f5f5; }
+.dark-mode .result-tab-close:hover { background: rgba(255,255,255,0.12); color: #f5f5f5; }
 .result-context-menu-overlay { position: fixed; inset: 0; z-index: 9999; }
-.result-context-menu { position: absolute; min-width: 140px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16); overflow: hidden; }
-.dark-mode .result-context-menu { background: #1f1f1f; border-color: #303030; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36); }
-.result-cell-text,
-.messages-content,
-:deep(.table-wrapper .vxe-cell),
-:deep(.table-wrapper .vxe-cell--label),
-:deep(.table-wrapper .vxe-body--row .vxe-cell) {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-}
+.result-context-menu { position: absolute; min-width: 140px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; box-shadow: 0 8px 24px rgba(15,23,42,0.16); overflow: hidden; }
+.dark-mode .result-context-menu { background: #1f1f1f; border-color: #303030; box-shadow: 0 8px 24px rgba(0,0,0,0.36); }
+.result-cell-text, .messages-content, :deep(.table-wrapper .vxe-cell), :deep(.table-wrapper .vxe-cell--label), :deep(.table-wrapper .vxe-body--row .vxe-cell) { user-select: text !important; -webkit-user-select: text !important; }
 .null-text { color: #bfbfbf; font-style: italic; }
 :deep(.danger-confirm-content) { display: flex; flex-direction: column; gap: 12px; }
 :deep(.danger-confirm-intro) { margin: 0; color: #595959; }
 :deep(.danger-confirm-list) { margin: 0; padding-left: 18px; color: #262626; }
 :deep(.danger-confirm-list li) { margin-bottom: 8px; line-height: 1.5; word-break: break-word; }
-
 @media (max-width: 768px) {
-  .result-dock-header {
-    flex-wrap: wrap;
-    padding-bottom: 4px;
-    padding-top: 4px;
-  }
-
-  .result-info {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+  .result-dock-header { flex-wrap: wrap; padding-bottom: 4px; padding-top: 4px; }
+  .result-info { align-items: flex-start; flex-direction: column; }
 }
 </style>
