@@ -66,6 +66,19 @@
             <a-menu-divider />
           </template>
 
+          <!-- 视图节点 -->
+          <template v-else-if="selectedNode?.type === 'view'">
+            <a-menu-item v-if="supportProfile.supportsTableDataView" key="view-data"><template #icon><TableOutlined /></template>{{ $t('tree.view_data') }}</a-menu-item>
+            <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_view') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <!-- 其他可刷新节点（schema/tables组等） -->
           <template v-else-if="isRefreshableNode">
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
@@ -414,13 +427,28 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'truncate-table') { await handleTruncateTable() }
   else if (key === 'drop-table') { await handleDropTable() }
   else if (key === 'view-ddl') {
+    const node = selectedNode.value!
+    const isView = node.type === 'view'
     try {
-      const ddl = await metadataApi.getCreateTableDdl({
-        connectionId: props.connectionId!,
-        table: selectedNode.value.metadata.name || selectedNode.value.title,
-        database: selectedNode.value.metadata.database,
-        schema: selectedNode.value.metadata.schema
-      })
+      const name = metaStr(node, 'name') || node.title
+      const db = metaStr(node, 'database')
+      const schema = metaStr(node, 'schema')
+      let ddl: string
+      if (isView) {
+        ddl = await metadataApi.getViewDefinition({
+          connectionId: props.connectionId!,
+          view: name,
+          database: db,
+          schema: schema || undefined,
+        })
+      } else {
+        ddl = await metadataApi.getCreateTableDdl({
+          connectionId: props.connectionId!,
+          table: name,
+          database: db || undefined,
+          schema: schema || undefined,
+        })
+      }
       showDdlModal.value = true
       await nextTick()
       if (ddlEditorContainer.value) {
@@ -452,20 +480,33 @@ async function handleRowCount() {
 // ── 新增功能：生成 SQL 模板 ──
 async function handleGenerateSql(type: string) {
   const node = selectedNode.value!
-  const table = metaStr(node, 'name') || node.title
+  const isView = node.type === 'view'
+  const name = metaStr(node, 'name') || node.title
   const schema = metaStr(node, 'schema')
   const db = metaStr(node, 'database')
-  const fullName = schema ? `${quoteIdent(schema)}.${quoteIdent(table)}` : quoteIdent(table)
+  const fullName = schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name)
   
+  // 视图只支持 SELECT
+  if (isView && type !== 'SELECT') {
+    message.warning(t('tree.view_only_select'))
+    return
+  }
+
   try {
-    const columns = await metadataApi.getTableStructure({
-      connectionId: props.connectionId!,
-      table,
-      database: db || undefined,
-      schema: schema || undefined,
-    })
-    const colNames = columns.map(c => c.name)
-    const colList = colNames.map(c => quoteIdent(c)).join(', ')
+    let colList = '*'
+    let colNames: string[] = []
+    
+    // 尝试获取列信息（视图可能没有列详情）
+    try {
+      const columns = await metadataApi.getTableStructure({
+        connectionId: props.connectionId!,
+        table: name,
+        database: db || undefined,
+        schema: schema || undefined,
+      })
+      colNames = columns.map(c => c.name)
+      colList = colNames.map(c => quoteIdent(c)).join(', ')
+    } catch { /* 列信息获取失败时使用 SELECT * */ }
 
     let sql = ''
     switch (type) {
@@ -507,22 +548,26 @@ async function handleTruncateTable() {
   })
 }
 
-// ── 新增功能：删除表 ──
+// ── 新增功能：删除表/视图 ──
 async function handleDropTable() {
   const node = selectedNode.value!
-  const table = metaStr(node, 'name') || node.title
+  const isView = node.type === 'view'
+  const name = metaStr(node, 'name') || node.title
+  const objType = isView ? 'VIEW' : 'TABLE'
+  const titleKey = isView ? 'tree.drop_view' : 'tree.drop_table'
+  const confirmKey = isView ? 'tree.drop_view_confirm' : 'tree.drop_confirm'
+  const successKey = isView ? 'tree.drop_view_success' : 'tree.drop_success'
   Modal.confirm({
-    title: t('tree.drop_table'),
-    content: t('tree.drop_confirm', { table }),
+    title: t(titleKey),
+    content: t(confirmKey, { name } as Record<string, unknown>),
     okText: t('common.delete'),
     okType: 'danger',
     async onOk() {
       try {
         const schema = metaStr(node, 'schema')
-        const sql = `DROP TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(table)}`
+        const sql = `DROP ${objType} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(name)}`
         await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
-        message.success(t('tree.drop_success', { table }))
-        // 刷新父节点
+        message.success(t(successKey, { name } as Record<string, unknown>))
         const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
         const parentNode = findNodeByKey(treeData.value, parentKey)
         if (parentNode) await handleRefreshNode(parentNode)
