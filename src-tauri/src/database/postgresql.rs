@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 
 use super::traits::*;
 use super::constants::PG_DEFAULT_SCHEMA;
+use super::sql_helpers::{build_where_clause, ParamStyle};
 use crate::utils::sql_sanitize::{escape_pg_id, escape_string_literal};
 
 /// PostgreSQL 驱动状态容器 - 用于内部互斥
@@ -139,50 +140,29 @@ impl PostgreSqlDatabase {
         Ok(Some((config, active_query.cancel_token.clone(), active_query.backend_pid)))
     }
 
-    fn json_to_pg_literal(value: &serde_json::Value) -> String {
+    /// 将 serde_json::Value 转换为 tokio-postgres 的参数类型
+    fn json_to_pg_param(value: &serde_json::Value) -> Box<dyn tokio_postgres::types::ToSql + Sync + Send> {
         match value {
-            serde_json::Value::Null => "NULL".to_string(),
-            serde_json::Value::Bool(v) => {
-                if *v { "TRUE".to_string() } else { "FALSE".to_string() }
-            }
+            serde_json::Value::Null => Box::new(None::<String>),
+            serde_json::Value::Bool(v) => Box::new(*v),
             serde_json::Value::Number(n) => {
                 if let Some(v) = n.as_i64() {
-                    v.to_string()
+                    Box::new(v)
                 } else if let Some(v) = n.as_u64() {
-                    v.to_string()
+                    if let Ok(signed) = i64::try_from(v) {
+                        Box::new(signed)
+                    } else {
+                        Box::new(v.to_string())
+                    }
                 } else if let Some(v) = n.as_f64() {
-                    v.to_string()
+                    Box::new(v)
                 } else {
-                    "NULL".to_string()
+                    Box::new(None::<String>)
                 }
             }
-            serde_json::Value::String(v) => escape_string_literal(v),
-            serde_json::Value::Array(_) | serde_json::Value::Object(_) => escape_string_literal(&value.to_string()),
+            serde_json::Value::String(s) => Box::new(s.clone()),
+            serde_json::Value::Array(_) | serde_json::Value::Object(_) => Box::new(value.to_string()),
         }
-    }
-
-    fn string_to_pg_literal(value: Option<String>) -> String {
-        match value {
-            Some(v) => escape_string_literal(&v),
-            None => "NULL".to_string(),
-        }
-    }
-
-    fn build_literal_where_clause(where_conditions: &HashMap<String, serde_json::Value>) -> String {
-        let mut entries = where_conditions.iter().collect::<Vec<_>>();
-        entries.sort_by(|a, b| a.0.cmp(b.0));
-
-        entries
-            .into_iter()
-            .map(|(column, value)| {
-                if value.is_null() {
-                    format!("{} IS NULL", escape_pg_id(column))
-                } else {
-                    format!("{} = {}", escape_pg_id(column), Self::json_to_pg_literal(value))
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" AND ")
     }
 
     fn format_pg_error(error: tokio_postgres::Error) -> String {
@@ -397,18 +377,38 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn update_data(&self, table: &str, schema: Option<&str>, column: &str, value: Option<String>, where_conditions: HashMap<String, serde_json::Value>) -> DbResult<()> {
         let client = self.get_client_arc().await?;
-
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let where_sql = Self::build_literal_where_clause(&where_conditions);
-        let value_sql = Self::string_to_pg_literal(value);
+
+        // 使用参数化查询: SET 值用 $1, WHERE 条件从 $2 开始
+        let wc = build_where_clause(&where_conditions, escape_pg_id, ParamStyle::DollarNumber(1));
 
         let sql = format!(
-            "UPDATE {}.{} SET {} = {} WHERE {}",
-            escape_pg_id(schema_name), escape_pg_id(table), escape_pg_id(column), value_sql, where_sql
+            "UPDATE {}.{} SET {} = $1 WHERE {}",
+            escape_pg_id(schema_name), escape_pg_id(table), escape_pg_id(column), wc.sql
         );
 
-        debug!(sql = %sql, "执行 PostgreSQL 更新");
-        client.execute(&sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        debug!(sql = %sql, "执行 PostgreSQL 参数化更新");
+
+        // 参数放独立作用域以确保在 await 点之前 drop
+        let result = {
+            let set_param: Box<dyn tokio_postgres::types::ToSql + Sync + Send> = match &value {
+                Some(v) => Box::new(v.clone()),
+                None => Box::new(None::<String>),
+            };
+            let mut owned: Vec<Box<dyn tokio_postgres::types::ToSql + Sync + Send>> = vec![set_param];
+            for pv in &wc.param_values {
+                match pv {
+                    Some(s) => owned.push(Box::new(s.clone())),
+                    None => owned.push(Box::new(None::<String>)),
+                }
+            }
+            let mut refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::with_capacity(owned.len());
+            for p in &owned {
+                refs.push(p.as_ref());
+            }
+            client.execute(&sql, &refs).await
+        };
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         Ok(())
     }
 
@@ -424,34 +424,63 @@ impl DatabaseOperations for PostgreSqlDatabase {
         entries.sort_by(|a, b| a.0.cmp(&b.0));
 
         let columns = entries.iter().map(|(name, _)| escape_pg_id(name)).collect::<Vec<_>>().join(", ");
-        let values = entries.iter().map(|(_, value)| Self::json_to_pg_literal(value)).collect::<Vec<_>>().join(", ");
+
+        // 构建 $1, $2, ... 占位符
+        let placeholders: Vec<String> = (1..=entries.len()).map(|i| format!("${}", i)).collect();
 
         let sql = format!(
             "INSERT INTO {}.{} ({}) VALUES ({})",
             escape_pg_id(schema_name),
             escape_pg_id(table),
             columns,
-            values
+            placeholders.join(", ")
         );
-        debug!(sql = %sql, "执行 PostgreSQL 插入");
 
-        client.execute(&sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        debug!(sql = %sql, "执行 PostgreSQL 参数化插入");
+
+        let result = {
+            let owned: Vec<Box<dyn tokio_postgres::types::ToSql + Sync + Send>> = entries
+                .iter()
+                .map(|(_, value)| Self::json_to_pg_param(value))
+                .collect();
+            let mut refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::with_capacity(owned.len());
+            for p in &owned {
+                refs.push(p.as_ref());
+            }
+            client.execute(&sql, &refs).await
+        };
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         Ok(())
     }
 
     async fn delete_data(&self, table: &str, schema: Option<&str>, where_conditions: HashMap<String, serde_json::Value>) -> DbResult<()> {
         let client = self.get_client_arc().await?;
-
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let where_sql = Self::build_literal_where_clause(&where_conditions);
+
+        let wc = build_where_clause(&where_conditions, escape_pg_id, ParamStyle::DollarNumber(0));
 
         let sql = format!(
             "DELETE FROM {}.{} WHERE {}",
-            escape_pg_id(schema_name), escape_pg_id(table), where_sql
+            escape_pg_id(schema_name), escape_pg_id(table), wc.sql
         );
 
-        debug!(sql = %sql, "执行 PostgreSQL 删除");
-        client.execute(&sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        debug!(sql = %sql, "执行 PostgreSQL 参数化删除");
+
+        let result = {
+            let mut owned: Vec<Box<dyn tokio_postgres::types::ToSql + Sync + Send>> = Vec::new();
+            for pv in &wc.param_values {
+                match pv {
+                    Some(s) => owned.push(Box::new(s.clone())),
+                    None => owned.push(Box::new(None::<String>)),
+                }
+            }
+            let mut refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::with_capacity(owned.len());
+            for p in &owned {
+                refs.push(p.as_ref());
+            }
+            client.execute(&sql, &refs).await
+        };
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         Ok(())
     }
 

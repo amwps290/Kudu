@@ -43,9 +43,6 @@ native-tls = "0.2"
 postgres-native-tls = "0.5"
 futures = "0.3"
 
-# 连接池
-deadpool-postgres = { version = "0.14", optional = true }
-
 # 安全存储
 aes-gcm = "0.10"
 argon2 = "0.5"
@@ -65,7 +62,7 @@ tauri-plugin-clipboard-manager = "2.3.2"
 [features]
 default = ["mysql", "postgresql", "sqlite", "mongodb-support", "redis-support"]
 mysql = ["dep:mysql_async"]
-postgresql = ["deadpool-postgres"]
+postgresql = []
 sqlite = ["dep:rusqlite"]
 mongodb-support = ["mongodb"]
 redis-support = ["redis"]
