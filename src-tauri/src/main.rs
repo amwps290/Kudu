@@ -116,6 +116,12 @@ fn main() {
             }
 
             tracing::info!(elapsed_ms = setup_start.elapsed().as_millis(), total_since_main_ms = startup_begin.elapsed().as_millis(), "Tauri setup 完成");
+
+            // 初始化完成后显示窗口（避免白屏闪烁）
+            if let Some(window) = app.get_webview_window("main") {
+                window.show().ok();
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!());

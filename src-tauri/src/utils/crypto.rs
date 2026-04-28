@@ -8,58 +8,68 @@ use std::sync::OnceLock;
 
 static MASTER_KEY: OnceLock<[u8; 32]> = OnceLock::new();
 
-/// 初始化主密钥（使用机器ID派生确定性密钥）
+/// 初始化主密钥（使用稳定的机器标识派生确定性密钥）
 pub fn initialize_master_key() -> Result<(), String> {
-    MASTER_KEY.get_or_init(|| {
-        // 直接使用机器ID派生密钥，确保确定性和跨重启一致性
-        derive_machine_key()
-    });
+    let machine_id = get_machine_id();
+    MASTER_KEY.get_or_init(|| derive_key_from_id(&machine_id));
     Ok(())
 }
 
-/// 使用机器ID派生密钥（备用方案，确定性派生）
-fn derive_machine_key() -> [u8; 32] {
+fn derive_key_from_id(machine_id: &str) -> [u8; 32] {
     use sha2::{Digest, Sha256};
-    
-    // 获取机器唯一标识
-    let machine_id = get_machine_id();
-    
-    // 使用固定的 salt 确保确定性
     let salt = "DataSmithSaltV1.0.0.0.0.0.0";
-    
-    // 使用 SHA-256 进行确定性密钥派生
     let mut hasher = Sha256::new();
     hasher.update(machine_id.as_bytes());
     hasher.update(salt.as_bytes());
     let hash_result = hasher.finalize();
-    
     let mut key = [0u8; 32];
     key.copy_from_slice(&hash_result);
     key
 }
 
-/// 获取机器唯一标识
+/// 获取机器唯一标识（Windows: 注册表 MachineGuid / Linux: /etc/machine-id / macOS: ioreg / 回退: 主机名）
 fn get_machine_id() -> String {
     #[cfg(target_os = "windows")]
     {
+        // 从注册表读取 MachineGuid（毫秒级，远快于 WMI）
         use std::process::Command;
+        if let Ok(output) = Command::new("reg")
+            .args(&["query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"])
+            .output()
+        {
+            if let Ok(text) = String::from_utf8(output.stdout) {
+                for line in text.lines() {
+                    if let Some(guid) = line.split_whitespace().last() {
+                        if guid.len() >= 32 && guid.contains('-') {
+                            return guid.to_string();
+                        }
+                    }
+                }
+            }
+        }
+        // 回退：WMI（慢，但作为最后手段）
         if let Ok(output) = Command::new("wmic")
             .args(&["csproduct", "get", "uuid"])
             .output()
         {
             if let Ok(id) = String::from_utf8(output.stdout) {
-                return id.lines().nth(1).unwrap_or("default-machine-id").trim().to_string();
+                if let Some(line) = id.lines().nth(1) {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        return trimmed.to_string();
+                    }
+                }
             }
         }
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         if let Ok(id) = std::fs::read_to_string("/etc/machine-id") {
             return id.trim().to_string();
         }
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
@@ -72,12 +82,11 @@ fn get_machine_id() -> String {
             }
         }
     }
-    
-    // 回退到主机名
-    match hostname::get() {
-        Ok(name) => name.to_string_lossy().to_string(),
-        Err(_) => "datasmith-default-machine".to_string(),
-    }
+
+    // 最终回退
+    hostname::get()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "datasmith-default-machine".to_string())
 }
 
 /// 获取主密钥
