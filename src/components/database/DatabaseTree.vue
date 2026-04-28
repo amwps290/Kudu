@@ -23,6 +23,7 @@
     <div v-if="contextMenuVisible" class="context-menu-overlay" @click="hideContextMenu()">
       <div class="context-menu" :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }" @click.stop>
         <a-menu @click="handleMenuClick" size="small">
+          <!-- 数据库节点 -->
           <template v-if="selectedNode?.type === 'database'">
             <template v-if="supportProfile.supportsConnectionScripts">
               <a-menu-item key="new-query"><template #icon><FileTextOutlined /></template>{{ $t('tree.new_query') }}</a-menu-item>
@@ -33,23 +34,28 @@
               <a-menu-divider v-if="supportProfile.supportsBackupRestore" />
             </template>
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('tree.refresh_db') }}</a-menu-item>
+            <a-menu-divider />
           </template>
-          
-          <template v-else-if="['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures', 'schema-indexes'].includes(selectedNode?.type || '')">
-            <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
-          </template>
-          
-          <template v-if="selectedNode?.type === 'table'">
+
+          <!-- 表节点（完整菜单） -->
+          <template v-else-if="selectedNode?.type === 'table'">
             <a-menu-item v-if="supportProfile.supportsTableDataView" key="view-data"><template #icon><TableOutlined /></template>{{ $t('tree.view_data') }}</a-menu-item>
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_ddl') }}</a-menu-item>
             <a-menu-item v-if="supportProfile.supportsTableDesign" key="design-table"><template #icon><EditOutlined /></template>{{ $t('tree.design_table') }}</a-menu-item>
             <a-menu-divider />
-            <a-menu-item key="row-count"><template #icon><NumberOutlined /></template>{{ $t('tree.row_count') }}</a-menu-item>
-            <a-menu-divider />
-            <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
-            <a-menu-item key="gen-insert"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_insert') }}</a-menu-item>
-            <a-menu-item key="gen-update"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_update') }}</a-menu-item>
-            <a-menu-item key="gen-delete"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_delete') }}</a-menu-item>
+            <a-sub-menu key="sub-stats">
+              <template #icon><NumberOutlined /></template>
+              <template #title>{{ $t('tree.submenu_stats') }}</template>
+              <a-menu-item key="row-count">{{ $t('tree.row_count') }}</a-menu-item>
+            </a-sub-menu>
+            <a-sub-menu key="sub-gen-sql">
+              <template #icon><FileTextOutlined /></template>
+              <template #title>{{ $t('tree.submenu_gen_sql') }}</template>
+              <a-menu-item key="gen-select">{{ $t('tree.gen_select') }}</a-menu-item>
+              <a-menu-item key="gen-insert">{{ $t('tree.gen_insert') }}</a-menu-item>
+              <a-menu-item key="gen-update">{{ $t('tree.gen_update') }}</a-menu-item>
+              <a-menu-item key="gen-delete">{{ $t('tree.gen_delete') }}</a-menu-item>
+            </a-sub-menu>
             <a-menu-divider />
             <a-menu-item key="copy-columns"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_columns') }}</a-menu-item>
             <a-menu-divider />
@@ -57,6 +63,13 @@
             <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_table') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <!-- 其他可刷新节点（schema/tables组等） -->
+          <template v-else-if="isRefreshableNode">
+            <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
+            <a-menu-divider />
           </template>
 
           <a-menu-item key="copy-name"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_name') }}</a-menu-item>
@@ -128,6 +141,9 @@ const props = defineProps<{ connectionId: string | null; dbType?: string; search
 const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
+
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures', 'schema-indexes']
+const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()

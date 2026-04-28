@@ -218,6 +218,8 @@
     "drop_confirm": "Are you sure you want to drop table {table}? This will delete the table structure and ALL data permanently!",
     "drop_success": "Table {table} dropped",
     "copy_columns": "Copy Column List",
+    "submenu_stats": "Statistics",
+    "submenu_gen_sql": "Generate SQL",
     "columns": "columns",
     "empty": "(No data)"
   },

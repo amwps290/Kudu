@@ -218,6 +218,8 @@
     "drop_confirm": "确定要删除表 {table} 吗？此操作将删除表结构和所有数据且不可恢复！",
     "drop_success": "表 {table} 已删除",
     "copy_columns": "复制列名列表",
+    "submenu_stats": "统计信息",
+    "submenu_gen_sql": "生成 SQL",
     "columns": "列",
     "empty": "(无数据)"
   },
