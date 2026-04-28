@@ -155,7 +155,7 @@ import { message } from 'ant-design-vue'
 import { ExportOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportApi, queryApi, metadataApi, utilsApi } from '@/api'
-import type { QueryResult } from '@/types/database'
+import type { QueryResult, DatabaseInfo } from '@/types/database'
 import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
 import { getStorageItem, setStorageItem } from '@/utils/storageService'
@@ -195,7 +195,7 @@ const editorContainer = ref<HTMLElement>()
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
 
 // ── 数据库上下文 ──
-const availableDatabases = ref<any[]>([])
+const availableDatabases = ref<DatabaseInfo[]>([])
 const selectedDatabase = ref(props.initialDatabase || '')
 const currentConnection = computed(() =>
   connectionStore.connections.find(c => c.id === (props.connectionId || connectionStore.activeConnectionId)) || null
@@ -314,7 +314,7 @@ async function loadNextPage(index: number) {
         state.hasMore = r.rows.length === state.pagination.pageSize
         queryResults.value[index] = { ...queryResults.value[index], rows: [...queryResults.value[index].rows, ...r.rows] }
       } else { state.hasMore = false }
-    } catch (e: any) {
+    } catch (e: unknown) {
       message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)); state.hasMore = false
     } finally { state.loading = false }
   } else { state.hasMore = false; state.loading = false }
@@ -405,7 +405,7 @@ async function pasteFromSystemClipboard() {
 async function handleSystemClipboardAction(action: 'copy' | 'cut' | 'paste') {
   if (!editor) return
   try { focusEditor(); await new Promise<void>(r => requestAnimationFrame(() => r())); if (action === 'copy') await copyEditorSelectionToSystemClipboard(); else if (action === 'cut') await cutEditorSelectionToSystemClipboard(); else await pasteFromSystemClipboard() }
-  catch (e: any) { message.error(getErrorMessage(e)) }
+  catch (e: unknown) { message.error(getErrorMessage(e)) }
 }
 
 // ── 导出 ──
@@ -428,12 +428,12 @@ async function handleExportResult(index: number, format: string) {
     else if (format === 'json') await exportApi.toJson(result, path)
     else if (format === 'sql') await exportApi.toSql(result, inferInsertTargetTable(index), path)
     message.success(t('data.export_success', { path }))
-  } catch (e: any) { message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)) }
+  } catch (e: unknown) { message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)) }
 }
 function handleExportMenuClick(index: number, { key }: { key: string | number }) { return handleExportResult(index, String(key)) }
 async function handleCopyMenuClick(index: number, { key }: { key: string | number }) {
   try { const a = String(key); if (a === 'cell') await copyResultCell(index); else if (a === 'row') await copyResultRow(index); else if (a === 'result') await copyResultSet(index) }
-  catch (e: any) { message.error(getErrorMessage(e)) }
+  catch (e: unknown) { message.error(getErrorMessage(e)) }
 }
 
 // ── 分隔条拖拽 ──
@@ -446,10 +446,10 @@ function startResize(e: MouseEvent) {
 
 // ── 编辑器操作 ──
 function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
-async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: any) { message.error(getErrorMessage(e)) } }
+async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: unknown) { message.error(getErrorMessage(e)) } }
 function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'empty'; messages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
 function handleQuerySaved() { message.success(t('common.save')) }
-async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: any) { if (!isAuto) message.error(`${t('common.fail')}: ${err}`) } }
+async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: unknown) { if (!isAuto) message.error(`${t('common.fail')}: ${getErrorMessage(err)}`) } }
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 function triggerAutoSave() { if (autoSaveTimer) clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { handleSave(true) }, 2000) }
 async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
@@ -588,7 +588,7 @@ onMounted(() => {
   requestAnimationFrame(() => focusEditor())
 })
 onActivated(() => { requestAnimationFrame(() => focusEditor()) })
-onUnmounted(() => { execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
+onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
 watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], ([theme]) => {

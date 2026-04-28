@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, computed, ref, onMounted, nextTick } from 'vue'
+import { h, computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   DatabaseOutlined, PlusOutlined, LinkOutlined, EditOutlined, DeleteOutlined,
@@ -304,12 +304,19 @@ function getStatusBadge(id: string) {
   return s === 'connected' ? 'success' : s === 'connecting' ? 'processing' : s === 'error' ? 'error' : 'default'
 }
 
+let escapeHandler: ((e: KeyboardEvent) => void) | null = null
+
 onMounted(async () => {
   const finishFetchConnections = createStartupTimer('ConnectionPanel.fetchConnections')
   await connectionStore.fetchConnections()
   await finishFetchConnections(`count=${connectionStore.connections.length}`)
   await logStartupStage('ConnectionPanel ready')
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideContextMenu() })
+  escapeHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') hideContextMenu() }
+  document.addEventListener('keydown', escapeHandler)
+})
+
+onUnmounted(() => {
+  if (escapeHandler) document.removeEventListener('keydown', escapeHandler)
 })
 </script>
 
