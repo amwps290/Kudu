@@ -5,6 +5,7 @@ import type { QueryBatchExecutionResult } from '@/api/query'
 import { queryApi } from '@/api'
 import { createIdleExecutionState, type SqlExecutionState, type SqlExecutionStatus } from '@/types/sqlExecution'
 import { analyzeSqlSafety, analyzeSqlWrites, type SqlDangerIssue } from '@/utils/sqlSafety'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 export interface ExecutionCallbacks {
   /** 编辑器 SQL 获取器 */
@@ -32,24 +33,6 @@ export interface ResultPageState {
   loading: boolean
   hasMore: boolean
   sql: string
-}
-
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error
-  if (error instanceof Error) return error.message
-  if (error && typeof error === 'object') {
-    const messageValue = Reflect.get(error, 'message')
-    if (typeof messageValue === 'string' && messageValue.trim()) return messageValue
-    const errorValue = Reflect.get(error, 'error')
-    if (typeof errorValue === 'string' && errorValue.trim()) return errorValue
-    const causeValue = Reflect.get(error, 'cause')
-    if (causeValue) {
-      const causeMessage = getErrorMessage(causeValue)
-      if (causeMessage && causeMessage !== '[object Object]') return causeMessage
-    }
-    try { return JSON.stringify(error) } catch { return String(error) }
-  }
-  return String(error)
 }
 
 function isCancelledMessage(messageText: string) {

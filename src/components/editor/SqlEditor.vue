@@ -160,6 +160,7 @@ import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
 import { getStorageItem, setStorageItem } from '@/utils/storageService'
 import { readClipboardText, writeClipboardText } from '@/utils/clipboard'
+import { getErrorMessage } from '@/utils/errorHandler'
 import SqlToolbar from '@/components/layout/SqlToolbar.vue'
 import SaveQueryDialog from './SaveQueryDialog.vue'
 import SqlSnippetsManager from './SqlSnippetsManager.vue'
@@ -433,19 +434,6 @@ function handleExportMenuClick(index: number, { key }: { key: string | number })
 async function handleCopyMenuClick(index: number, { key }: { key: string | number }) {
   try { const a = String(key); if (a === 'cell') await copyResultCell(index); else if (a === 'row') await copyResultRow(index); else if (a === 'result') await copyResultSet(index) }
   catch (e: any) { message.error(getErrorMessage(e)) }
-}
-
-// ── 通用工具 ──
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'string') return error
-  if (error instanceof Error) return error.message
-  if (error && typeof error === 'object') {
-    const msg = Reflect.get(error, 'message'); if (typeof msg === 'string' && msg.trim()) return msg
-    const err = Reflect.get(error, 'error'); if (typeof err === 'string' && err.trim()) return err
-    const cause = Reflect.get(error, 'cause'); if (cause) { const cm = getErrorMessage(cause); if (cm && cm !== '[object Object]') return cm }
-    try { return JSON.stringify(error) } catch { return String(error) }
-  }
-  return String(error)
 }
 
 // ── 分隔条拖拽 ──

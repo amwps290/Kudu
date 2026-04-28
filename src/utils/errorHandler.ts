@@ -1,10 +1,31 @@
 import { message } from 'ant-design-vue'
 
+/**
+ * 从各种错误对象中提取可读的错误消息
+ */
+export function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object') {
+    const msg = Reflect.get(error, 'message')
+    if (typeof msg === 'string' && msg.trim()) return msg
+    const err = Reflect.get(error, 'error')
+    if (typeof err === 'string' && err.trim()) return err
+    const cause = Reflect.get(error, 'cause')
+    if (cause) {
+      const cm = getErrorMessage(cause)
+      if (cm && cm !== '[object Object]') return cm
+    }
+    try { return JSON.stringify(error) } catch { return String(error) }
+  }
+  return String(error)
+}
+
 export interface ErrorHandlerOptions {
   showMessage?: boolean
   messagePrefix?: string
   rethrow?: boolean
-  onError?: (error: any) => void
+  onError?: (error: unknown) => void
 }
 
 /**

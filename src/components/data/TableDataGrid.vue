@@ -44,7 +44,7 @@
         </a-button>
         <a-dropdown>
           <template #overlay>
-            <a-menu @click="handleExport">
+            <a-menu @click="(info: any) => handleExport(info)">
               <a-menu-item key="csv">{{ $t('data.export_csv') }}</a-menu-item>
               <a-menu-item key="json">{{ $t('data.export_json') }}</a-menu-item>
               <a-menu-item key="sql">{{ $t('data.export_sql') }}</a-menu-item>
@@ -86,7 +86,7 @@
         @checkbox-all="handleCheckboxChange"
         @scroll="handleScroll"
         @edit-closed="handleEditClosed"
-        @cell-click="handleCellClick"
+        @cell-click="(params: any) => handleCellClick(params)"
         :cell-class-name="getCellClassName"
       >
         <template #cell_default="{ row, column }">
@@ -199,35 +199,44 @@ import { useConnectionStore } from '@/stores/connection'
 import InsertRecordDialog from '@/components/database/InsertRecordDialog.vue'
 import ImportDataDialog from '@/components/database/ImportDataDialog.vue'
 import { writeClipboardText } from '@/utils/clipboard'
-import { buildInitialColumnValue, hasColumnDefault, normalizeInsertValue } from '@/utils/tableColumns'
+import { buildInitialColumnValue, normalizeInsertValue } from '@/utils/tableColumns'
+import { quoteIdentifier, hasColumnDefault, buildInsertSql, buildUpdateSql, buildDeleteSql } from '@/utils/sqlHelpers'
+import { getErrorMessage } from '@/utils/errorHandler'
 import type { VxeGridProps, VxeGridInstance, VxeGridEvents } from 'vxe-table'
 import type { ColumnInfo, QueryResult } from '@/types/database'
 
-interface GridRow extends Record<string, any> {
+// ── 类型定义 ──
+interface GridCell {
+  row: GridRow
+  column: { field?: string; title?: string; type?: string }
+}
+
+interface GridRow {
   __rowIndex: number
-  _originalData: Record<string, any>
+  _originalData: Record<string, unknown>
   _isNew?: boolean
   _isDeletedPending?: boolean
   _newTouchedFields?: Record<string, boolean>
+  [field: string]: unknown
 }
 
 interface InsertPlanItem {
   rowIndex: number
-  data: Record<string, any>
+  data: Record<string, unknown>
   sql: string
 }
 
 interface UpdatePlanItem {
   rowIndex: number
   field: string
-  value: any
-  whereConditions: Record<string, any>
+  value: unknown
+  whereConditions: Record<string, unknown>
   sql: string
 }
 
 interface DeletePlanItem {
   rowIndex: number
-  whereConditions: Record<string, any>
+  whereConditions: Record<string, unknown>
   sql: string
 }
 
@@ -244,7 +253,7 @@ const gridRef = ref<VxeGridInstance>()
 
 const loading = ref(false)
 const hasMore = ref(true)
-const selectedRowKeys = ref<any[]>([])
+const selectedRowKeys = ref<number[]>([])
 const showFilterDialog = ref(false)
 const showInsertDialog = ref(false)
 const showImportDialog = ref(false)
@@ -258,7 +267,7 @@ const previewSql = ref('')
 const previewPlan = ref<SubmitPreviewPlan | null>(null)
 
 // 变更追踪状态
-const pendingEdits = reactive<Record<number, Record<string, { old: any, new: any }>>>({})
+const pendingEdits = reactive<Record<number, Record<string, { old: unknown; new: unknown }>>>({})
 const newRows = computed(() => ((gridOptions.data || []) as GridRow[]).filter(row => row._isNew))
 const deletedRows = computed(() => ((gridOptions.data || []) as GridRow[]).filter(row => row._isDeletedPending))
 const hasChanges = computed(() => Object.keys(pendingEdits).length > 0 || newRows.value.length > 0 || deletedRows.value.length > 0)
@@ -269,7 +278,7 @@ const changeCount = computed(() => {
 
 // 查看器状态
 const showViewer = ref(false)
-const selectedCell = ref<any>(null)
+const selectedCell = ref<GridCell | null>(null)
 const viewerValue = ref('')
 const isViewerSetNull = ref(false)
 
@@ -278,11 +287,11 @@ const pagination = reactive({ current: 1, pageSize: 100 })
 const currentConnection = computed(() => connectionStore.connections.find(c => c.id === props.connectionId) || null)
 const isReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
 const dbType = computed(() => currentConnection.value?.db_type || 'mysql')
-const quote = (n: string) => dbType.value === 'sqlite' || dbType.value === 'postgresql' ? `"${n}"` : `\`${n}\``
-const tableRef = () => {
-  if (dbType.value === 'postgresql') return `${quote(props.schema || 'public')}.${quote(props.table)}`
-  return quote(props.table)
-}
+const tableRef = computed(() => {
+  const schema = dbType.value === 'postgresql' ? (props.schema || 'public') : null
+  const q = (n: string) => quoteIdentifier(n, dbType.value)
+  return schema ? `${q(schema)}.${q(props.table)}` : q(props.table)
+})
 
 function warnReadOnly() {
   message.warning(t('data.read_only_blocked'))
@@ -310,7 +319,7 @@ const handleScroll: VxeGridEvents.Scroll = ({ isY, scrollTop, bodyHeight, scroll
   }
 }
 
-function getCellClassName({ row, column }: any) {
+function getCellClassName({ row, column }: { row: GridRow; column: { field: string } }) {
   if (row._isDeletedPending) {
     return 'cell-pending-delete'
   }
@@ -324,7 +333,7 @@ function getCellClassName({ row, column }: any) {
   return ''
 }
 
-function handleEditClosed({ row, column }: any) {
+function handleEditClosed({ row, column }: { row: GridRow; column: { field: string } }) {
   if (isReadOnly.value) return
   if (row._isDeletedPending) return
   recordChange(row, column.field, row[column.field])
@@ -335,7 +344,7 @@ function handleEditClosed({ row, column }: any) {
   }
 }
 
-function recordChange(row: any, field: string, newVal: any) {
+function recordChange(row: GridRow, field: string, newVal: unknown) {
   if (row._isNew) {
     if (!row._newTouchedFields) row._newTouchedFields = {}
     row._newTouchedFields[field] = true
@@ -357,18 +366,24 @@ function recordChange(row: any, field: string, newVal: any) {
   }
 }
 
-function handleCellClick({ row, column }: any) {
+function handleCellClick(params: Record<string, unknown>) {
+  const row = params.row as GridRow
+  const column = params.column as Record<string, unknown>
   if (column.type === 'checkbox' || column.type === 'seq' || row._isDeletedPending) return
-  selectedCell.value = { row, column }
-  viewerValue.value = row[column.field] === null ? '' : String(row[column.field])
-  isViewerSetNull.value = row[column.field] === null
+  const field = String(column.field || '')
+  const title = String(column.title || '')
+  selectedCell.value = { row, column: { field, title, type: column.type as string | undefined } }
+  viewerValue.value = row[field] === null ? '' : String(row[field])
+  isViewerSetNull.value = row[field] === null
 }
 
 function applyViewerSelection(row: GridRow, field: string) {
-  const gridColumn = (gridOptions.columns || []).find((column: any) => column.field === field)
+  const gridColumn = (gridOptions.columns || []).find(column => column.field === field)
   if (!gridColumn) return
 
-  selectedCell.value = { row, column: gridColumn }
+  const colField = String(gridColumn.field || '')
+  const colTitle = String(gridColumn.title || '')
+  selectedCell.value = { row, column: { field: colField, title: colTitle, type: (gridColumn as Record<string, unknown>).type as string | undefined } }
   viewerValue.value = row[field] === null ? '' : String(row[field])
   isViewerSetNull.value = row[field] === null
   showViewer.value = true
@@ -378,20 +393,22 @@ function handleViewerValueChange() {
   if (isReadOnly.value) return
   if (!selectedCell.value) return
   const { row, column } = selectedCell.value
+  const colField = column.field!
   if (row._isDeletedPending) return
-  row[column.field] = viewerValue.value
-  recordChange(row, column.field, viewerValue.value)
+  row[colField] = viewerValue.value
+  recordChange(row, colField, viewerValue.value)
 }
 
 function handleViewerNullChange() {
   if (isReadOnly.value) return
   if (!selectedCell.value) return
   const { row, column } = selectedCell.value
+  const colField = column.field!
   if (row._isDeletedPending) return
   const newVal = isViewerSetNull.value ? null : ''
-  row[column.field] = newVal
+  row[colField] = newVal
   viewerValue.value = newVal === null ? '' : ''
-  recordChange(row, column.field, newVal)
+  recordChange(row, colField, newVal)
 }
 
 function formatJsonInViewer() {
@@ -413,7 +430,7 @@ function getSelectedRowPayload() {
   const row = selectedCell.value?.row as GridRow | undefined
   if (!row) return null
 
-  const payload = tableColumns.value.reduce<Record<string, any>>((acc, column) => {
+  const payload = tableColumns.value.reduce<Record<string, unknown>>((acc, column) => {
     acc[column.name] = row[column.name] ?? null
     return acc
   }, {})
@@ -439,8 +456,7 @@ async function copySelectedRowAsInsertSql() {
     return
   }
 
-  const columns = Object.keys(payload)
-  const sql = `INSERT INTO ${tableRef()} (${columns.map(name => quote(name)).join(', ')}) VALUES (${columns.map(name => escapeSqlLiteral(payload[name])).join(', ')});`
+  const sql = buildInsertSql(tableRef.value, payload, dbType.value)
   await writeClipboardText(sql)
   message.success(t('data.copy_row_insert_sql_success'))
 }
@@ -499,7 +515,7 @@ function clearViewerIfNeeded(rowIndexes?: Set<number>) {
   }
 }
 
-function createGridRow(rowData: Record<string, any>, options: { isNew?: boolean } = {}): GridRow {
+function createGridRow(rowData: Record<string, unknown>, options: { isNew?: boolean } = {}): GridRow {
   const row: GridRow = {
     __rowIndex: nextRowIndex.value++,
     ...rowData,
@@ -529,7 +545,7 @@ function buildGridColumns(columnNames: string[]): NonNullable<VxeGridProps['colu
 }
 
 function buildInsertPayload(row: GridRow) {
-  const data: Record<string, any> = {}
+  const data: Record<string, unknown> = {}
   const missingRequired: string[] = []
 
   for (const column of tableColumns.value) {
@@ -561,21 +577,6 @@ function buildInsertPayload(row: GridRow) {
   return { data, missingRequired }
 }
 
-function escapeSqlLiteral(value: any) {
-  if (value === null || value === undefined) return 'NULL'
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL'
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
-  if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`
-  return `'${String(value).replace(/'/g, "''")}'`
-}
-
-function buildWhereSql(whereConditions: Record<string, any>) {
-  return Object.entries(whereConditions)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([field, value]) => value === null ? `${quote(field)} IS NULL` : `${quote(field)} = ${escapeSqlLiteral(value)}`)
-    .join(' AND ')
-}
-
 function createPreviewPlan(): SubmitPreviewPlan {
   const plan: SubmitPreviewPlan = { inserts: [], updates: [], deletes: [] }
 
@@ -594,8 +595,7 @@ function createPreviewPlan(): SubmitPreviewPlan {
       throw new Error(t('data.insert_empty_error'))
     }
 
-    const columns = Object.keys(data)
-    const sql = `INSERT INTO ${tableRef()} (${columns.map(name => quote(name)).join(', ')}) VALUES (${columns.map(name => escapeSqlLiteral(data[name])).join(', ')});`
+    const sql = buildInsertSql(tableRef.value, data, dbType.value)
     plan.inserts.push({ rowIndex: row.__rowIndex, data, sql })
   }
 
@@ -604,7 +604,7 @@ function createPreviewPlan(): SubmitPreviewPlan {
     const row = ((gridOptions.data || []) as GridRow[]).find(item => item.__rowIndex === rowIndex)
     if (!row || row._isDeletedPending) continue
 
-    const whereConditions: Record<string, any> = {}
+    const whereConditions: Record<string, unknown> = {}
     primaryKeys.value.forEach(pk => {
       whereConditions[pk] = row._originalData[pk]
     })
@@ -615,13 +615,13 @@ function createPreviewPlan(): SubmitPreviewPlan {
         field,
         value: change.new,
         whereConditions,
-        sql: `UPDATE ${tableRef()} SET ${quote(field)} = ${escapeSqlLiteral(change.new)} WHERE ${buildWhereSql(whereConditions)};`
+        sql: buildUpdateSql(tableRef.value, field, change.new, whereConditions, dbType.value),
       })
     }
   }
 
   for (const row of deletedRows.value) {
-    const whereConditions: Record<string, any> = {}
+    const whereConditions: Record<string, unknown> = {}
     primaryKeys.value.forEach(pk => {
       whereConditions[pk] = row._originalData[pk]
     })
@@ -629,7 +629,7 @@ function createPreviewPlan(): SubmitPreviewPlan {
     plan.deletes.push({
       rowIndex: row.__rowIndex,
       whereConditions,
-      sql: `DELETE FROM ${tableRef()} WHERE ${buildWhereSql(whereConditions)};`
+      sql: buildDeleteSql(tableRef.value, whereConditions, dbType.value),
     })
   }
 
@@ -660,7 +660,7 @@ async function submitChanges() {
     previewPlan.value = plan
     previewSql.value = [...plan.inserts, ...plan.updates, ...plan.deletes].map(item => item.sql).join('\n\n')
     showPreviewDialog.value = true
-  } catch (e: any) {
+  } catch (e: unknown) {
     message.error(t('data.save_fail', { error: formatInsertError(e) }))
   }
 }
@@ -726,13 +726,9 @@ async function confirmSubmitChanges() {
     }
 
     message.success(t('data.save_success'))
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (hasAppliedChanges) {
-      try {
-        await doRefresh()
-      } catch {
-        // 忽略刷新失败，保留原始错误提示
-      }
+      try { await doRefresh() } catch { /* ignore */ }
     }
     message.error(t('data.save_fail', { error: formatInsertError(e) }))
   } finally {
@@ -746,7 +742,7 @@ function discardChanges() {
     onOk() {
       for (const [rowIndexStr, fields] of Object.entries(pendingEdits)) {
         const rowIndex = Number(rowIndexStr)
-        const row = gridOptions.data?.find((r: any) => r.__rowIndex === rowIndex)
+        const row = (gridOptions.data as GridRow[] | undefined)?.find(r => r.__rowIndex === rowIndex)
         if (row) { for (const [field, change] of Object.entries(fields)) { row[field] = change.old } }
       }
       gridOptions.data = ((gridOptions.data || []) as GridRow[]).filter(row => !row._isNew)
@@ -756,8 +752,9 @@ function discardChanges() {
       if (selectedCell.value?.row._isNew) {
         clearViewerIfNeeded()
       } else if (selectedCell.value) {
-        viewerValue.value = selectedCell.value.row[selectedCell.value.column.field] === null ? '' : String(selectedCell.value.row[selectedCell.value.column.field])
-        isViewerSetNull.value = selectedCell.value.row[selectedCell.value.column.field] === null
+        const cf = selectedCell.value.column.field!
+        viewerValue.value = selectedCell.value.row[cf] === null ? '' : String(selectedCell.value.row[cf])
+        isViewerSetNull.value = selectedCell.value.row[cf] === null
       }
       clearSelection()
     }
@@ -795,7 +792,7 @@ async function loadData(isAppend: boolean) {
   try {
     await ensureTableStructure()
     const offset = (pagination.current - 1) * pagination.pageSize
-    let sql = `SELECT * FROM ${tableRef()}`
+    let sql = `SELECT * FROM ${tableRef.value}`
     if (filterCondition.value) sql += ` WHERE ${filterCondition.value}`
     sql += ` LIMIT ${pagination.pageSize} OFFSET ${offset}`
     const results = await queryApi.executeQuery(props.connectionId, sql, props.database)
@@ -819,8 +816,8 @@ async function loadData(isAppend: boolean) {
       const appendedRows = result.rows.map(row => createGridRow(row))
       gridOptions.data = [...(gridOptions.data || []), ...appendedRows]
     }
-  } catch (e: any) { 
-    message.error(e); pagination.current = Math.max(1, pagination.current - 1)
+  } catch (e: unknown) { 
+    message.error(getErrorMessage(e)); pagination.current = Math.max(1, pagination.current - 1)
   } finally { 
     loading.value = false; gridOptions.loading = false 
   }
@@ -840,17 +837,18 @@ async function ensureTableStructure() {
 
 function handleCheckboxChange() {
   const records = gridRef.value?.getCheckboxRecords() || []
-  selectedRowKeys.value = records.map((r: any) => r.__rowIndex)
+  selectedRowKeys.value = records.map(r => r.__rowIndex)
 }
 
 function applyFilter() { showFilterDialog.value = false; refresh() }
 
-function findFirstEditableColumn() {
+function findFirstEditableColumn(): { field: string; title: string } | null {
   const editableName = tableColumns.value.find(column => !column.is_auto_increment)?.name
   if (!editableName) return null
 
-  const gridColumn = (gridOptions.columns || []).find((column: any) => column.field === editableName)
-  return gridColumn || { field: editableName, title: editableName }
+  const gc = (gridOptions.columns || []).find(c => c.field === editableName)
+  if (!gc) return { field: editableName, title: editableName }
+  return { field: String(gc.field || ''), title: String(gc.title || '') }
 }
 
 async function focusNewRow(row: GridRow) {
@@ -875,7 +873,7 @@ async function addRow() {
   }
 
   await ensureTableStructure()
-  const rowData = tableColumns.value.reduce<Record<string, any>>((acc, column) => {
+  const rowData = tableColumns.value.reduce<Record<string, unknown>>((acc, column) => {
     acc[column.name] = buildInitialColumnValue(column)
     return acc
   }, {})
@@ -885,13 +883,13 @@ async function addRow() {
   await focusNewRow(newRow)
 }
 
-function findInsertedRow(payload: Record<string, any>) {
+function findInsertedRow(payload: Record<string, unknown>) {
   return ((gridOptions.data || []) as GridRow[]).find(row =>
     Object.entries(payload).every(([field, value]) => JSON.stringify(row[field] ?? null) === JSON.stringify(value ?? null))
   ) || null
 }
 
-async function handleRecordInserted(payload?: Record<string, any>) {
+async function handleRecordInserted(payload?: Record<string, unknown>) {
   showInsertDialog.value = false
   await doRefresh()
   if (!payload || Object.keys(payload).length === 0) return
@@ -941,14 +939,15 @@ async function deleteSelected() {
         clearSelection()
         clearViewerIfNeeded(new Set(records.map(record => record.__rowIndex)))
         message.success(t('data.delete_staged'))
-      } catch (e: any) { message.error(e) }
+      } catch (e: unknown) { message.error(getErrorMessage(e)) }
     }
   })
 }
 
-async function handleExport({ key }: any) {
+async function handleExport(_info: { key: string | number }) {
+  const key = String(_info.key)
   try {
-    const sql = `SELECT * FROM ${tableRef()}${filterCondition.value ? ' WHERE ' + filterCondition.value : ''}`
+    const sql = `SELECT * FROM ${tableRef.value}${filterCondition.value ? ' WHERE ' + filterCondition.value : ''}`
     const path = await save({
       defaultPath: `${props.table}.${key}`,
       filters: [{ name: key.toUpperCase(), extensions: [key] }],
@@ -969,7 +968,7 @@ async function handleExport({ key }: any) {
     }
 
     message.success(t('data.export_success', { path }))
-  } catch (e: any) { message.error(e) }
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
 }
 
 watch(
