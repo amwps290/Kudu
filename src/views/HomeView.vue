@@ -23,6 +23,7 @@
             @design-table="handleDesignTable"
             @view-structure="handleViewStructure"
             @open-scripts="handleOpenSavedScript"
+            @generate-sql="handleGeneratedSql"
           />
         </div>
       </div>
@@ -330,6 +331,9 @@ interface DatabaseEventData { connectionId?: string; name?: string }
 interface QueryBuilderExecutePayload { sql: string; database?: string }
 
 function handleOpenSavedScript(data: QueryEventData) { handleNewQuery(data) }
+function handleGeneratedSql(data: { sql: string; database: string; connectionId: string }) {
+  handleNewQuery({ connectionId: data.connectionId, database: data.database, content: data.sql })
+}
 function handleViewStructure(data: TableEventData) {
   const key = `structure-${data.connectionId}-${data.database}-${data.table}`
   if (tabExists(key)) { mainTabKey.value = key; return }

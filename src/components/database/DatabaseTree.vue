@@ -44,6 +44,18 @@
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_ddl') }}</a-menu-item>
             <a-menu-item v-if="supportProfile.supportsTableDesign" key="design-table"><template #icon><EditOutlined /></template>{{ $t('tree.design_table') }}</a-menu-item>
             <a-menu-divider />
+            <a-menu-item key="row-count"><template #icon><NumberOutlined /></template>{{ $t('tree.row_count') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
+            <a-menu-item key="gen-insert"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_insert') }}</a-menu-item>
+            <a-menu-item key="gen-update"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_update') }}</a-menu-item>
+            <a-menu-item key="gen-delete"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_delete') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="copy-columns"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_columns') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="truncate-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.truncate_table') }}</a-menu-item>
+            <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_table') }}</a-menu-item>
+            <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
           </template>
 
@@ -91,11 +103,11 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   TableOutlined, ReloadOutlined, CopyOutlined,
-  FolderOpenOutlined, EditOutlined,
-  FileTextOutlined, CodeOutlined, DownloadOutlined, UploadOutlined
+  FolderOpenOutlined, EditOutlined, NumberOutlined,
+  FileTextOutlined, CodeOutlined, DownloadOutlined, UploadOutlined, DeleteOutlined
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
-import { metadataApi, workspaceApi, utilsApi } from '@/api'
+import { message, Modal } from 'ant-design-vue'
+import { metadataApi, workspaceApi, utilsApi, queryApi } from '@/api'
 import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'
 import TreeNodeItem from './TreeNodeItem.vue'
@@ -113,7 +125,7 @@ interface TreeNode {
 
 const { t } = useI18n()
 const props = defineProps<{ connectionId: string | null; dbType?: string; searchValue?: string; }>()
-const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts'])
+const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 
@@ -328,6 +340,11 @@ function getNodeDatabaseName(node: TreeNode) {
   return node.metadata?.name || node.metadata?.database || ''
 }
 
+/** 安全地从节点 metadata 中提取字符串值 */
+function metaStr(node: TreeNode, key: string): string {
+  return String((node.metadata as Record<string, unknown>)?.[key] || '')
+}
+
 async function refreshDatabaseNode(databaseName: string) {
   const node = treeData.value.find(item => item.type === 'database' && getNodeDatabaseName(item) === databaseName)
   if (!node) {
@@ -372,6 +389,14 @@ async function handleMenuClick({ key }: { key: string | number }) {
       schema: selectedNode.value.metadata.schema 
     })
   }
+  else if (key === 'row-count') { await handleRowCount() }
+  else if (key === 'gen-select') { await handleGenerateSql('SELECT') }
+  else if (key === 'gen-insert') { await handleGenerateSql('INSERT') }
+  else if (key === 'gen-update') { await handleGenerateSql('UPDATE') }
+  else if (key === 'gen-delete') { await handleGenerateSql('DELETE') }
+  else if (key === 'copy-columns') { await handleCopyColumns() }
+  else if (key === 'truncate-table') { await handleTruncateTable() }
+  else if (key === 'drop-table') { await handleDropTable() }
   else if (key === 'view-ddl') {
     try {
       const ddl = await metadataApi.getCreateTableDdl({
@@ -389,6 +414,141 @@ async function handleMenuClick({ key }: { key: string | number }) {
       }
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
+}
+
+// ── 新增功能：行数统计 ──
+async function handleRowCount() {
+  const node = selectedNode.value!
+  const table = metaStr(node, 'name') || node.title
+  const schema = metaStr(node, 'schema')
+  const db = metaStr(node, 'database')
+  try {
+    const sql = schema
+      ? `SELECT COUNT(*) AS cnt FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+      : `SELECT COUNT(*) AS cnt FROM ${quoteIdent(table)}`
+    const results = await queryApi.executeQuery(props.connectionId!, sql, db || null)
+    const row = results[0]?.rows?.[0] as Record<string, unknown> | undefined
+    const count = row?.cnt ?? row?.['COUNT(*)'] ?? '?'
+    message.success(`${table}: ${count} ${t('tree.rows')}`)
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
+}
+
+// ── 新增功能：生成 SQL 模板 ──
+async function handleGenerateSql(type: string) {
+  const node = selectedNode.value!
+  const table = metaStr(node, 'name') || node.title
+  const schema = metaStr(node, 'schema')
+  const db = metaStr(node, 'database')
+  const fullName = schema ? `${quoteIdent(schema)}.${quoteIdent(table)}` : quoteIdent(table)
+  
+  try {
+    const columns = await metadataApi.getTableStructure({
+      connectionId: props.connectionId!,
+      table,
+      database: db || undefined,
+      schema: schema || undefined,
+    })
+    const colNames = columns.map(c => c.name)
+    const colList = colNames.map(c => quoteIdent(c)).join(', ')
+
+    let sql = ''
+    switch (type) {
+      case 'SELECT':
+        sql = `SELECT ${colList}\nFROM ${fullName}\nWHERE /* condition */;`
+        break
+      case 'INSERT':
+        sql = `INSERT INTO ${fullName} (${colList})\nVALUES (${colNames.map(() => '/* value */').join(', ')});`
+        break
+      case 'UPDATE':
+        sql = `UPDATE ${fullName}\nSET ${colNames.map(c => `${quoteIdent(c)} = /* value */`).join(',\n    ')}\nWHERE /* condition */;`
+        break
+      case 'DELETE':
+        sql = `DELETE FROM ${fullName}\nWHERE /* condition */;`
+        break
+    }
+    emit('generate-sql', { sql, database: db, connectionId: props.connectionId })
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
+}
+
+// ── 新增功能：清空表 ──
+async function handleTruncateTable() {
+  const node = selectedNode.value!
+  const table = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: t('tree.truncate_table'),
+    content: t('tree.truncate_confirm', { table }),
+    okText: t('common.ok'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const schema = metaStr(node, 'schema')
+        const sql = `TRUNCATE TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(table)}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.truncate_success', { table }))
+        await refreshDatabaseNode(metaStr(node, 'database'))
+      } catch (e: unknown) { message.error(getErrorMessage(e)) }
+    }
+  })
+}
+
+// ── 新增功能：删除表 ──
+async function handleDropTable() {
+  const node = selectedNode.value!
+  const table = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: t('tree.drop_table'),
+    content: t('tree.drop_confirm', { table }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const schema = metaStr(node, 'schema')
+        const sql = `DROP TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(table)}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.drop_success', { table }))
+        // 刷新父节点
+        const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
+        const parentNode = findNodeByKey(treeData.value, parentKey)
+        if (parentNode) await handleRefreshNode(parentNode)
+      } catch (e: unknown) { message.error(getErrorMessage(e)) }
+    }
+  })
+}
+
+function findNodeByKey(nodes: TreeNode[], key: string): TreeNode | null {
+  for (const n of nodes) {
+    if (n.key === key) return n
+    if (n.children) {
+      const found = findNodeByKey(n.children, key)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function quoteIdent(name: string): string {
+  const dbType = props.dbType || 'mysql'
+  if (dbType === 'sqlite' || dbType === 'postgresql') return `"${name}"`
+  return `\`${name}\``
+}
+
+// ── 新增功能：复制列名列表 ──
+async function handleCopyColumns() {
+  const node = selectedNode.value!
+  const table = metaStr(node, 'name') || node.title
+  const schema = metaStr(node, 'schema')
+  const db = metaStr(node, 'database')
+  try {
+    const columns = await metadataApi.getTableStructure({
+      connectionId: props.connectionId!,
+      table,
+      database: db || undefined,
+      schema: schema || undefined,
+    })
+    const colList = columns.map(c => c.name).join(', ')
+    await writeClipboardText(colList)
+    message.success(`${t('tree.copy_columns')}: ${columns.length} ${t('tree.columns')}`)
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
 }
 
 function handleDatabaseBacked() {
