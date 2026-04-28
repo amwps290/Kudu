@@ -65,7 +65,7 @@ watch(() => props.open, async (val) => {
     loading.value = true
     try {
       info.value = await redisApi.getInfo(props.connectionId)
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(`获取服务器信息失败: ${error}`)
     } finally {
       loading.value = false
