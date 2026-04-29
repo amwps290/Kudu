@@ -16,7 +16,7 @@
           />
         </div>
       </div>
-      <a-empty v-if="!loading && filteredTreeData.length === 0" :description="searchValue ? $t('tree.no_data') : '请选择连接'" :image-style="{ height: '60px' }" />
+      <a-empty v-if="!loading && filteredTreeData.length === 0" :description="props.searchOptions?.text ? $t('tree.no_data') : '请选择连接'" :image-style="{ height: '60px' }" />
     </a-spin>
 
     <!-- 右键菜单 -->
@@ -146,12 +146,19 @@ import { writeClipboardText } from '@/utils/clipboard'
 
 interface TreeNode {
   key: string; title: string; type: string; children?: TreeNode[];
-  isLeaf?: boolean; metadata?: any; isAutoExpanded?: boolean;
+  isLeaf?: boolean; metadata?: any; isAutoExpanded?: boolean; highlight?: boolean;
 }
 
 const { t } = useI18n()
-const props = defineProps<{ connectionId: string | null; dbType?: string; searchValue?: string; }>()
-const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
+interface SearchOptions {
+  text: string
+  caseSensitive: boolean
+  regex: boolean
+  searchColumns: boolean
+}
+
+const props = defineProps<{ connectionId: string | null; dbType?: string; searchOptions?: SearchOptions }>()
+const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'updateMatchesCount'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 
@@ -169,19 +176,84 @@ const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDd
 })
 
 const filteredTreeData = computed(() => {
-  if (!props.searchValue) return treeData.value
-  const search = props.searchValue.toLowerCase()
-  const filter = (nodes: TreeNode[]): TreeNode[] => {
-    return nodes.reduce((acc, node) => {
-      const children = node.children ? filter(node.children) : []
-      if (node.title.toLowerCase().includes(search) || children.length > 0) {
-        acc.push({ ...node, children, isAutoExpanded: children.length > 0 })
-      }
-      return acc
-    }, [] as TreeNode[])
+  const opts = props.searchOptions
+  if (!opts?.text) return treeData.value
+
+  // 构造匹配函数
+  let matcher: (text: string) => boolean
+  if (opts.regex) {
+    try {
+      const flags = opts.caseSensitive ? '' : 'i'
+      const regex = new RegExp(opts.text, flags)
+      matcher = (text: string) => regex.test(text)
+    } catch {
+      matcher = () => false
+    }
+  } else {
+    const search = opts.caseSensitive ? opts.text : opts.text.toLowerCase()
+    matcher = (text: string) => {
+      const target = opts.caseSensitive ? text : text.toLowerCase()
+      return target.includes(search)
+    }
   }
-  return filter(treeData.value)
+
+  let totalMatches = 0
+
+  const filterNode = (node: TreeNode): { node: TreeNode; count: number } | null => {
+    // 递归子节点
+    let matchedChildren: TreeNode[] = []
+    let childCount = 0
+    if (node.children) {
+      for (const child of node.children) {
+        const result = filterNode(child)
+        if (result) {
+          matchedChildren.push(result.node)
+          childCount += result.count
+        }
+      }
+    }
+
+    // 当前节点标题匹配
+    const titleMatch = matcher(node.title)
+
+    // 搜索列名模式：表/视图节点下检查列节点
+    let columnMatch = false
+    if (opts.searchColumns && (node.type === 'table' || node.type === 'view') && node.children) {
+      columnMatch = node.children.some(child => child.type === 'column' && matcher(child.title))
+    }
+
+    const nodeMatches = titleMatch || columnMatch
+    if (nodeMatches || matchedChildren.length > 0) {
+      totalMatches += nodeMatches ? 1 : 0
+      return {
+        node: {
+          ...node,
+          children: matchedChildren.length > 0 ? matchedChildren : node.children,
+          isAutoExpanded: matchedChildren.length > 0,
+          highlight: nodeMatches || titleMatch ? true : undefined,
+        },
+        count: (nodeMatches ? 1 : 0) + childCount,
+      }
+    }
+    return null
+  }
+
+  const filtered = treeData.value.reduce<TreeNode[]>((acc, node) => {
+    const result = filterNode(node)
+    if (result) acc.push(result.node)
+    return acc
+  }, [])
+
+  // 通知父组件匹配结果数（通过 nextTick 避免连续更新）
+  if (totalMatches !== lastEmittedMatches) {
+    lastEmittedMatches = totalMatches
+    setTimeout(() => emit('updateMatchesCount', totalMatches), 0)
+  }
+
+  return filtered
 })
+
+let lastEmittedMatches = -1
 
 async function loadDatabases() {
   if (!props.connectionId) return

@@ -35,7 +35,7 @@
         </template>
       </span>
       
-      <span class="tree-node-title" :class="{ 'bold': node.type === 'connection' }">
+      <span class="tree-node-title" :class="{ 'bold': node.type === 'connection', 'search-highlight': node.highlight }">
         {{ node.title }}
       </span>
     </div>
@@ -62,7 +62,7 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 
-interface TreeNode { key: string; title: string; type: string; isLeaf?: boolean; children?: TreeNode[]; metadata?: any; }
+interface TreeNode { key: string; title: string; type: string; isLeaf?: boolean; children?: TreeNode[]; metadata?: any; highlight?: boolean; }
 const props = defineProps<{ node: TreeNode; level: number; expandedKeys: string[]; selectedKeys: string[]; loadingNodes: Set<string>; }>()
 const emit = defineEmits(['toggle', 'select', 'dblclick', 'contextmenu'])
 
@@ -172,4 +172,7 @@ function getIconConfig(node: TreeNode) {
 .tree-node-title.bold { font-weight: 600; color: #262626; }
 .dark-mode .tree-node-title.bold { color: #ffffff; }
 .selected .tree-node-title { color: inherit; }
+
+.tree-node-title.search-highlight { background-color: #fff3cd; color: #856404; border-radius: 2px; padding: 0 2px; }
+.dark-mode .tree-node-title.search-highlight { background-color: #664d00; color: #ffd700; }
 </style>

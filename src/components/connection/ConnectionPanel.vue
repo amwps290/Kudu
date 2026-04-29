@@ -24,6 +24,12 @@
         >
           <template #prefix><SearchOutlined style="color: #bfbfbf" /></template>
         </a-input>
+        <div v-if="searchText" class="search-options">
+          <a-checkbox v-model:checked="searchCaseSensitive" class="search-option-item">{{ $t('search.case_sensitive') }}</a-checkbox>
+          <a-checkbox v-model:checked="searchRegex" class="search-option-item">{{ $t('search.regex') }}</a-checkbox>
+          <a-checkbox v-model:checked="searchColumns" class="search-option-item">{{ $t('search.search_columns') }}</a-checkbox>
+          <span v-if="matchesCount > 0" class="search-match-count">{{ $t('search.matches_count', { count: matchesCount }) }}</span>
+        </div>
       </div>
 
       <div class="connection-list">
@@ -89,7 +95,8 @@
               :ref="(el: unknown) => { if (el) databaseTreeRefs.set(conn.id, el) }"
               :connection-id="conn.id"
               :db-type="conn.db_type"
-              :search-value="searchText"
+              :search-options="searchOptions"
+              @update-matches-count="handleUpdateMatchesCount"
               @table-selected="(data: TableTreeEventData) => emit('table-selected', { ...data, connectionId: conn.id })"
               @database-selected="(data: DatabaseTreeEventData) => emit('database-selected', { ...data, connectionId: conn.id })"
               @new-query="(data: QueryTreeEventData) => emit('new-query', data)"
@@ -170,6 +177,21 @@ const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected',
 
 const connectionStore = useConnectionStore()
 const searchText = ref('')
+const searchCaseSensitive = ref(false)
+const searchRegex = ref(false)
+const searchColumns = ref(false)
+const matchesCount = ref(0)
+
+const searchOptions = computed(() => ({
+  text: searchText.value,
+  caseSensitive: searchCaseSensitive.value,
+  regex: searchRegex.value,
+  searchColumns: searchColumns.value,
+}))
+
+function handleUpdateMatchesCount(count: number) {
+  matchesCount.value = count
+}
 const activeConnectionId = computed(() => connectionStore.activeConnectionId)
 const showCreateDatabaseDialog = ref(false)
 const expandedConnections = ref<Set<string>>(new Set())
@@ -327,6 +349,10 @@ onUnmounted(() => {
 .dark-mode .panel-header { border-bottom-color: #303030; }
 .panel-title { font-size: 12px; font-weight: 600; color: #8c8c8c; text-transform: uppercase; }
 .search-wrapper { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }
+.search-options { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; }
+.search-option-item { font-size: 12px; }
+.search-match-count { margin-left: auto; color: #8c8c8c; font-size: 11px; white-space: nowrap; }
+.dark-mode .search-match-count { color: #a6a6a6; }
 .dark-mode .search-wrapper { border-bottom-color: #303030; }
 .compact-search { background: transparent; }
 .panel-content { flex: 1; overflow: auto; padding: 4px 0; }
