@@ -22,7 +22,7 @@
     <!-- 右键菜单 -->
     <div v-if="contextMenuVisible" class="context-menu-overlay" @click="hideContextMenu()">
       <div class="context-menu" :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }" @click.stop>
-        <a-menu @click="handleMenuClick" size="small">
+        <a-menu @click="handleMenuClick" size="small" mode="inline" :inline-indent="8">
           <!-- 数据库节点 -->
           <template v-if="selectedNode?.type === 'database'">
             <template v-if="supportProfile.supportsConnectionScripts">
@@ -706,8 +706,72 @@ defineExpose({ refresh: loadDatabases })
 .database-tree { height: 100%; overflow: visible; padding: 0; user-select: none; }
 .custom-tree { width: 100%; }
 .context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: #fff; border-radius: 4px; border: 1px solid #d9d9d9; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 10000; min-width: 120px; }
+.context-menu { position: absolute; background: #fff; border-radius: 2px; border: 1px solid #d9d9d9; box-shadow: 0 3px 10px rgba(0,0,0,0.10); z-index: 10000; min-width: 180px; padding: 3px; }
 .dark-mode .context-menu { background: #1f1f1f; border-color: #303030; }
+.context-menu :deep(.ant-menu) { background: transparent; border-inline-end: none; font-size: 12px; }
+.context-menu :deep(.ant-menu-item),
+.context-menu :deep(.ant-menu-submenu),
+.context-menu :deep(.ant-menu-submenu-title) { margin: 0 !important; }
+.context-menu :deep(.ant-menu-item),
+.context-menu :deep(.ant-menu-submenu-title) {
+  height: 28px;
+  line-height: 28px;
+  padding-inline: 8px !important;
+  border-radius: 2px;
+}
+.context-menu :deep(.ant-menu-item .ant-menu-title-content),
+.context-menu :deep(.ant-menu-submenu-title .ant-menu-title-content) {
+  display: flex;
+  align-items: center;
+}
+.context-menu :deep(.ant-menu-item .anticon),
+.context-menu :deep(.ant-menu-submenu-title .anticon) {
+  font-size: 12px;
+  margin-inline-end: 6px;
+}
+.context-menu :deep(.ant-menu-submenu-arrow) {
+  inset-inline-end: 8px;
+}
+.context-menu :deep(.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title) {
+  font-weight: 500;
+}
+.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
+  background: rgba(0, 0, 0, 0.02);
+  margin: 2px 0 4px 14px;
+  padding: 2px 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+.dark-mode .context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
+  background: rgba(255, 255, 255, 0.03);
+  border-left-color: rgba(255, 255, 255, 0.10);
+}
+.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item) {
+  height: 26px;
+  line-height: 26px;
+  padding-inline-start: 14px !important;
+  padding-inline-end: 8px !important;
+  border-radius: 0;
+}
+.context-menu :deep(.ant-menu-item-selected) {
+  background: rgba(24, 144, 255, 0.06);
+}
+.context-menu :deep(.ant-menu-item:hover),
+.context-menu :deep(.ant-menu-submenu-title:hover) {
+  background: rgba(0, 0, 0, 0.03);
+}
+.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover) {
+  background: rgba(0, 0, 0, 0.035);
+}
+.dark-mode .context-menu :deep(.ant-menu-item:hover),
+.dark-mode .context-menu :deep(.ant-menu-submenu-title:hover) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dark-mode .context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.08);
+}
+.context-menu :deep(.ant-menu-item-divider) {
+  margin: 3px 0;
+}
 .script-item { cursor: pointer; transition: background 0.2s; }
 .script-item:hover { background: #f5f5f5; }
 </style>
