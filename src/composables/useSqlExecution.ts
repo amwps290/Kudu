@@ -49,6 +49,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
   const executionState = ref<SqlExecutionState>(createIdleExecutionState())
   const executionSummaryVisible = ref(false)
   let executionSummaryTimer: number | null = null
+  let executionTicker: number | null = null
 
   const executionStatusColorMap: Record<SqlExecutionStatus, string> = {
     idle: 'default', running: 'processing', success: 'success',
@@ -69,11 +70,28 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     updateShowSummary()
   }
 
+  function stopExecutionTicker() {
+    if (executionTicker !== null) {
+      clearInterval(executionTicker)
+      executionTicker = null
+    }
+  }
+
+  function startExecutionTicker() {
+    stopExecutionTicker()
+    executionTicker = window.setInterval(() => {
+      const startedAt = executionState.value.startedAt
+      if (!startedAt || executionState.value.status !== 'running') return
+      updateExecutionState({ elapsedMs: Date.now() - startedAt })
+    }, 200)
+  }
+
   function finalizeExecutionState(
     status: SqlExecutionStatus,
     summary: string,
     options: Partial<Omit<SqlExecutionState, 'status' | 'summary' | 'updatedAt'>> = {}
   ) {
+    stopExecutionTicker()
     updateExecutionState({
       status, summary,
       detail: options.detail || '',
@@ -82,6 +100,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       completedStatements: options.completedStatements ?? executionState.value.completedStatements,
       resultSetCount: options.resultSetCount ?? executionState.value.resultSetCount,
       affectedRows: options.affectedRows ?? executionState.value.affectedRows,
+      elapsedMs: options.elapsedMs ?? executionState.value.elapsedMs,
     })
     callbacks.onAddMessage(getMessageTypeForStatus(status), summary)
     if (options.detail) callbacks.onAddMessage('error', options.detail)
@@ -148,6 +167,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
   function hideSummary() {
     executionSummaryVisible.value = false
     updateShowSummary()
+    stopExecutionTicker()
     if (executionSummaryTimer !== null) { clearTimeout(executionSummaryTimer); executionSummaryTimer = null }
   }
 
@@ -157,11 +177,14 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     activeExecutionId.value = id
     executing.value = true
     const { t } = callbacks
+    const startedAt = Date.now()
     updateExecutionState({
       status: 'running', mode,
       summary: mode === 'query' ? t('editor.summary.running_query', { count: statementCount }) : t('editor.summary.running_explain'),
       detail: '', statementCount, completedStatements: 0, resultSetCount: 0, affectedRows: 0,
+      startedAt, elapsedMs: 0,
     })
+    startExecutionTicker()
     keepSummaryVisible()
     return id
   }
@@ -204,7 +227,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     let executionId: number | null = null
 
     try {
-      const preparedStatements = await queryApi.prepareSqlScript(connId, fullSql)
+      const preparedStatements = await queryApi.prepareSqlScript(connId, fullSql, { allowReconnectRetry: true })
       if (preparedStatements.length === 0) return
 
       const writeAnalysis = analyzeSqlWrites(preparedStatements.map(s => s.sql))
@@ -224,7 +247,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
 
       // Note: currentDatabaseLabel is handled by caller via callback.onAddMessage
       const processedStatements = preparedStatements.map(s => s.can_page ? `${s.sql} LIMIT 100` : s.sql)
-      const response = await queryApi.executeQueryBatch(connId, processedStatements, database, executionId)
+      const response = await queryApi.executeQueryBatch(connId, processedStatements, database, executionId, { allowReconnectRetry: true })
       if (isStale(executionId)) return
 
       const appendedIndex = callbacks.onAppendResults(
@@ -269,7 +292,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
 
     const executionId = beginExecution('explain')
     try {
-      const results = await queryApi.explainQuery(connId, sql, database, executionId)
+      const results = await queryApi.explainQuery(connId, sql, database, executionId, { allowReconnectRetry: true })
       if (isStale(executionId)) return
 
       const appendedIndex = callbacks.onAppendResults(
@@ -306,6 +329,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     const prev = executionState.value
     activeExecutionId.value = executionSeq.value + 1
     executing.value = false
+    stopExecutionTicker()
     callbacks.onSwitchToResultTab('messages')
 
     if (connId && eid > 0) {
@@ -315,7 +339,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     finalizeExecutionState('cancelled', callbacks.t('editor.manual_stop'), {
       mode: prev.mode, statementCount: prev.statementCount,
       completedStatements: prev.completedStatements, resultSetCount: prev.resultSetCount,
-      affectedRows: prev.affectedRows,
+      affectedRows: prev.affectedRows, elapsedMs: prev.elapsedMs,
     })
   }
 

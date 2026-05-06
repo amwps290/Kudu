@@ -27,6 +27,8 @@
         </a-tag>
         <span class="execution-summary-text">{{ executionState.summary }}</span>
         <span v-if="executionSummaryMeta" class="execution-summary-meta">{{ executionSummaryMeta }}</span>
+        <span v-if="executionElapsedLabel" class="execution-summary-elapsed">{{ $t('editor.elapsed') }} {{ executionElapsedLabel }}</span>
+        <a-button v-if="executing" danger type="link" size="small" @click="stopExec" class="execution-stop-mini">{{ $t('editor.stop_exec') }}</a-button>
       </div>
 
       <a-tabs v-if="resultPanelVisible" v-model:activeKey="resultTabKey" size="small" class="result-tabs">
@@ -40,10 +42,6 @@
             </span>
           </template>
           <div class="result-content">
-            <div v-if="executing" class="executing-overlay">
-              <a-spin :tip="$t('editor.executing')" />
-              <a-button danger size="small" @click="stopExec" style="margin-top: 16px">{{ $t('editor.stop_exec') }}</a-button>
-            </div>
             <div class="result-info">
               <a-space>
                 <a-tag color="success">{{ $t('editor.loaded_rows', { n: result.rows.length }) }}</a-tag>
@@ -93,8 +91,7 @@
 
         <a-tab-pane v-if="queryResults.length === 0" key="empty" :tab="$t('editor.result')">
           <div class="result-content">
-            <div v-if="executing" class="executing-overlay"><a-spin :tip="$t('editor.executing')" /></div>
-            <a-empty :description="$t('editor.no_result')" />
+            <a-empty :description="executing ? $t('editor.executing') : $t('editor.no_result')" />
           </div>
         </a-tab-pane>
 
@@ -308,7 +305,7 @@ async function loadNextPage(index: number) {
   if (isSelect && !hasLimit && !cleanSql.includes(';')) {
     const pagedSql = `${baseSql} LIMIT ${state.pagination.pageSize} OFFSET ${offset};`
     try {
-      const results = await queryApi.executeQuery(sessionConnectionId.value, pagedSql, selectedDatabase.value || null)
+      const results = await queryApi.executeQuery(sessionConnectionId.value, pagedSql, selectedDatabase.value || null, undefined, { allowReconnectRetry: true })
       if (results.length > 0) {
         const r = results[0]
         state.hasMore = r.rows.length === state.pagination.pageSize
@@ -522,6 +519,16 @@ const executionSummaryMeta = computed(() => {
   return p.join(' · ')
 })
 
+const executionElapsedLabel = computed(() => {
+  const elapsed = executionState.value.elapsedMs || 0
+  if (elapsed <= 0) return ''
+  if (elapsed < 1000) return `${elapsed} ms`
+  if (elapsed < 60_000) return `${(elapsed / 1000).toFixed(1)} s`
+  const minutes = Math.floor(elapsed / 60_000)
+  const seconds = Math.floor((elapsed % 60_000) / 1000)
+  return `${minutes}m ${seconds}s`
+})
+
 // 模板级别的包装器（组合 composable 函数与连接上下文）
 async function executeQuery() {
   const connId = sessionConnectionId.value
@@ -629,12 +636,13 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .dark-mode .execution-summary-text { color: #f5f5f5; }
 .execution-summary-meta { color: #8c8c8c; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dark-mode .execution-summary-meta { color: #a6a6a6; }
+.execution-summary-elapsed { margin-left: auto; color: #595959; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dark-mode .execution-summary-elapsed { color: #d9d9d9; }
+.execution-stop-mini { flex-shrink: 0; padding: 0 4px; font-size: 12px; height: 24px; }
 .result-tabs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .result-tabs :deep(.ant-tabs-content) { flex: 1; overflow: hidden; }
 .result-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
 .result-content { flex: 1; display: flex; flex-direction: column; padding: 12px; overflow: hidden; position: relative; }
-.executing-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 10; }
-.dark-mode .executing-overlay { background: rgba(0,0,0,0.6); }
 .result-info { margin-bottom: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .affected-text { font-size: 12px; color: #8c8c8c; }
 .table-wrapper { flex: 1; min-height: 0; overflow: hidden; }

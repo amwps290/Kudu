@@ -11,6 +11,8 @@ export interface SqlExecutionState {
   completedStatements: number
   resultSetCount: number
   affectedRows: number
+  startedAt: number | null
+  elapsedMs: number
   updatedAt: number
 }
 
@@ -24,6 +26,8 @@ export function createIdleExecutionState(): SqlExecutionState {
     completedStatements: 0,
     resultSetCount: 0,
     affectedRows: 0,
+    startedAt: null,
+    elapsedMs: 0,
     updatedAt: Date.now(),
   }
 }

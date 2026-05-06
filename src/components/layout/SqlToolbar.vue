@@ -3,7 +3,7 @@
     <div class="toolbar-left" :class="{ vertical }">
       <div class="toolbar-group" :class="{ vertical }">
         <a-tooltip :title="`${$t('common.run')} (F5)`">
-          <a-button type="text" size="small" @click="$emit('action', 'executeQuery')" :loading="executing" class="btn-run">
+          <a-button type="text" size="small" @click="$emit('action', 'executeQuery')" :disabled="executing" class="btn-run" :class="{ running: executing }">
             <template #icon><PlayCircleFilled /></template>
           </a-button>
         </a-tooltip>
@@ -13,7 +13,7 @@
           </a-button>
         </a-tooltip>
         <a-tooltip :title="$t('common.stop')">
-          <a-button type="text" size="small" @click="$emit('action', 'stopExecution')" :disabled="!executing" class="btn-stop">
+          <a-button type="text" size="small" @click="$emit('action', 'stopExecution')" :disabled="!executing" class="btn-stop" :class="{ active: executing }">
             <template #icon><StopOutlined /></template>
           </a-button>
         </a-tooltip>
@@ -172,7 +172,9 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
 }
 .btn-run { color: #52c41a !important; font-weight: bold; }
 .btn-run:hover { background: rgba(82, 196, 26, 0.12) !important; }
+.btn-run.running { opacity: 0.55; }
 .btn-stop { color: #ff4d4f !important; }
+.btn-stop.active { background: rgba(255, 77, 79, 0.10); }
 .btn-stop:hover { background: rgba(255, 77, 79, 0.12) !important; }
 .result-toggle-btn.active {
   color: #1677ff !important;

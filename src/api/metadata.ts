@@ -2,76 +2,77 @@ import { invoke } from '@tauri-apps/api/core'
 import type { 
   DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, FunctionInfo, ExtensionInfo 
 } from '@/types/database'
+import { withAutoReconnect } from '@/utils/autoReconnect'
 
 export const metadataApi = {
   /**
    * 获取数据库列表
    */
   async getDatabases(connectionId: string): Promise<DatabaseInfo[]> {
-    return invoke<DatabaseInfo[]>('get_databases', { connectionId })
+    return withAutoReconnect(connectionId, () => invoke<DatabaseInfo[]>('get_databases', { connectionId }), true)
   },
 
   /**
    * 获取表列表
    */
   async getTables(connectionId: string, database?: string | null): Promise<TableInfo[]> {
-    return invoke<TableInfo[]>('get_tables', { connectionId, database })
+    return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_tables', { connectionId, database }), true)
   },
 
   /**
    * 获取视图列表
    */
   async getViews(connectionId: string, database?: string | null): Promise<TableInfo[]> {
-    return invoke<TableInfo[]>('get_views', { connectionId, database })
+    return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_views', { connectionId, database }), true)
   },
 
   /**
    * 获取 Schema 列表 (PostgreSQL)
    */
   async getSchemas(connectionId: string, database?: string | null): Promise<SchemaInfo[]> {
-    return invoke<SchemaInfo[]>('get_schemas', { connectionId, database })
+    return withAutoReconnect(connectionId, () => invoke<SchemaInfo[]>('get_schemas', { connectionId, database }), true)
   },
 
   /**
    * 获取指定 Schema 下的表
    */
   async getSchemaTables(connectionId: string, database: string, schema: string): Promise<TableInfo[]> {
-    return invoke<TableInfo[]>('get_schema_tables', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_schema_tables', { connectionId, database, schema }), true)
   },
 
   /**
    * 获取指定 Schema 下的视图
    */
   async getSchemaViews(connectionId: string, database: string, schema: string): Promise<TableInfo[]> {
-    return invoke<TableInfo[]>('get_schema_views', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_schema_views', { connectionId, database, schema }), true)
   },
 
   /**
    * 获取函数列表
    */
   async getSchemaFunctions(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {
-    return invoke<FunctionInfo[]>('get_schema_functions', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<FunctionInfo[]>('get_schema_functions', { connectionId, database, schema }), true)
   },
 
   /**
    * 获取存储过程列表
    */
   async getSchemaProcedures(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {
-    return invoke<FunctionInfo[]>('get_schema_procedures', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<FunctionInfo[]>('get_schema_procedures', { connectionId, database, schema }), true)
   },
 
   /**
    * 获取聚合函数列表
    */
   async getSchemaAggregateFunctions(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {
-    return invoke<FunctionInfo[]>('get_schema_aggregate_functions', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<FunctionInfo[]>('get_schema_aggregate_functions', { connectionId, database, schema }), true)
   },
 
   /**
    * 获取数据库扩展 (PostgreSQL)
    */
   async getDatabaseExtensions(connectionId: string, database: string): Promise<ExtensionInfo[]> {
-    return invoke<ExtensionInfo[]>('get_database_extensions', { connectionId, database })
+    return withAutoReconnect(connectionId, () => invoke<ExtensionInfo[]>('get_database_extensions', { connectionId, database }), true)
   },
 
   /**
@@ -83,7 +84,7 @@ export const metadataApi = {
     database?: string | null,
     schema?: string | null
   }): Promise<ColumnInfo[]> {
-    return invoke<ColumnInfo[]>('get_table_structure', params)
+    return withAutoReconnect(params.connectionId, () => invoke<ColumnInfo[]>('get_table_structure', params), true)
   },
 
   /**
@@ -94,7 +95,7 @@ export const metadataApi = {
     table: string,
     schema?: string | null
   }): Promise<IndexInfo[]> {
-    return invoke<IndexInfo[]>('get_table_indexes', params)
+    return withAutoReconnect(params.connectionId, () => invoke<IndexInfo[]>('get_table_indexes', params), true)
   },
 
   /**
@@ -105,14 +106,14 @@ export const metadataApi = {
     table: string,
     schema?: string | null
   }): Promise<ForeignKeyInfo[]> {
-    return invoke<ForeignKeyInfo[]>('get_table_foreign_keys', params)
+    return withAutoReconnect(params.connectionId, () => invoke<ForeignKeyInfo[]>('get_table_foreign_keys', params), true)
   },
 
   /**
    * 获取 Schema 下的所有索引
    */
   async getSchemaIndexes(connectionId: string, database: string, schema: string): Promise<IndexInfo[]> {
-    return invoke<IndexInfo[]>('get_schema_indexes', { connectionId, database, schema })
+    return withAutoReconnect(connectionId, () => invoke<IndexInfo[]>('get_schema_indexes', { connectionId, database, schema }), true)
   },
 
   /**
@@ -124,7 +125,7 @@ export const metadataApi = {
     database?: string | null,
     schema?: string | null
   }): Promise<string> {
-    return invoke<string>('get_create_table_ddl', params)
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_create_table_ddl', params), true)
   },
 
   /**
@@ -136,6 +137,6 @@ export const metadataApi = {
     view: string,
     schema?: string | null
   }): Promise<string> {
-    return invoke<string>('get_view_definition', params)
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_view_definition', params), true)
   }
 }

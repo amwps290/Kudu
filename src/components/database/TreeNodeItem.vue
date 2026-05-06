@@ -3,7 +3,7 @@
     <div
       :class="['tree-node-content', { selected: isSelected }]"
       :style="{ paddingLeft: (level * 15 + 8) + 'px' }"
-      @click="handleClick"
+      @click="handleClick($event)"
       @dblclick="handleDblClick"
       @contextmenu="handleContextMenu"
     >
@@ -72,7 +72,7 @@ const isLoading = computed(() => props.loadingNodes.has(props.node.key))
 const hasChildren = computed(() => !props.node.isLeaf && props.node.type !== 'empty')
 
 const handleToggle = (e: Event) => { e.stopPropagation(); if (hasChildren.value) emit('toggle', props.node); }
-const handleClick = () => emit('select', props.node)
+const handleClick = (e: MouseEvent) => emit('select', { node: props.node, event: e })
 const handleDblClick = () => emit('dblclick', props.node)
 const handleContextMenu = (e: MouseEvent) => emit('contextmenu', { event: e, node: props.node })
 

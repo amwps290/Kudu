@@ -208,5 +208,6 @@ export const useConnectionStore = defineStore('connection', () => {
     updateConnectionStatus,
     getConnectionStatus,
     getActiveConnection,
+    getConnectionOverrides,
   }
 })

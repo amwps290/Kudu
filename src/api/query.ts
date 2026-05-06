@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { QueryResult } from '@/types/database'
+import { withAutoReconnect } from '@/utils/autoReconnect'
 
 export interface PreparedSqlStatement {
   sql: string
@@ -24,14 +25,15 @@ export const queryApi = {
     connectionId: string, 
     sql: string, 
     database?: string | null,
-    queryId?: number | null
+    queryId?: number | null,
+    options?: { allowReconnectRetry?: boolean }
   ): Promise<QueryResult[]> {
-    return invoke<QueryResult[]>('execute_query', { 
+    return withAutoReconnect(connectionId, () => invoke<QueryResult[]>('execute_query', { 
       connectionId, 
       sql, 
       database: database || null,
       queryId: queryId ?? null,
-    })
+    }), options?.allowReconnectRetry ?? false)
   },
 
   /**
@@ -41,14 +43,15 @@ export const queryApi = {
     connectionId: string, 
     sql: string, 
     database?: string | null,
-    queryId?: number | null
+    queryId?: number | null,
+    options?: { allowReconnectRetry?: boolean }
   ): Promise<QueryResult[]> {
-    return invoke<QueryResult[]>('explain_query', { 
+    return withAutoReconnect(connectionId, () => invoke<QueryResult[]>('explain_query', { 
       connectionId, 
       sql, 
       database: database || null,
       queryId: queryId ?? null,
-    })
+    }), options?.allowReconnectRetry ?? false)
   },
 
   /**
@@ -58,14 +61,15 @@ export const queryApi = {
     connectionId: string,
     sqls: string[],
     database?: string | null,
-    queryId?: number | null
+    queryId?: number | null,
+    options?: { allowReconnectRetry?: boolean }
   ): Promise<QueryBatchExecutionResult> {
-    return invoke<QueryBatchExecutionResult>('execute_query_batch', {
+    return withAutoReconnect(connectionId, () => invoke<QueryBatchExecutionResult>('execute_query_batch', {
       connectionId,
       sqls,
       database: database || null,
       queryId: queryId ?? null,
-    })
+    }), options?.allowReconnectRetry ?? false)
   },
 
   /**
@@ -86,16 +90,17 @@ export const queryApi = {
    */
   async prepareSqlScript(
     connectionId: string,
-    sql: string
+    sql: string,
+    options?: { allowReconnectRetry?: boolean }
   ): Promise<PreparedSqlStatement[]> {
-    return invoke<PreparedSqlStatement[]>('prepare_sql_script', { connectionId, sql })
+    return withAutoReconnect(connectionId, () => invoke<PreparedSqlStatement[]>('prepare_sql_script', { connectionId, sql }), options?.allowReconnectRetry ?? false)
   },
 
   /**
    * 格式化/美化 SQL
    */
-  async beautifySql(connectionId: string, sql: string): Promise<string> {
-    return invoke<string>('beautify_sql', { connectionId, sql })
+  async beautifySql(connectionId: string, sql: string, options?: { allowReconnectRetry?: boolean }): Promise<string> {
+    return withAutoReconnect(connectionId, () => invoke<string>('beautify_sql', { connectionId, sql }), options?.allowReconnectRetry ?? false)
   },
 
   /**

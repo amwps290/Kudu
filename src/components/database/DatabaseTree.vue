@@ -21,7 +21,7 @@
 
     <!-- 右键菜单 -->
     <div v-if="contextMenuVisible" class="context-menu-overlay" @click="hideContextMenu()">
-      <div class="context-menu" :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }" @click.stop>
+      <div ref="contextMenuRef" class="context-menu" :style="contextMenuStyle" @click.stop>
         <a-menu @click="handleMenuClick" size="small" mode="inline" :inline-indent="8">
           <!-- 数据库节点 -->
           <template v-if="selectedNode?.type === 'database'">
@@ -58,9 +58,10 @@
             </a-sub-menu>
             <a-menu-divider />
             <a-menu-item key="copy-columns"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_columns') }}</a-menu-item>
+            <a-menu-item key="rename-table"><template #icon><EditOutlined /></template>{{ $t('tree.rename_table') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="truncate-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.truncate_table') }}</a-menu-item>
-            <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_table') }}</a-menu-item>
+            <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ selectedTableNodes.length > 1 ? $t('tree.drop_table_batch', { count: selectedTableNodes.length }) : $t('tree.drop_table') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
             <a-menu-divider />
@@ -89,6 +90,10 @@
         </a-menu>
       </div>
     </div>
+
+    <a-modal v-model:open="showRenameModal" :title="$t('tree.rename_table')" @ok="submitRename" :confirm-loading="renameSubmitting">
+      <a-input v-model:value="renameValue" :placeholder="$t('tree.rename_placeholder')" @pressEnter="submitRename" />
+    </a-modal>
 
     <!-- DDL 预览弹窗 -->
     <a-modal v-model:open="showDdlModal" :title="`DDL: ${selectedNode?.title}`" width="800px" :footer="null">
@@ -125,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   TableOutlined, ReloadOutlined, CopyOutlined,
@@ -168,8 +173,32 @@ const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selecte
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
 const selectedNode = ref<TreeNode | null>(null)
+const selectedNodes = ref<TreeNode[]>([])
+const contextMenuRef = ref<HTMLElement>()
+const contextMenuStyle = computed(() => {
+  const margin = 8
+  const top = contextMenuTop.value
+  let maxH: number
+  if (menuOpenUpward.value) {
+    maxH = contextMenuY.value - top - margin
+  } else {
+    maxH = window.innerHeight - top - margin
+  }
+  return {
+    left: `${contextMenuLeft.value}px`,
+    top: `${top}px`,
+    maxHeight: `${Math.max(120, maxH)}px`,
+  }
+})
+const contextMenuLeft = ref(0)
+const contextMenuTop = ref(0)
+const menuOpenUpward = ref(false)
+let contextMenuResizeObserver: ResizeObserver | null = null
 
 const showDdlModal = ref(false), ddlEditorContainer = ref<HTMLElement>()
+const showRenameModal = ref(false)
+const renameValue = ref('')
+const renameSubmitting = ref(false)
 const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDdlEditor } = useMonacoEditor(ddlEditorContainer, {
   language: 'sql',
   readOnly: true,
@@ -421,7 +450,24 @@ async function handleToggle(node: TreeNode) {
   } else { expandedKeys.value = expandedKeys.value.filter(k => k !== node.key) }
 }
 
-function handleSelect(node: TreeNode) { selectedKeys.value = [node.key]; if (node.type === 'database') emit('database-selected', node.metadata); }
+function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }) {
+  const node = 'node' in payload ? payload.node : payload
+  const event = 'node' in payload ? payload.event : undefined
+  const appendSelection = Boolean(event && (event.ctrlKey || event.metaKey))
+
+  if (appendSelection && node.type === 'table') {
+    const exists = selectedNodes.value.some(item => item.key === node.key)
+    selectedNodes.value = exists
+      ? selectedNodes.value.filter(item => item.key !== node.key)
+      : [...selectedNodes.value.filter(item => item.type === 'table' && sameTableScope(item, node)), node]
+    selectedKeys.value = selectedNodes.value.map(item => item.key)
+  } else {
+    selectedNodes.value = [node]
+    selectedKeys.value = [node.key]
+  }
+
+  if (node.type === 'database') emit('database-selected', node.metadata)
+}
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
   if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-indexes'].includes(node.type)) handleToggle(node)
@@ -429,7 +475,13 @@ async function handleDoubleClick(node: TreeNode) {
 }
 
 function onRightClick({ event, node }: { event: MouseEvent; node: TreeNode }) {
-  selectedNode.value = node; showContextMenu(event);
+  if (!selectedNodes.value.some(item => item.key === node.key)) {
+    selectedNodes.value = [node]
+    selectedKeys.value = [node.key]
+  }
+  selectedNode.value = node
+  showContextMenu(event)
+  nextTick(() => adjustContextMenuPosition())
 }
 
 const showScriptsModal = ref(false), savedScripts = ref<import('@/types/database').ScriptInfo[]>([]), loadingScripts = ref(false)
@@ -496,6 +548,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'gen-update') { await handleGenerateSql('UPDATE') }
   else if (key === 'gen-delete') { await handleGenerateSql('DELETE') }
   else if (key === 'copy-columns') { await handleCopyColumns() }
+  else if (key === 'rename-table') { openRenameModal() }
   else if (key === 'truncate-table') { await handleTruncateTable() }
   else if (key === 'drop-table') { await handleDropTable() }
   else if (key === 'view-ddl') {
@@ -622,28 +675,69 @@ async function handleTruncateTable() {
 
 // ── 新增功能：删除表/视图 ──
 async function handleDropTable() {
-  const node = selectedNode.value!
-  const isView = node.type === 'view'
-  const name = metaStr(node, 'name') || node.title
-  const objType = isView ? 'VIEW' : 'TABLE'
-  const titleKey = isView ? 'tree.drop_view' : 'tree.drop_table'
-  const confirmKey = isView ? 'tree.drop_view_confirm' : 'tree.drop_confirm'
-  const successKey = isView ? 'tree.drop_view_success' : 'tree.drop_success'
+  const nodes = selectedTableNodes.value.length > 0 ? selectedTableNodes.value : (selectedNode.value ? [selectedNode.value] : [])
+  if (nodes.length === 0) return
+
+  const hasView = nodes.some(node => node.type === 'view')
+  if (nodes.length > 1 && hasView) {
+    message.warning(t('tree.multi_drop_tables_only'))
+    return
+  }
+
+  if (nodes.length === 1) {
+    const node = nodes[0]
+    const isView = node.type === 'view'
+    const name = metaStr(node, 'name') || node.title
+    const objType = isView ? 'VIEW' : 'TABLE'
+    const titleKey = isView ? 'tree.drop_view' : 'tree.drop_table'
+    const confirmKey = isView ? 'tree.drop_view_confirm' : 'tree.drop_confirm'
+    const successKey = isView ? 'tree.drop_view_success' : 'tree.drop_success'
+    Modal.confirm({
+      title: t(titleKey),
+      content: t(confirmKey, { name, table: name } as Record<string, unknown>),
+      okText: t('common.delete'),
+      okType: 'danger',
+      async onOk() {
+        try {
+          const schema = metaStr(node, 'schema')
+          const sql = `DROP ${objType} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(name)}`
+          await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+          message.success(t(successKey, { name, table: name } as Record<string, unknown>))
+          const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
+          const parentNode = findNodeByKey(treeData.value, parentKey)
+          if (parentNode) await handleRefreshNode(parentNode)
+        } catch (e: unknown) { message.error(getErrorMessage(e)) }
+      }
+    })
+    return
+  }
+
+  const names = nodes.map(node => metaStr(node, 'name') || node.title)
   Modal.confirm({
-    title: t(titleKey),
-    content: t(confirmKey, { name } as Record<string, unknown>),
+    title: t('tree.drop_table_batch', { count: nodes.length }),
+    content: t('tree.drop_batch_confirm', { count: nodes.length, names: names.slice(0, 5).join(', ') }),
     okText: t('common.delete'),
     okType: 'danger',
     async onOk() {
-      try {
-        const schema = metaStr(node, 'schema')
-        const sql = `DROP ${objType} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(name)}`
-        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
-        message.success(t(successKey, { name } as Record<string, unknown>))
-        const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
-        const parentNode = findNodeByKey(treeData.value, parentKey)
-        if (parentNode) await handleRefreshNode(parentNode)
-      } catch (e: unknown) { message.error(getErrorMessage(e)) }
+      const failed: string[] = []
+      for (const node of nodes) {
+        try {
+          const tableName = metaStr(node, 'name') || node.title
+          const schema = metaStr(node, 'schema')
+          const sql = `DROP TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(tableName)}`
+          await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        } catch {
+          failed.push(metaStr(node, 'name') || node.title)
+        }
+      }
+      if (failed.length === 0) message.success(t('tree.drop_batch_success', { count: nodes.length }))
+      else message.warning(t('tree.drop_batch_partial', { success: nodes.length - failed.length, failed: failed.length, names: failed.join(', ') }))
+      const first = nodes[0]
+      const parentKey = first.key.substring(0, first.key.lastIndexOf('-'))
+      const parentNode = findNodeByKey(treeData.value, parentKey)
+      if (parentNode) await handleRefreshNode(parentNode)
+      selectedNodes.value = []
+      selectedKeys.value = []
     }
   })
 }
@@ -657,6 +751,106 @@ function findNodeByKey(nodes: TreeNode[], key: string): TreeNode | null {
     }
   }
   return null
+}
+
+const selectedTableNodes = computed(() => selectedNodes.value.filter(node => node.type === 'table'))
+
+function sameTableScope(a: TreeNode, b: TreeNode) {
+  return metaStr(a, 'database') === metaStr(b, 'database') && metaStr(a, 'schema') === metaStr(b, 'schema')
+}
+
+function adjustContextMenuPosition() {
+  const margin = 8
+  const MIN_COMFORT_HEIGHT = 200
+
+  contextMenuLeft.value = contextMenuX.value
+
+  const spaceAbove = contextMenuY.value - margin
+  const spaceBelow = window.innerHeight - contextMenuY.value - margin
+
+  if (spaceBelow >= MIN_COMFORT_HEIGHT) {
+    menuOpenUpward.value = false
+    contextMenuTop.value = contextMenuY.value
+  } else if (spaceAbove >= MIN_COMFORT_HEIGHT) {
+    menuOpenUpward.value = true
+    const estHeight = Math.min(400, spaceAbove)
+    contextMenuTop.value = Math.max(margin, contextMenuY.value - estHeight)
+  } else {
+    if (spaceAbove > spaceBelow) {
+      menuOpenUpward.value = true
+      contextMenuTop.value = Math.max(margin, contextMenuY.value - spaceAbove)
+    } else {
+      menuOpenUpward.value = false
+      contextMenuTop.value = contextMenuY.value
+    }
+  }
+}
+
+function bindContextMenuObserver() {
+  contextMenuResizeObserver?.disconnect()
+  if (!contextMenuRef.value || typeof ResizeObserver === 'undefined') return
+  contextMenuResizeObserver = new ResizeObserver(() => {
+    const margin = 8
+    if (!contextMenuRef.value) return
+    const rect = contextMenuRef.value.getBoundingClientRect()
+
+    const maxLeft = window.innerWidth - rect.width - margin
+    contextMenuLeft.value = Math.max(margin, Math.min(contextMenuLeft.value, maxLeft))
+
+    if (menuOpenUpward.value) {
+      const idealTop = contextMenuY.value - rect.height - margin
+      contextMenuTop.value = Math.max(margin, idealTop)
+    } else {
+      const maxTop = window.innerHeight - rect.height - margin
+      contextMenuTop.value = Math.max(margin, Math.min(contextMenuY.value, maxTop))
+    }
+  })
+  contextMenuResizeObserver.observe(contextMenuRef.value)
+}
+
+function openRenameModal() {
+  const node = selectedNode.value
+  if (!node || !['table', 'view'].includes(node.type)) return
+  renameValue.value = metaStr(node, 'name') || node.title
+  showRenameModal.value = true
+}
+
+async function submitRename() {
+  const node = selectedNode.value
+  if (!node) return
+  const oldName = metaStr(node, 'name') || node.title
+  const newName = renameValue.value.trim()
+  if (!newName) return message.warning(t('tree.rename_empty'))
+  if (newName === oldName) return message.warning(t('tree.rename_same'))
+
+  const schema = metaStr(node, 'schema')
+  const database = metaStr(node, 'database') || null
+  let sql = ''
+  if (props.dbType === 'mysql') {
+    if (node.type !== 'table') return message.warning(t('tree.rename_unsupported'))
+    sql = `RENAME TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} TO ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(newName)}`
+  } else if (props.dbType === 'postgresql') {
+    sql = `${node.type === 'view' ? 'ALTER VIEW' : 'ALTER TABLE'} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+  } else if (props.dbType === 'sqlite') {
+    if (node.type !== 'table') return message.warning(t('tree.rename_unsupported'))
+    sql = `ALTER TABLE ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+  } else {
+    return message.warning(t('tree.rename_unsupported'))
+  }
+
+  renameSubmitting.value = true
+  try {
+    await queryApi.executeQuery(props.connectionId!, sql, database)
+    showRenameModal.value = false
+    message.success(t('tree.rename_success', { oldName, newName }))
+    const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
+    const parentNode = findNodeByKey(treeData.value, parentKey)
+    if (parentNode) await handleRefreshNode(parentNode)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  } finally {
+    renameSubmitting.value = false
+  }
 }
 
 function quoteIdent(name: string): string {
@@ -699,6 +893,21 @@ async function openSavedScript(s: { path: string; name: string }) { try { const 
 
 watch(() => props.connectionId, (id) => { if (id) loadDatabases(); else treeData.value = []; }, { immediate: true })
 watch(() => connectionStore.getConnectionStatus(props.connectionId || ''), (s) => { if (s === 'connected' && treeData.value.length === 0 && !loading.value) loadDatabases(); })
+watch(contextMenuVisible, (visible) => {
+  if (visible) {
+    nextTick(() => {
+      adjustContextMenuPosition()
+      bindContextMenuObserver()
+    })
+  } else {
+    contextMenuResizeObserver?.disconnect()
+    contextMenuResizeObserver = null
+  }
+})
+onBeforeUnmount(() => {
+  contextMenuResizeObserver?.disconnect()
+  contextMenuResizeObserver = null
+})
 defineExpose({ refresh: loadDatabases })
 </script>
 
@@ -706,7 +915,7 @@ defineExpose({ refresh: loadDatabases })
 .database-tree { height: 100%; overflow: visible; padding: 0; user-select: none; }
 .custom-tree { width: 100%; }
 .context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: #fff; border-radius: 2px; border: 1px solid #d9d9d9; box-shadow: 0 3px 10px rgba(0,0,0,0.10); z-index: 10000; min-width: 180px; padding: 3px; }
+.context-menu { position: absolute; background: #fff; border-radius: 2px; border: 1px solid #d9d9d9; box-shadow: 0 3px 10px rgba(0,0,0,0.10); z-index: 10000; min-width: 180px; max-width: min(320px, calc(100vw - 16px)); overflow-y: auto; overflow-x: hidden; padding: 3px; }
 .dark-mode .context-menu { background: #1f1f1f; border-color: #303030; }
 .context-menu :deep(.ant-menu) { background: transparent; border-inline-end: none; font-size: 12px; }
 .context-menu :deep(.ant-menu-item),
@@ -772,6 +981,9 @@ defineExpose({ refresh: loadDatabases })
 .context-menu :deep(.ant-menu-item-divider) {
   margin: 3px 0;
 }
+.context-menu::-webkit-scrollbar { width: 8px; }
+.context-menu::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.16); border-radius: 999px; }
+.dark-mode .context-menu::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); }
 .script-item { cursor: pointer; transition: background 0.2s; }
 .script-item:hover { background: #f5f5f5; }
 </style>
