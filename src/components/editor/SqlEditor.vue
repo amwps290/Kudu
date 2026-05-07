@@ -56,6 +56,16 @@
               </span>
             </template>
             <div class="result-content">
+              <!-- 无数据行 (DDL / 无结果集) -->
+              <div v-if="queryResults[tab.resultIndex].columns.length === 0 && queryResults[tab.resultIndex].rows.length === 0" class="result-empty-ddl">
+                <CheckCircleOutlined class="ddl-success-icon" />
+                <span class="ddl-success-text">{{ $t('editor.exec_success_simple') }}</span>
+                <span class="ddl-elapsed">{{ $t('editor.elapsed') }} {{ queryResults[tab.resultIndex].execution_time_ms }} ms</span>
+                <span class="ddl-affected" v-if="queryResults[tab.resultIndex].affected_rows > 0">{{ $t('editor.affected_rows', { n: queryResults[tab.resultIndex].affected_rows }) }}</span>
+              </div>
+
+              <!-- 有数据行 -->
+              <template v-else>
               <div class="result-info">
                 <a-space>
                   <a-tag color="success">{{ $t('editor.loaded_rows', { n: queryResults[tab.resultIndex].rows.length }) }}</a-tag>
@@ -100,6 +110,7 @@
                   </template>
                 </vxe-grid>
               </div>
+              </template>
             </div>
           </a-tab-pane>
 
@@ -210,7 +221,7 @@ import { useI18n } from 'vue-i18n'
 import * as monaco from 'monaco-editor'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { message } from 'ant-design-vue'
-import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined } from '@ant-design/icons-vue'
+import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportApi, queryApi, metadataApi, utilsApi } from '@/api'
 import type { QueryResult, DatabaseInfo } from '@/types/database'
@@ -806,6 +817,16 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .split-resizer:hover { background: #1677ff; }
 .dark-mode .split-resizer { background: #303030; }
 .resizer-handle { display: none; }
+/* ── 无数据结果 (DDL 等) ── */
+.result-empty-ddl { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
+.ddl-success-icon { font-size: 28px; color: #52c41a; }
+.ddl-success-text { font-size: 14px; font-weight: 600; color: #262626; }
+.dark-mode .ddl-success-text { color: #f5f5f5; }
+.ddl-elapsed { font-size: 12px; color: #8c8c8c; font-variant-numeric: tabular-nums; }
+.dark-mode .ddl-elapsed { color: #a6a6a6; }
+.ddl-affected { font-size: 12px; color: #595959; }
+.dark-mode .ddl-affected { color: #bfbfbf; }
+
 /* ── 执行进度 Tab 视图 ── */
 .execution-progress-tab { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .progress-tab-center { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 360px; text-align: center; }

@@ -264,6 +264,7 @@
     "affected_rows": "受影响行数: {n}",
     "no_result": "暂无查询结果",
     "exec_success": "执行完成，返回 {sets} 个结果集，总计影响 {rows} 行",
+    "exec_success_simple": "执行成功",
     "explain_success": "执行计划分析完成",
     "placeholder": "-- 在此输入 SQL 查询\n",
     "input_sql_warn": "请输入 SQL",
