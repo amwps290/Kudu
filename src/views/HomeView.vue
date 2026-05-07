@@ -421,7 +421,7 @@ async function handleNewQuery(d: QueryEventData) {
     }
   }
 
-  let filePath = d.filePath, title = d.title, initialContent = d.content || t('editor.placeholder')
+  let filePath = d.filePath, title = d.title, initialContent = d.content || ''
   if (connId && dbName && !filePath) {
     try {
       const script = await invoke<ScriptInfo>('create_db_script', { connectionId: connId, database: dbName, content: initialContent })

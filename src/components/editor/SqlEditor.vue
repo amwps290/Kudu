@@ -790,7 +790,7 @@ onMounted(() => {
   if (!editorContainer.value) return
   resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, resultPanelHeight.value))
   editor = monaco.editor.create(editorContainer.value, {
-    value: props.initialValue || t('editor.placeholder'), language: 'sql',
+    value: props.initialValue || '', language: 'sql',
     theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true,
     readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
     fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap },
