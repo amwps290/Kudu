@@ -228,3 +228,36 @@ pub async fn truncate_table(
         .await
         .to_cmd_result()
 }
+
+#[tauri::command]
+pub async fn get_search_path(
+    connection_id: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let manager = &state.connection_manager;
+    let db = manager.get_db_ref(&connection_id).await.to_cmd_result()?;
+    let results = db.execute_query("SELECT current_setting('search_path')", None, None).await.to_cmd_result()?;
+    if let Some(first) = results.first() {
+        if let Some(row) = first.rows.first() {
+            if let Some(val) = row.get("current_setting") {
+                if let Some(s) = val.as_str() {
+                    return Ok(s.to_string());
+                }
+            }
+        }
+    }
+    Ok(String::new())
+}
+
+#[tauri::command]
+pub async fn set_search_path(
+    connection_id: String,
+    search_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let manager = &state.connection_manager;
+    let db = manager.get_db_ref(&connection_id).await.to_cmd_result()?;
+    let sql = format!("SET search_path TO {};", search_path);
+    db.execute_query(&sql, None, None).await.to_cmd_result()?;
+    Ok(())
+}

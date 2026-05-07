@@ -1,17 +1,19 @@
 <template>
   <div ref="sqlEditorRoot" class="sql-editor-container">
-    <div class="editor-workbench">
-      <SqlToolbar
-        vertical
-        :executing="executing"
-        :selected-database="selectedDatabase"
-        :databases="availableDatabases"
-        :result-panel-visible="resultPanelVisible"
-        :messages-panel-visible="messagesPanelVisible"
-        @action="handleToolbarAction"
-        @database-change="handleToolbarDbChange"
-      />
+    <SqlToolbar
+      :executing="executing"
+      :selected-database="selectedDatabase"
+      :databases="availableDatabases"
+      :result-panel-visible="resultPanelVisible"
+      :messages-panel-visible="messagesPanelVisible"
+      :show-search-path="supportsSearchPath"
+      :search-path="searchPath"
+      @action="handleToolbarAction"
+      @database-change="handleToolbarDbChange"
+      @search-path-change="handleSearchPathChange"
+    />
 
+    <div class="editor-workbench">
       <div class="editor-section">
         <div ref="editorContainer" class="monaco-container"></div>
       </div>
@@ -266,6 +268,29 @@ let editor: monaco.editor.IStandaloneCodeEditor | null = null
 // ── 数据库上下文 ──
 const availableDatabases = ref<DatabaseInfo[]>([])
 const selectedDatabase = ref(props.initialDatabase || '')
+
+// ── search_path (PostgreSQL) ──
+const searchPath = ref('')
+const supportsSearchPath = computed(() => currentConnection.value?.db_type === 'postgresql')
+
+async function loadSearchPath() {
+  if (!supportsSearchPath.value) return
+  const connId = props.connectionId || connectionStore.activeConnectionId
+  if (!connId) return
+  try {
+    searchPath.value = await queryApi.getSearchPath(connId)
+  } catch { searchPath.value = '' }
+}
+
+async function handleSearchPathChange(newPath: string) {
+  searchPath.value = newPath
+  if (!newPath) return
+  try {
+    await queryApi.setSearchPath(sessionConnectionId.value, newPath)
+    updateAutocompleteContext()
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
+}
+
 const currentConnection = computed(() =>
   connectionStore.connections.find(c => c.id === (props.connectionId || connectionStore.activeConnectionId)) || null
 )
@@ -781,9 +806,10 @@ onMounted(() => {
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave())
   loadHistory()
   loadAvailableDatabases()
+  loadSearchPath()
   requestAnimationFrame(() => focusEditor())
 })
-onActivated(() => { requestAnimationFrame(() => focusEditor()) })
+onActivated(() => { requestAnimationFrame(() => focusEditor()); loadSearchPath() })
 onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
@@ -792,7 +818,7 @@ watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSe
   monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
   editor.updateOptions({ readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, lineNumbers: appStore.editorSettings.lineNumbers })
 }, { immediate: true })
-watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases() })
+watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
 watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
@@ -806,8 +832,6 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .editor-workbench { display: flex; flex: 1; min-height: 120px; overflow: hidden; background: #ffffff; }
 .dark-mode .editor-workbench { background: #1f1f1f; }
 .editor-section { flex: 1; min-width: 0; min-height: 100px; overflow: hidden; position: relative; background: inherit; }
-.editor-section::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 1px; background: #e5e7eb; pointer-events: none; z-index: 2; }
-.dark-mode .editor-section::before { background: #303030; }
 .monaco-container { height: 100%; width: 100%; background: transparent; }
 .result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid #e5e7eb; background: rgba(255,255,255,0.96); box-shadow: 0 -12px 24px rgba(15,23,42,0.06); transition: height 0.18s ease; }
 .dark-mode .result-dock { background: rgba(24,24,24,0.98); border-top-color: #303030; box-shadow: 0 -12px 24px rgba(0,0,0,0.24); }

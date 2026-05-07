@@ -43,6 +43,8 @@ fn main() {
             commands::query::insert_table_data,
             commands::query::delete_table_data,
             commands::query::truncate_table,
+            commands::query::get_search_path,
+            commands::query::set_search_path,
             commands::metadata::get_databases,
             commands::metadata::get_tables,
             commands::metadata::get_table_structure,

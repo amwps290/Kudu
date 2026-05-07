@@ -266,7 +266,7 @@
     "exec_success": "Executed, returned {sets} result sets, affected {rows} rows",
     "exec_success_simple": "Execution succeeded",
     "explain_success": "Explain analysis completed",
-    "placeholder": "-- Enter SQL query here\n",
+    "search_path_add": "Add schema",
     "input_sql_warn": "Please input SQL",
     "executing_selection": "Executing selected SQL...",
     "exec_context": "Current execution database: {database}",

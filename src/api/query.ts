@@ -105,6 +105,20 @@ export const queryApi = {
   },
 
   /**
+   * 获取当前 search_path (PostgreSQL)
+   */
+  async getSearchPath(connectionId: string): Promise<string> {
+    return invoke<string>('get_search_path', { connectionId })
+  },
+
+  /**
+   * 设置 search_path (PostgreSQL)
+   */
+  async setSearchPath(connectionId: string, searchPath: string): Promise<void> {
+    return invoke('set_search_path', { connectionId, searchPath })
+  },
+
+  /**
    * 更新表数据 (参数化)
    */
   async updateTableData(params: {
