@@ -71,3 +71,29 @@ pub async fn log_frontend_timing(stage: String, elapsed_ms: f64, details: Option
     );
     Ok(())
 }
+
+#[tauri::command]
+pub async fn open_in_file_manager(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    let dir = if p.is_dir() { p.to_path_buf() } else { p.parent().unwrap_or(p).to_path_buf() };
+    
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(dir.to_str().unwrap_or(""))
+        .spawn()
+        .map_err(|e| format!("无法打开目录: {}", e))?;
+    
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(dir.to_str().unwrap_or(""))
+        .spawn()
+        .map_err(|e| format!("无法打开目录: {}", e))?;
+    
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(dir.to_str().unwrap_or(""))
+        .spawn()
+        .map_err(|e| format!("无法打开目录: {}", e))?;
+    
+    Ok(())
+}

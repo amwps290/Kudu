@@ -93,6 +93,10 @@
           <a-menu-item key="close-saved" :disabled="!hasClosableSavedTabs">
             {{ $t('common.close_saved') }}
           </a-menu-item>
+          <a-divider style="margin: 4px 0" />
+          <a-menu-item key="open-file-location" :disabled="!currentContextTabFilePath">
+            {{ $t('editor.open_file_location') }}
+          </a-menu-item>
         </a-menu>
       </div>
     </div>
@@ -354,6 +358,7 @@ const hasClosableTabsOnLeft = computed(() => currentContextTabIndex.value > 0 &&
 const hasClosableTabsOnRight = computed(() => currentContextTabIndex.value >= 0 && dataTabs.value.slice(currentContextTabIndex.value + 1).some(tab => tab.closable !== false))
 const hasClosableOtherTabs = computed(() => dataTabs.value.some(tab => tab.key !== currentContextTab.key && tab.closable !== false))
 const hasClosableSavedTabs = computed(() => dataTabs.value.some(tab => tab.closable !== false && Boolean(tab.filePath)))
+const currentContextTabFilePath = computed(() => dataTabs.value.find(tab => tab.key === currentContextTab.key)?.filePath || '')
 
 function generateNextScriptTitle() {
   const used = new Set(
@@ -383,6 +388,11 @@ function handleTabMenuClick({ key }: { key: string | number }) {
     closeOtherTabs(currentContextTab.key)
   } else if (action === 'close-saved') {
     closeSavedTabs(currentContextTab.key)
+  } else if (action === 'open-file-location') {
+    const fp = currentContextTabFilePath.value
+    if (fp) {
+      import('@/api/utils').then(({ utilsApi }) => utilsApi.openInFileManager(fp).catch(() => {}))
+    }
   }
 
   hideContextMenu()

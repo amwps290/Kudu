@@ -267,6 +267,7 @@
     "exec_success_simple": "执行成功",
     "explain_success": "执行计划分析完成",
     "search_path_add": "添加 schema",
+    "open_file_location": "打开文件所在目录",
     "input_sql_warn": "请输入 SQL",
     "executing_selection": "执行选中部分 SQL...",
     "exec_context": "当前执行数据库: {database}",

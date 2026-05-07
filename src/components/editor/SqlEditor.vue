@@ -747,13 +747,11 @@ const hasAnyResultContent = computed(() =>
 async function executeQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
-  message.info(t('editor.exec_context', { database: currentDatabaseLabel.value }))
   await execution.executeQuery(connId, selectedDatabase.value || null)
 }
 async function explainQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
-  message.info(t('editor.exec_context', { database: currentDatabaseLabel.value }))
   await execution.explainQuery(connId, selectedDatabase.value || null)
 }
 function stopExec() { execution.stopExecution(sessionConnectionId.value) }

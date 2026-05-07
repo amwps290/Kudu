@@ -32,5 +32,12 @@ export const utilsApi = {
    */
   async getSystemFonts(): Promise<SystemFont[]> {
     return invoke<SystemFont[]>('list_system_fonts')
+  },
+
+  /**
+   * 在文件管理器中打开路径
+   */
+  async openInFileManager(path: string): Promise<void> {
+    return invoke('open_in_file_manager', { path })
   }
 }

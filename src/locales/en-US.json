@@ -267,6 +267,7 @@
     "exec_success_simple": "Execution succeeded",
     "explain_success": "Explain analysis completed",
     "search_path_add": "Add schema",
+    "open_file_location": "Open File Location",
     "input_sql_warn": "Please input SQL",
     "executing_selection": "Executing selected SQL...",
     "exec_context": "Current execution database: {database}",
