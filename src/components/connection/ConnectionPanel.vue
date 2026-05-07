@@ -278,8 +278,11 @@ async function handleConnectToDatabase(conn: ConnectionConfig) {
   try {
     connectionStore.updateConnectionStatus(conn.id, 'connecting')
     await connectionStore.connectToDatabase(conn.id)
+    if (connectionStore.getConnectionStatus(conn.id) !== 'connected') {
+      connectionStore.updateConnectionStatus(conn.id, 'error')
+      return
+    }
     connectionStore.setActiveConnection(conn.id)
-    connectionStore.updateConnectionStatus(conn.id, 'connected')
     const newExpanded = new Set(expandedConnections.value)
     newExpanded.add(conn.id)
     expandedConnections.value = newExpanded
