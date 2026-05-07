@@ -58,7 +58,65 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
   private loadingMap = new Map<string, Promise<AutoCompleteData>>() // 防止重复请求
   public readonly triggerCharacters = [' ', '.', '(', ',']
 
+  private gucParameters: Set<string>
+
   private constructor() {
+    // GUC 参数 (PostgreSQL)
+    this.gucParameters = new Set([
+      'search_path', 'client_encoding', 'timezone', 'datestyle', 'intervalstyle',
+      'extra_float_digits', 'bytea_output', 'xmlbinary', 'xmloption',
+      'work_mem', 'maintenance_work_mem', 'hash_mem_multiplier',
+      'shared_buffers', 'effective_cache_size', 'wal_buffers', 'temp_buffers',
+      'max_parallel_workers', 'max_parallel_workers_per_gather',
+      'max_parallel_maintenance_workers', 'parallel_leader_participation',
+      'random_page_cost', 'seq_page_cost', 'effective_io_concurrency',
+      'cpu_tuple_cost', 'cpu_index_tuple_cost', 'cpu_operator_cost',
+      'jit', 'jit_above_cost', 'jit_inline_above_cost', 'jit_optimize_above_cost',
+      'statement_timeout', 'lock_timeout', 'idle_in_transaction_session_timeout',
+      'idle_session_timeout', 'tcp_keepalives_idle', 'tcp_keepalives_interval',
+      'tcp_keepalives_count', 'tcp_user_timeout',
+      'default_transaction_isolation', 'default_transaction_read_only',
+      'default_transaction_deferrable', 'transaction_isolation',
+      'transaction_read_only', 'transaction_deferrable',
+      'enable_seqscan', 'enable_indexscan', 'enable_indexonlyscan',
+      'enable_bitmapscan', 'enable_tidscan', 'enable_hashjoin',
+      'enable_mergejoin', 'enable_nestloop', 'enable_material',
+      'enable_partition_pruning', 'enable_partitionwise_join',
+      'enable_partitionwise_aggregate', 'enable_async_append',
+      'enable_gathermerge', 'enable_memoize', 'enable_incremental_sort',
+      'constraint_exclusion', 'cursor_tuple_fraction',
+      'from_collapse_limit', 'join_collapse_limit', 'geqo',
+      'geqo_threshold', 'geqo_effort', 'geqo_pool_size',
+      'geqo_generations', 'geqo_selection_bias', 'geqo_seed',
+      'standard_conforming_strings', 'escape_string_warning',
+      'synchronize_seqscans', 'vacuum_cost_delay', 'vacuum_cost_limit',
+      'autovacuum', 'autovacuum_vacuum_threshold', 'autovacuum_analyze_threshold',
+      'autovacuum_vacuum_scale_factor', 'autovacuum_analyze_scale_factor',
+      'autovacuum_vacuum_cost_delay', 'autovacuum_vacuum_cost_limit',
+      'autovacuum_freeze_max_age', 'autovacuum_multixact_freeze_max_age',
+      'log_statement', 'log_min_duration_statement', 'log_duration',
+      'log_connections', 'log_disconnections', 'log_destination',
+      'log_line_prefix', 'log_timezone', 'log_checkpoints',
+      'log_lock_waits', 'log_temp_files', 'log_autovacuum_min_duration',
+      'default_tablespace', 'temp_tablespaces', 'temp_file_limit',
+      'application_name', 'client_min_messages', 'log_min_messages',
+      'DateStyle', 'IntervalStyle', 'TimeZone', 'lc_messages', 'lc_monetary',
+      'lc_numeric', 'lc_time', 'default_text_search_config',
+      'array_nulls', 'backslash_quote', 'transform_null_equals',
+      'row_security', 'check_function_bodies', 'default_table_access_method',
+      'password_encryption', 'ssl', 'ssl_ca_file', 'ssl_cert_file',
+      'ssl_key_file', 'ssl_crl_file', 'ssl_min_protocol_version',
+      'wal_level', 'fsync', 'synchronous_commit', 'wal_sync_method',
+      'full_page_writes', 'wal_log_hints', 'wal_compression',
+      'wal_init_zero', 'wal_recycle', 'commit_delay', 'commit_siblings',
+      'checkpoint_timeout', 'checkpoint_completion_target',
+      'max_wal_size', 'min_wal_size', 'archive_mode', 'archive_command',
+      'archive_timeout', 'restore_command', 'recovery_target_timeline',
+      'max_connections', 'superuser_reserved_connections',
+      'max_wal_senders', 'max_replication_slots',
+      'track_activities', 'track_counts', 'track_io_timing',
+      'track_functions', 'track_wal_io_timing', 'track_commit_timestamp',
+    ])
     // 注册到 Monaco
     monaco.languages.registerCompletionItemProvider('sql', this)
   }
@@ -260,6 +318,20 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         range,
         sortText: `0_${keyword}`,
       })
+    }
+
+    // 1.5 GUC 参数 (SET/SHOW/RESET 上下文)
+    const isGucContext = /(?:SET|SHOW|RESET)\s+[A-Za-z0-9_.]*$/i.test(textUntilPosition.trim())
+    if (isGucContext && context.dbType === 'postgresql') {
+      for (const param of this.gucParameters) {
+        suggestions.push({
+          label: param,
+          kind: monaco.languages.CompletionItemKind.Value,
+          insertText: param,
+          range,
+          sortText: `0_guc_${param}`,
+        })
+      }
     }
 
     // 2. 数据库
