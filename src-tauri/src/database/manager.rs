@@ -446,6 +446,7 @@ impl ConnectionManager {
 
             let mut results = Vec::new();
             let mut statements_succeeded = 0usize;
+            let mut all_messages: Vec<DbMessage> = Vec::new();
 
             for (index, sql) in sqls.iter().enumerate() {
                 if let Some(query_id) = query_id {
@@ -458,6 +459,7 @@ impl ConnectionManager {
                             error_message: None,
                             was_cancelled: true,
                             execution_time_ms: start.elapsed().as_millis(),
+                            messages: all_messages,
                         });
                     }
                 }
@@ -465,6 +467,9 @@ impl ConnectionManager {
                 match db.execute_query(sql, database, query_id).await {
                     Ok(res_vec) => {
                         statements_succeeded += 1;
+                        for res in &res_vec {
+                            all_messages.extend(res.messages.clone());
+                        }
                         results.extend(res_vec);
                     }
                     Err(DbError::QueryCancelled) => {
@@ -476,6 +481,7 @@ impl ConnectionManager {
                             error_message: None,
                             was_cancelled: true,
                             execution_time_ms: start.elapsed().as_millis(),
+                            messages: all_messages,
                         });
                     }
                     Err(error) => {
@@ -487,6 +493,7 @@ impl ConnectionManager {
                             error_message: Some(error.to_string()),
                             was_cancelled: false,
                             execution_time_ms: start.elapsed().as_millis(),
+                            messages: all_messages,
                         });
                     }
                 }
@@ -500,6 +507,7 @@ impl ConnectionManager {
                 error_message: None,
                 was_cancelled: false,
                 execution_time_ms: start.elapsed().as_millis(),
+                messages: all_messages,
             })
         }
         .await;

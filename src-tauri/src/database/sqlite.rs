@@ -148,6 +148,7 @@ impl DatabaseOperations for SqliteDatabase {
                     rows,
                     affected_rows: conn.changes() as u64,
                     execution_time_ms: start.elapsed().as_millis(),
+                    messages: Vec::new(),
                 });
             }
 

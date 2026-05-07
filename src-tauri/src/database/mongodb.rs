@@ -80,6 +80,7 @@ impl DatabaseOperations for MongoDatabase {
             rows,
             affected_rows: 0,
             execution_time_ms: 0,
+            messages: Vec::new(),
         }])
     }
 

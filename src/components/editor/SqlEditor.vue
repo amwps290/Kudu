@@ -7,6 +7,7 @@
         :selected-database="selectedDatabase"
         :databases="availableDatabases"
         :result-panel-visible="resultPanelVisible"
+        :messages-panel-visible="messagesPanelVisible"
         @action="handleToolbarAction"
         @database-change="handleToolbarDbChange"
       />
@@ -17,94 +18,154 @@
     </div>
 
     <div class="result-dock" :class="{ collapsed: !resultPanelVisible }" :style="{ height: `${resultDockHeight}px` }">
-      <div v-if="resultPanelVisible" class="split-resizer" @mousedown="startResize">
+      <div v-if="resultPanelVisible" class="split-resizer" @mousedown="startResultResize">
         <div class="resizer-handle"></div>
       </div>
 
-      <div v-if="showExecutionSummary" class="result-dock-header">
-        <a-tag :color="executionStatusColor" class="execution-summary-tag">
-          {{ executionStatusLabel }}
-        </a-tag>
-        <span class="execution-summary-text">{{ executionState.summary }}</span>
-        <span v-if="executionSummaryMeta" class="execution-summary-meta">{{ executionSummaryMeta }}</span>
-        <span v-if="executionElapsedLabel" class="execution-summary-elapsed">{{ $t('editor.elapsed') }} {{ executionElapsedLabel }}</span>
-        <a-button v-if="executing" danger type="link" size="small" @click="stopExec" class="execution-stop-mini">{{ $t('editor.stop_exec') }}</a-button>
-      </div>
-
-      <a-tabs v-if="resultPanelVisible" v-model:activeKey="resultTabKey" size="small" class="result-tabs">
-        <a-tab-pane v-for="(result, index) in queryResults" :key="'result-' + index">
-          <template #tab>
-            <span class="result-tab-label" @contextmenu.prevent="handleResultTabContextMenu($event, index)">
-              <span class="result-tab-title">
-                {{ queryResults.length > 1 ? $t('editor.result_n', { n: index + 1 }) : $t('editor.result') }}
+      <!-- 统一 Tabs (按时间先后排列) -->
+      <a-tabs v-if="hasAnyResultContent" v-model:activeKey="resultTabKey" size="small" class="result-tabs">
+        <template v-for="tab in orderedTabs" :key="tab.key">
+          <!-- 错误 Tab -->
+          <a-tab-pane v-if="tab.kind === 'error' && tab.errorIndex != null" :key="tab.key">
+            <template #tab>
+              <span class="result-tab-label" @contextmenu.prevent>
+                <CloseCircleOutlined class="error-tab-icon" />
+                <span class="result-tab-title">{{ errorTabs[tab.errorIndex].status === 'cancelled' ? $t('editor.status.cancelled') : $t('editor.status.failed') }}</span>
+                <button class="result-tab-close" type="button" :title="$t('common.close')" @click.stop="closeErrorTab(tab.errorIndex!)">×</button>
               </span>
-              <button class="result-tab-close" type="button" :title="$t('common.close')" @click.stop="closeResultAt(index)">×</button>
-            </span>
-          </template>
-          <div class="result-content">
-            <div class="result-info">
-              <a-space>
-                <a-tag color="success">{{ $t('editor.loaded_rows', { n: result.rows.length }) }}</a-tag>
-                <a-tag color="processing">{{ result.execution_time_ms }} ms</a-tag>
-                <a-divider type="vertical" />
-                <span class="affected-text" v-if="result.affected_rows > 0">{{ $t('editor.affected_rows', { n: result.affected_rows }) }}</span>
-              </a-space>
-              <a-space :size="8">
-                <a-dropdown>
-                  <template #overlay>
-                    <a-menu @click="handleCopyMenuClick(index, $event)">
-                      <a-menu-item key="cell" :disabled="!hasResultClipboardSelection(index)">{{ $t('editor.copy_cell') }}</a-menu-item>
-                      <a-menu-item key="row" :disabled="!hasResultClipboardSelection(index)">{{ $t('editor.copy_row') }}</a-menu-item>
-                      <a-menu-item key="result" :disabled="result.columns.length === 0">{{ $t('editor.copy_result_set') }}</a-menu-item>
-                    </a-menu>
-                  </template>
-                  <a-button size="small" :icon="h(CopyOutlined)" :disabled="result.columns.length === 0">{{ $t('common.copy') }}</a-button>
-                </a-dropdown>
-                <a-dropdown>
-                  <template #overlay>
-                    <a-menu @click="handleExportMenuClick(index, $event)">
-                      <a-menu-item key="csv">{{ $t('data.export_csv') }}</a-menu-item>
-                      <a-menu-item key="json">{{ $t('data.export_json') }}</a-menu-item>
-                      <a-menu-item key="sql">{{ $t('data.export_sql') }}</a-menu-item>
-                    </a-menu>
-                  </template>
-                  <a-button size="small" :icon="h(ExportOutlined)" :disabled="result.columns.length === 0">{{ $t('editor.export_result') }}</a-button>
-                </a-dropdown>
-              </a-space>
+            </template>
+            <div class="execution-error-tab">
+              <div class="error-center">
+                <CloseCircleOutlined class="error-icon" />
+                <div class="error-title">{{ errorTabs[tab.errorIndex].status === 'cancelled' ? $t('editor.summary.query_cancelled') : $t('editor.execution_failed') }}</div>
+                <div class="error-summary">{{ errorTabs[tab.errorIndex].summary }}</div>
+                <div class="error-detail" v-if="errorTabs[tab.errorIndex].detail">{{ errorTabs[tab.errorIndex].detail }}</div>
+                <div class="error-time" v-if="errorTabs[tab.errorIndex].elapsedMs > 0">{{ $t('editor.elapsed') }} {{ formatElapsed(errorTabs[tab.errorIndex].elapsedMs) }}</div>
+              </div>
             </div>
-            <div class="table-wrapper">
-              <vxe-grid
-                :ref="(el: any) => setGridRef(el, index)"
-                v-bind="getGridOptions(result, index)"
-                @scroll="(params: any) => handleScroll({ ...params, index })"
-                @cell-click="(params: any) => handleResultCellClick({ ...params, index })"
-              >
-                <template #cell_default="{ row, column }">
-                  <span class="result-cell-text" :class="{ 'null-text': row[column.field] === null }">
-                    {{ row[column.field] === null ? 'NULL' : row[column.field] }}
-                  </span>
-                </template>
-              </vxe-grid>
-            </div>
-          </div>
-        </a-tab-pane>
+          </a-tab-pane>
 
-        <a-tab-pane v-if="queryResults.length === 0" key="empty" :tab="$t('editor.result')">
-          <div class="result-content">
-            <a-empty :description="executing ? $t('editor.executing') : $t('editor.no_result')" />
-          </div>
-        </a-tab-pane>
-
-        <a-tab-pane key="messages" :tab="$t('editor.messages')">
-          <div class="messages-content">
-            <div v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.type]">
-              <span class="message-time">{{ msg.time }}</span>
-              <span class="message-text">{{ msg.text }}</span>
+          <!-- 结果 Tab -->
+          <a-tab-pane v-else-if="tab.kind === 'result' && tab.resultIndex != null" :key="tab.key">
+            <template #tab>
+              <span class="result-tab-label" @contextmenu.prevent="handleResultTabContextMenu($event, tab.resultIndex!)">
+                <span class="result-tab-title">
+                  {{ queryResults.length > 1 ? $t('editor.result_n', { n: tab.resultIndex! + 1 }) : $t('editor.result') }}
+                </span>
+                <button class="result-tab-close" type="button" :title="$t('common.close')" @click.stop="closeResultAt(tab.resultIndex!)">×</button>
+              </span>
+            </template>
+            <div class="result-content">
+              <div class="result-info">
+                <a-space>
+                  <a-tag color="success">{{ $t('editor.loaded_rows', { n: queryResults[tab.resultIndex].rows.length }) }}</a-tag>
+                  <a-tag color="processing">{{ queryResults[tab.resultIndex].execution_time_ms }} ms</a-tag>
+                  <a-divider type="vertical" />
+                  <span class="affected-text" v-if="queryResults[tab.resultIndex].affected_rows > 0">{{ $t('editor.affected_rows', { n: queryResults[tab.resultIndex].affected_rows }) }}</span>
+                </a-space>
+                <a-space :size="8">
+                  <a-dropdown>
+                    <template #overlay>
+                      <a-menu @click="handleCopyMenuClick(tab.resultIndex!, $event)">
+                        <a-menu-item key="cell" :disabled="!hasResultClipboardSelection(tab.resultIndex!)">{{ $t('editor.copy_cell') }}</a-menu-item>
+                        <a-menu-item key="row" :disabled="!hasResultClipboardSelection(tab.resultIndex!)">{{ $t('editor.copy_row') }}</a-menu-item>
+                        <a-menu-item key="result" :disabled="queryResults[tab.resultIndex].columns.length === 0">{{ $t('editor.copy_result_set') }}</a-menu-item>
+                      </a-menu>
+                    </template>
+                    <a-button size="small" :icon="h(CopyOutlined)" :disabled="queryResults[tab.resultIndex].columns.length === 0">{{ $t('common.copy') }}</a-button>
+                  </a-dropdown>
+                  <a-dropdown>
+                    <template #overlay>
+                      <a-menu @click="handleExportMenuClick(tab.resultIndex!, $event)">
+                        <a-menu-item key="csv">{{ $t('data.export_csv') }}</a-menu-item>
+                        <a-menu-item key="json">{{ $t('data.export_json') }}</a-menu-item>
+                        <a-menu-item key="sql">{{ $t('data.export_sql') }}</a-menu-item>
+                      </a-menu>
+                    </template>
+                    <a-button size="small" :icon="h(ExportOutlined)" :disabled="queryResults[tab.resultIndex].columns.length === 0">{{ $t('editor.export_result') }}</a-button>
+                  </a-dropdown>
+                </a-space>
+              </div>
+              <div class="table-wrapper">
+                <vxe-grid
+                  :ref="(el: any) => setGridRef(el, tab.resultIndex!)"
+                  v-bind="getGridOptions(queryResults[tab.resultIndex], tab.resultIndex!)"
+                  @scroll="(params: any) => handleScroll({ ...params, index: tab.resultIndex! })"
+                  @cell-click="(params: any) => handleResultCellClick({ ...params, index: tab.resultIndex! })"
+                >
+                  <template #cell_default="{ row, column }">
+                    <span class="result-cell-text" :class="{ 'null-text': row[column.field] === null }">
+                      {{ row[column.field] === null ? 'NULL' : row[column.field] }}
+                    </span>
+                  </template>
+                </vxe-grid>
+              </div>
             </div>
-            <a-empty v-if="messages.length === 0" :description="$t('editor.no_result')" />
-          </div>
-        </a-tab-pane>
+          </a-tab-pane>
+
+          <!-- 进度 Tab -->
+          <a-tab-pane v-else-if="tab.kind === 'progress'" :key="tab.key">
+            <template #tab>
+              <span class="result-tab-label">
+                <LoadingOutlined spin class="progress-tab-icon" />
+                <span class="result-tab-title">{{ $t('editor.status.running') }}</span>
+              </span>
+            </template>
+            <div class="execution-progress-tab">
+              <div class="progress-tab-center">
+                <div class="progress-status">{{ executionStatusLabel }}</div>
+                <div class="progress-summary-text">{{ executionState.summary }}</div>
+                <div class="progress-stats">
+                  <div class="stat-item" v-if="executionState.statementCount > 1">
+                    <span class="stat-label">{{ $t('editor.progress.statements') }}</span>
+                    <span class="stat-value">{{ executionState.completedStatements }}/{{ executionState.statementCount }}</span>
+                  </div>
+                  <div class="stat-item" v-if="executionState.resultSetCount > 0">
+                    <span class="stat-label">{{ $t('editor.progress.result_sets') }}</span>
+                    <span class="stat-value">{{ executionState.resultSetCount }}</span>
+                  </div>
+                  <div class="stat-item" v-if="executionState.affectedRows > 0">
+                    <span class="stat-label">{{ $t('editor.progress.affected_rows') }}</span>
+                    <span class="stat-value">{{ executionState.affectedRows }}</span>
+                  </div>
+                  <div class="stat-item timer" v-if="executionElapsedLabel">
+                    <span class="stat-label">{{ $t('editor.progress.elapsed') }}</span>
+                    <span class="stat-value">{{ executionElapsedLabel }}</span>
+                  </div>
+                </div>
+                <a-button danger type="primary" size="small" @click="stopExec" class="progress-stop-btn">
+                  <template #icon><StopOutlined /></template>{{ $t('editor.stop_exec') }}
+                </a-button>
+              </div>
+            </div>
+          </a-tab-pane>
+        </template>
       </a-tabs>
+
+      <!-- 空状态 -->
+      <div v-else class="result-content">
+        <a-empty :description="$t('editor.no_result')" />
+      </div>
+    </div>
+
+    <!-- 面板间分隔条 -->
+    <div v-if="resultPanelVisible && messagesPanelVisible" class="inter-panel-resizer" @mousedown="startMessagesResize"></div>
+
+    <!-- 数据库消息面板 -->
+    <div class="messages-dock" :class="{ collapsed: !messagesPanelVisible }" :style="{ height: messagesPanelVisible ? `${messagesPanelHeight}px` : '0' }">
+      <div v-if="messagesPanelVisible" class="split-resizer" @mousedown="startMessagesResize">
+        <div class="resizer-handle"></div>
+      </div>
+      <div class="messages-panel-header">
+        <span class="messages-panel-title">{{ $t('editor.messages_panel') }}</span>
+      </div>
+      <div class="messages-content">
+        <div v-for="(msg, index) in dbMessages" :key="index" class="message-line">
+          <span class="message-time">{{ formatMessageTime(index) }}</span>
+          <span class="message-body">{{ msg.text }}</span>
+        </div>
+        <a-empty v-if="dbMessages.length === 0" :description="$t('editor.messages_hint')" />
+      </div>
     </div>
 
     <!-- 历史记录 -->
@@ -149,7 +210,7 @@ import { useI18n } from 'vue-i18n'
 import * as monaco from 'monaco-editor'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { message } from 'ant-design-vue'
-import { ExportOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportApi, queryApi, metadataApi, utilsApi } from '@/api'
 import type { QueryResult, DatabaseInfo } from '@/types/database'
@@ -208,26 +269,124 @@ const currentDatabaseLabel = computed(() => {
 
 // ── 结果管理 ──
 const queryResults = ref<QueryResult[]>([])
-const resultTabKey = ref('empty')
-const messages = ref<{ type: string; text: string; time: string }[]>([])
+const resultTabKey = ref('result-0')
+const dbMessages = ref<{ severity: string; text: string; time: number }[]>([])
 const resultPanelVisible = ref(getStorageItem(RESULT_PANEL_VISIBLE_KEY, false))
 const resultPanelHeight = ref(getStorageItem(RESULT_PANEL_HEIGHT_KEY, 260))
+
+// ── 错误 Tabs (持久化，不随新执行关闭) ──
+interface ErrorTabInfo {
+  key: string
+  status: 'failed' | 'cancelled' | 'partial_success'
+  summary: string
+  detail: string
+  elapsedMs: number
+  createdAt: number
+}
+const errorTabs = ref<ErrorTabInfo[]>([])
+let errorTabCounter = 0
+
+// ── 统一 Tab 排序 ──
+interface OrderedTab {
+  kind: 'error' | 'result' | 'progress'
+  key: string
+  errorIndex?: number    // index into errorTabs
+  resultIndex?: number   // index into queryResults
+  createdAt: number
+}
+
+// 为每个结果 tab 记录创建时间
+const resultTabCreatedAt = ref<Record<number, number>>({})
+
+const orderedTabs = computed<OrderedTab[]>(() => {
+  const tabs: OrderedTab[] = []
+  
+  // 错误 tabs
+  errorTabs.value.forEach((err, i) => {
+    tabs.push({ kind: 'error', key: err.key, errorIndex: i, createdAt: err.createdAt })
+  })
+  
+  // 结果 tabs
+  queryResults.value.forEach((_, i) => {
+    tabs.push({ kind: 'result', key: `result-${i}`, resultIndex: i, createdAt: resultTabCreatedAt.value[i] || 0 })
+  })
+  
+  // 进度 tab (始终最后)
+  if (executing.value) {
+    tabs.push({ kind: 'progress', key: 'progress', createdAt: Date.now() })
+  }
+  
+  // 按时间排序
+  tabs.sort((a, b) => a.createdAt - b.createdAt)
+  return tabs
+})
+
+function addErrorTab(status: 'failed' | 'cancelled' | 'partial_success', summary: string, detail: string, elapsedMs: number) {
+  const key = `error-${++errorTabCounter}`
+  errorTabs.value.push({ key, status, summary, detail, elapsedMs, createdAt: Date.now() })
+  resultTabKey.value = key
+  revealResultPanel()
+}
+
+function closeErrorTab(index: number) {
+  if (index < 0 || index >= errorTabs.value.length) return
+  const removedKey = errorTabs.value[index].key
+  errorTabs.value.splice(index, 1)
+  if (resultTabKey.value === removedKey) {
+    if (executing.value) resultTabKey.value = 'progress'
+    else if (queryResults.value.length > 0) resultTabKey.value = 'result-' + Math.max(0, queryResults.value.length - 1)
+    else if (errorTabs.value.length > 0) resultTabKey.value = errorTabs.value[errorTabs.value.length - 1].key
+    else resultTabKey.value = 'result-0'
+  }
+}
+
+function formatElapsed(ms: number): string {
+  if (ms <= 0) return '0 ms'
+  if (ms < 1000) return `${ms} ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`
+  const minutes = Math.floor(ms / 60_000)
+  const seconds = Math.floor((ms % 60_000) / 1000)
+  return `${minutes}m ${seconds}s`
+}
+
+// ── 消息面板 ──
+const MESSAGES_PANEL_VISIBLE_KEY = 'sql_messages_panel_visible'
+const MESSAGES_PANEL_HEIGHT_KEY = 'sql_messages_panel_height'
+const MESSAGES_PANEL_MIN_HEIGHT = 100
+const messagesPanelVisible = ref(getStorageItem(MESSAGES_PANEL_VISIBLE_KEY, false))
+const messagesPanelHeight = ref(getStorageItem(MESSAGES_PANEL_HEIGHT_KEY, 200))
+
 const isSplitResizing = ref(false)
+const isMessagesResizing = ref(false)
 
 const queryResultStates = reactive<Record<number, { pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>>({})
 
-function addMessage(type: string, text: string) {
-  messages.value.unshift({ type, text, time: new Date().toLocaleTimeString() })
+function addDbMessage(severity: string, text: string) {
+  dbMessages.value.unshift({ severity, text, time: Date.now() })
+  if (dbMessages.value.length > 500) dbMessages.value = dbMessages.value.slice(0, 500)
+}
+
+function formatMessageTime(index: number): string {
+  const msg = dbMessages.value[index]
+  if (!msg || !msg.time) return ''
+  const d = new Date(msg.time)
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  const s = d.getSeconds().toString().padStart(2, '0')
+  const ms = d.getMilliseconds().toString().padStart(3, '0')
+  return `${h}:${m}:${s}.${ms}`
 }
 
 function revealResultPanel() { resultPanelVisible.value = true }
 function toggleResultPanel() { resultPanelVisible.value = !resultPanelVisible.value; setStorageItem(RESULT_PANEL_VISIBLE_KEY, resultPanelVisible.value) }
+function toggleMessagesPanel() { messagesPanelVisible.value = !messagesPanelVisible.value; setStorageItem(MESSAGES_PANEL_VISIBLE_KEY, messagesPanelVisible.value) }
 
 function appendQueryResults(results: QueryResult[], states: Array<{ pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>) {
   const startIndex = queryResults.value.length
   queryResults.value = [...queryResults.value, ...results]
   states.forEach((state, offset) => {
     queryResultStates[startIndex + offset] = { ...state }
+    resultTabCreatedAt.value[startIndex + offset] = Date.now()
   })
   return startIndex
 }
@@ -236,21 +395,30 @@ function replaceResultTabs(keptSourceIndices: number[]) {
   const nextResults = keptSourceIndices.map(i => queryResults.value[i])
   const nextStates = keptSourceIndices.map(i => queryResultStates[i])
   const nextSelections = keptSourceIndices.map(i => resultClipboardSelections[i])
+  const nextCreatedAt: Record<number, number> = {}
+  keptSourceIndices.forEach((oldIdx, newIdx) => {
+    nextCreatedAt[newIdx] = resultTabCreatedAt.value[oldIdx] || 0
+  })
   const prevActive = activeResultIndex.value
 
   queryResults.value = nextResults
+  resultTabCreatedAt.value = nextCreatedAt
   Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)])
   Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)])
   nextStates.forEach((s, i) => { if (s) queryResultStates[i] = { ...s } })
   nextSelections.forEach((s, i) => { if (s) resultClipboardSelections[i] = s })
 
   if (prevActive < 0) {
-    if (queryResults.value.length === 0 && resultTabKey.value !== 'messages') resultTabKey.value = 'empty'
+    if (queryResults.value.length === 0) {
+      resultTabKey.value = executing.value ? 'progress' : (errorTabs.value.length > 0 ? errorTabs.value[errorTabs.value.length - 1].key : 'result-0')
+      return
+    }
+    resultTabKey.value = 'result-0'
     return
   }
   const preserved = keptSourceIndices.indexOf(prevActive)
   if (preserved >= 0) { resultTabKey.value = `result-${preserved}`; return }
-  if (queryResults.value.length === 0) { resultTabKey.value = 'empty'; return }
+  if (queryResults.value.length === 0) { resultTabKey.value = executing.value ? 'progress' : (errorTabs.value.length > 0 ? errorTabs.value[errorTabs.value.length - 1].key : 'result-0'); return }
   resultTabKey.value = `result-${keptSourceIndices.findIndex(i => i > prevActive) >= 0 ? keptSourceIndices.findIndex(i => i > prevActive) : queryResults.value.length - 1}`
 }
 
@@ -269,7 +437,10 @@ function closeResultTabsRightOf(index: number) {
 
 function getMaxResultPanelHeight() {
   const h = sqlEditorRoot.value?.clientHeight || 0
-  return h <= 0 ? 420 : Math.max(RESULT_PANEL_MIN_HEIGHT, h - 180)
+  // 编辑器最小高度 + 消息面板空间
+  const editorMin = 120
+  const messagesSpace = messagesPanelVisible.value ? messagesPanelHeight.value + 6 : 0
+  return h <= 0 ? 420 : Math.max(RESULT_PANEL_MIN_HEIGHT, h - editorMin - messagesSpace)
 }
 const resultDockHeight = computed(() => resultPanelVisible.value ? resultPanelHeight.value : RESULT_PANEL_COLLAPSED_HEIGHT)
 
@@ -312,7 +483,7 @@ async function loadNextPage(index: number) {
         queryResults.value[index] = { ...queryResults.value[index], rows: [...queryResults.value[index].rows, ...r.rows] }
       } else { state.hasMore = false }
     } catch (e: unknown) {
-      message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)); state.hasMore = false
+      message.error(getErrorMessage(e)); state.hasMore = false
     } finally { state.loading = false }
   } else { state.hasMore = false; state.loading = false }
 }
@@ -425,7 +596,7 @@ async function handleExportResult(index: number, format: string) {
     else if (format === 'json') await exportApi.toJson(result, path)
     else if (format === 'sql') await exportApi.toSql(result, inferInsertTargetTable(index), path)
     message.success(t('data.export_success', { path }))
-  } catch (e: unknown) { message.error(getErrorMessage(e)); addMessage('error', getErrorMessage(e)) }
+  } catch (e: unknown) { message.error(getErrorMessage(e)) }
 }
 function handleExportMenuClick(index: number, { key }: { key: string | number }) { return handleExportResult(index, String(key)) }
 async function handleCopyMenuClick(index: number, { key }: { key: string | number }) {
@@ -434,17 +605,27 @@ async function handleCopyMenuClick(index: number, { key }: { key: string | numbe
 }
 
 // ── 分隔条拖拽 ──
-function startResize(e: MouseEvent) {
+function startResultResize(e: MouseEvent) {
+  e.preventDefault()
   isSplitResizing.value = true; const sy = e.clientY; const sh = resultPanelHeight.value
   const move = (ev: MouseEvent) => { if (!isSplitResizing.value) return; resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, sh - (ev.clientY - sy))) }
-  const stop = () => { isSplitResizing.value = false; setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = '' }
-  document.body.style.cursor = 'row-resize'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
+  const stop = () => { isSplitResizing.value = false; setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = ''; document.body.style.userSelect = '' }
+  document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
+}
+
+function startMessagesResize(e: MouseEvent) {
+  e.preventDefault()
+  isMessagesResizing.value = true; const sy = e.clientY; const sh = messagesPanelHeight.value
+  const maxH = Math.max(MESSAGES_PANEL_MIN_HEIGHT, Math.floor((sqlEditorRoot.value?.clientHeight || 600) * 0.7))
+  const move = (ev: MouseEvent) => { if (!isMessagesResizing.value) return; messagesPanelHeight.value = Math.min(maxH, Math.max(MESSAGES_PANEL_MIN_HEIGHT, sh - (ev.clientY - sy))) }
+  const stop = () => { isMessagesResizing.value = false; setStorageItem(MESSAGES_PANEL_HEIGHT_KEY, messagesPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = ''; document.body.style.userSelect = '' }
+  document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
 }
 
 // ── 编辑器操作 ──
 function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
 async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: unknown) { message.error(getErrorMessage(e)) } }
-function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'empty'; messages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
+function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'result-0'; errorTabs.value = []; resultTabCreatedAt.value = {}; dbMessages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
 function handleQuerySaved() { message.success(t('common.save')) }
 async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: unknown) { if (!isAuto) message.error(`${t('common.fail')}: ${getErrorMessage(err)}`) } }
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -498,26 +679,19 @@ const execution = useSqlExecution({
   },
   isReadOnly: () => Boolean(currentConnection.value?.read_only),
   onAppendResults: (results, states) => appendQueryResults(results, states),
-  onSwitchToResultTab: (tabKey: string) => { resultTabKey.value = tabKey },
+  onSwitchToTab: (tabKey: string) => { resultTabKey.value = tabKey },
+  onAddErrorTab: addErrorTab,
   onRevealPanel: revealResultPanel,
-  onAddMessage: addMessage,
+  onDbMessage: addDbMessage,
   onSaveHistory: (sql: string) => saveToHistory(sql, selectedDatabase.value),
   t: (key: string, options?: Record<string, unknown>) => t(key, options ?? {}) as string,
 })
 
 const {
-  executing, executionState, executionStatusColor, showExecutionSummary,
+  executing, executionState,
 } = execution
 
 const executionStatusLabel = computed(() => t(`editor.status.${executionState.value.status}`))
-
-const executionSummaryMeta = computed(() => {
-  const s = executionState.value; const p: string[] = []
-  if (s.statementCount > 0) p.push(t('editor.statement_progress', { completed: s.completedStatements, total: s.statementCount }))
-  if (s.resultSetCount > 0) p.push(`${s.resultSetCount} ${t('editor.messages_result_sets')}`)
-  if (s.affectedRows > 0) p.push(t('editor.affected_rows_short', { n: s.affectedRows }))
-  return p.join(' · ')
-})
 
 const executionElapsedLabel = computed(() => {
   const elapsed = executionState.value.elapsedMs || 0
@@ -529,17 +703,21 @@ const executionElapsedLabel = computed(() => {
   return `${minutes}m ${seconds}s`
 })
 
+const hasAnyResultContent = computed(() =>
+  queryResults.value.length > 0 || errorTabs.value.length > 0 || executing.value
+)
+
 // 模板级别的包装器（组合 composable 函数与连接上下文）
 async function executeQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
-  addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
+  message.info(t('editor.exec_context', { database: currentDatabaseLabel.value }))
   await execution.executeQuery(connId, selectedDatabase.value || null)
 }
 async function explainQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
-  addMessage('info', t('editor.exec_context', { database: currentDatabaseLabel.value }))
+  message.info(t('editor.exec_context', { database: currentDatabaseLabel.value }))
   await execution.explainQuery(connId, selectedDatabase.value || null)
 }
 function stopExec() { execution.stopExecution(sessionConnectionId.value) }
@@ -548,7 +726,7 @@ function stopExec() { execution.stopExecution(sessionConnectionId.value) }
 function handleToolbarAction(method: string) {
   const actions: Record<string, () => void | Promise<void>> = {
     executeQuery, explainQuery, stopExecution: stopExec, handleSave, formatSql,
-    clearEditor, openHistory, openSnippets, refreshAutocomplete, toggleResultPanel,
+    clearEditor, openHistory, openSnippets, refreshAutocomplete, toggleResultPanel, toggleMessagesPanel,
   }
   actions[method]?.()
 }
@@ -567,7 +745,7 @@ async function loadAvailableDatabases() { const bid = props.connectionId || conn
 function handleDatabaseChange(dbName: string) {
   selectedDatabase.value = dbName; updateAutocompleteContext(); emit('databaseChange', dbName)
   const notice = t('editor.database_switched', { database: currentDatabaseLabel.value })
-  addMessage('info', notice); message.info(notice)
+  message.info(notice)
 }
 async function setSelectedDatabase(db: string) { if (availableDatabases.value.length === 0) await loadAvailableDatabases(); selectedDatabase.value = db; updateAutocompleteContext(); emit('databaseChange', db) }
 
@@ -628,17 +806,58 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .split-resizer:hover { background: #1677ff; }
 .dark-mode .split-resizer { background: #303030; }
 .resizer-handle { display: none; }
-.result-dock-header { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; border-bottom: 1px solid #f0f0f0; background: rgba(248,250,252,0.92); flex-shrink: 0; }
-.dark-mode .result-dock-header { border-bottom-color: #2c2c2c; background: rgba(24,24,24,0.96); }
-.result-dock.collapsed .result-dock-header { border-bottom: 0; }
-.execution-summary-tag { margin-inline-end: 0; }
-.execution-summary-text { color: #262626; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dark-mode .execution-summary-text { color: #f5f5f5; }
-.execution-summary-meta { color: #8c8c8c; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dark-mode .execution-summary-meta { color: #a6a6a6; }
-.execution-summary-elapsed { margin-left: auto; color: #595959; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dark-mode .execution-summary-elapsed { color: #d9d9d9; }
-.execution-stop-mini { flex-shrink: 0; padding: 0 4px; font-size: 12px; height: 24px; }
+/* ── 执行进度 Tab 视图 ── */
+.execution-progress-tab { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.progress-tab-center { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 360px; text-align: center; }
+.progress-tab-icon { font-size: 12px; color: #1677ff; }
+.progress-status { font-size: 14px; font-weight: 600; color: #262626; }
+.dark-mode .progress-status { color: #f5f5f5; }
+.progress-summary-text { font-size: 12px; color: #8c8c8c; line-height: 1.5; }
+.dark-mode .progress-summary-text { color: #a6a6a6; }
+.progress-stats { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+.stat-item { display: flex; gap: 6px; align-items: baseline; }
+.stat-label { font-size: 11px; color: #8c8c8c; }
+.dark-mode .stat-label { color: #a6a6a6; }
+.stat-value { font-size: 13px; font-weight: 600; color: #262626; font-variant-numeric: tabular-nums; }
+.dark-mode .stat-value { color: #f5f5f5; }
+.stat-item.timer .stat-value { color: #1677ff; }
+.progress-stop-btn { margin-top: 4px; }
+
+/* ── 错误 Tab 视图 ── */
+.error-tab-icon { font-size: 11px; color: #ff4d4f; flex-shrink: 0; }
+.execution-error-tab { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.execution-error-tab .error-center { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 520px; text-align: center; }
+.execution-error-tab .error-icon { font-size: 36px; color: #ff4d4f; }
+.execution-error-tab .error-title { font-size: 15px; font-weight: 600; color: #262626; }
+.dark-mode .execution-error-tab .error-title { color: #f5f5f5; }
+.execution-error-tab .error-summary { font-size: 12px; color: #8c8c8c; line-height: 1.5; }
+.dark-mode .execution-error-tab .error-summary { color: #a6a6a6; }
+.execution-error-tab .error-detail { font-size: 12px; color: #ff4d4f; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; font-family: monospace; background: rgba(255,77,79,0.04); padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(255,77,79,0.12); }
+.dark-mode .execution-error-tab .error-detail { background: rgba(255,77,79,0.06); border-color: rgba(255,77,79,0.18); }
+.execution-error-tab .error-time { margin-top: 4px; font-size: 11px; color: #8c8c8c; font-variant-numeric: tabular-nums; }
+.dark-mode .execution-error-tab .error-time { color: #a6a6a6; }
+
+/* ── 面板间分隔条 & 消息面板 ── */
+.inter-panel-resizer { height: 6px; background: transparent; cursor: row-resize; flex-shrink: 0; position: relative; }
+.inter-panel-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
+.inter-panel-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 32px; height: 3px; border-radius: 2px; background: #d9d9d9; transition: background-color 0.2s; }
+.inter-panel-resizer:hover::after { background: #1677ff; }
+.dark-mode .inter-panel-resizer::after { background: #434343; }
+.dark-mode .inter-panel-resizer:hover::after { background: #1677ff; }
+.messages-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid #e5e7eb; background: rgba(255,255,255,0.96); transition: height 0.18s ease; }
+.dark-mode .messages-dock { background: rgba(24,24,24,0.98); border-top-color: #303030; }
+.messages-dock.collapsed { border-top-color: transparent; }
+.messages-dock .split-resizer { height: 5px; background: transparent; cursor: row-resize; display: block; flex-shrink: 0; position: relative; }
+.messages-dock .split-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
+.messages-dock .split-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 32px; height: 3px; border-radius: 2px; background: #d9d9d9; transition: background-color 0.2s; }
+.messages-dock .split-resizer:hover::after { background: #1677ff; }
+.dark-mode .messages-dock .split-resizer::after { background: #434343; }
+.dark-mode .messages-dock .split-resizer:hover::after { background: #1677ff; }
+.messages-panel-header { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 10px; border-bottom: 1px solid #f0f0f0; background: rgba(248,250,252,0.92); flex-shrink: 0; }
+.dark-mode .messages-panel-header { border-bottom-color: #2c2c2c; background: rgba(24,24,24,0.96); }
+.messages-panel-title { font-size: 12px; font-weight: 600; color: #595959; }
+.dark-mode .messages-panel-title { color: #d9d9d9; }
+/* 复用 .messages-content 和 .message-item 样式 */
 .result-tabs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .result-tabs :deep(.ant-tabs-content) { flex: 1; overflow: hidden; }
 .result-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
@@ -646,12 +865,12 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-info { margin-bottom: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .affected-text { font-size: 12px; color: #8c8c8c; }
 .table-wrapper { flex: 1; min-height: 0; overflow: hidden; }
-.messages-content { flex: 1; padding: 12px; overflow-y: auto; font-family: monospace; }
-.message-item { margin-bottom: 8px; padding: 4px 8px; border-left: 3px solid #d9d9d9; background: #f5f5f5; white-space: pre-wrap; word-break: break-all; }
-.dark-mode .message-item { background: #262626; border-left-color: #434343; }
-.message-item.success { border-left-color: #52c41a; }
-.message-item.error { border-left-color: #ff4d4f; color: #ff4d4f; }
-.message-time { color: #8c8c8c; margin-right: 8px; }
+.messages-content { flex: 1; padding: 6px 8px; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.6; }
+.message-line { display: flex; gap: 8px; padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+.message-time { flex-shrink: 0; color: #8c8c8c; font-variant-numeric: tabular-nums; }
+.dark-mode .message-time { color: #a6a6a6; }
+.message-body { color: #262626; }
+.dark-mode .message-body { color: #e0e0e0; }
 .history-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .history-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .history-count { flex-shrink: 0; min-width: 24px; font-size: 12px; color: #8c8c8c; text-align: right; }
@@ -679,7 +898,6 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 :deep(.danger-confirm-list) { margin: 0; padding-left: 18px; color: #262626; }
 :deep(.danger-confirm-list li) { margin-bottom: 8px; line-height: 1.5; word-break: break-word; }
 @media (max-width: 768px) {
-  .result-dock-header { flex-wrap: wrap; padding-bottom: 4px; padding-top: 4px; }
   .result-info { align-items: flex-start; flex-direction: column; }
 }
 </style>

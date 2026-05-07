@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { QueryResult } from '@/types/database'
+import type { QueryResult, DbMessage } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
 export interface PreparedSqlStatement {
@@ -15,6 +15,7 @@ export interface QueryBatchExecutionResult {
   error_message: string | null
   was_cancelled: boolean
   execution_time_ms: number
+  messages: DbMessage[]
 }
 
 export const queryApi = {

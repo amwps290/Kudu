@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::time::Instant;
 use tokio_postgres::{CancelToken, Client, NoTls};
 use tracing::{info, instrument, error, debug, warn};
@@ -24,6 +25,7 @@ struct PgState {
     client: Option<Arc<Client>>,
     config: Option<ConnectionConfig>,
     active_query: Option<ActivePgQuery>,
+    notices: Arc<StdMutex<Vec<DbMessage>>>,
 }
 
 /// PostgreSQL 数据库驱动 - 基于 tokio-postgres 的底层实现 (具备内部并发能力)
@@ -34,7 +36,12 @@ pub struct PostgreSqlDatabase {
 impl PostgreSqlDatabase {
     pub fn new() -> Self {
         Self { 
-            state: Mutex::new(PgState { client: None, config: None, active_query: None })
+            state: Mutex::new(PgState {
+                client: None,
+                config: None,
+                active_query: None,
+                notices: Arc::new(StdMutex::new(Vec::new())),
+            })
         }
     }
 
@@ -79,7 +86,7 @@ impl PostgreSqlDatabase {
         state.client.as_ref().cloned().ok_or(DbError::not_connected())
     }
 
-    async fn create_client(config: &ConnectionConfig) -> DbResult<Client> {
+    async fn create_client(config: &ConnectionConfig, notices: Arc<StdMutex<Vec<DbMessage>>>) -> DbResult<Arc<Client>> {
         let db_name = config.database.as_deref().unwrap_or("postgres");
         let timeout_secs = if config.connection_timeout > 0 { config.connection_timeout } else { 5 };
         let application_name = Self::build_application_name(config);
@@ -104,12 +111,47 @@ impl PostgreSqlDatabase {
             let connector = TlsConnector::builder().danger_accept_invalid_certs(true).build().map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
             let connector = MakeTlsConnector::new(connector);
             let (client, connection) = tokio_postgres::connect(&conn_str, connector).await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
-            tokio::spawn(async move { if let Err(e) = connection.await { error!("PostgreSQL SSL 连接异常: {}", e); } });
-            Ok(client)
+            let notices = notices.clone();
+            tokio::spawn(async move {
+                Self::drive_connection(connection, notices).await;
+            });
+            Ok(Arc::new(client))
         } else {
             let (client, connection) = tokio_postgres::connect(&conn_str, NoTls).await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
-            tokio::spawn(async move { if let Err(e) = connection.await { error!("PostgreSQL 连接异常: {}", e); } });
-            Ok(client)
+            let notices = notices.clone();
+            tokio::spawn(async move {
+                Self::drive_connection(connection, notices).await;
+            });
+            Ok(Arc::new(client))
+        }
+    }
+
+    async fn drive_connection<S, T>(mut connection: tokio_postgres::Connection<S, T>, notices: Arc<StdMutex<Vec<DbMessage>>>)
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+        T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        use futures::future::poll_fn;
+        use std::task::Poll;
+        let mut conn = Box::pin(connection);
+        loop {
+            match poll_fn(|cx| conn.as_mut().poll_message(cx)).await {
+                Some(Ok(msg)) => {
+                    if let tokio_postgres::AsyncMessage::Notice(notice) = msg {
+                        let severity = notice.severity().to_string();
+                        let text = notice.message().to_string();
+                        debug!(severity = %severity, text = %text, "PostgreSQL 通知");
+                        if let Ok(mut n) = notices.lock() {
+                            n.push(DbMessage { severity, text });
+                        }
+                    }
+                }
+                Some(Err(e)) => {
+                    error!("PostgreSQL 连接异常: {}", e);
+                    break;
+                }
+                None => break,
+            }
         }
     }
 
@@ -200,15 +242,19 @@ impl PostgreSqlDatabase {
 #[async_trait]
 impl DatabaseOperations for PostgreSqlDatabase {
     async fn test_connection(&self, config: &ConnectionConfig) -> DbResult<bool> {
-        let client = Self::create_client(config).await?;
+        let client = Self::create_client(config, Arc::new(StdMutex::new(Vec::new()))).await?;
         client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         Ok(true)
     }
 
     async fn connect(&self, config: ConnectionConfig) -> DbResult<()> {
-        let client = Self::create_client(&config).await?;
+        let notices = {
+            let state = self.state.lock().await;
+            state.notices.clone()
+        };
+        let client = Self::create_client(&config, notices).await?;
         let mut state = self.state.lock().await;
-        state.client = Some(Arc::new(client));
+        state.client = Some(client);
         state.config = Some(config);
         Ok(())
     }
@@ -232,8 +278,11 @@ impl DatabaseOperations for PostgreSqlDatabase {
         info!(new_db = %database, "PostgreSQL 正在物理切换数据库连接...");
         config.database = Some(database.to_string());
         
-        let client = Self::create_client(&config).await?;
-        state.client = Some(Arc::new(client));
+        let notices = state.notices.clone();
+        drop(state);
+        let client = Self::create_client(&config, notices).await?;
+        let mut state = self.state.lock().await;
+        state.client = Some(client);
         state.config = Some(config);
         Ok(())
     }
@@ -255,8 +304,25 @@ impl DatabaseOperations for PostgreSqlDatabase {
         debug!(sql = %sql.replace('\n', " "), "执行查询");
 
         let result = async {
+            // 清空之前的通知
+            {
+                let state = self.state.lock().await;
+                let mut guard = state.notices.lock().unwrap_or_else(|e| e.into_inner());
+                guard.clear();
+                drop(guard);
+            }
+
             // 1. 执行 simple_query (文本协议)，它能自动处理多条语句
             let messages = client.simple_query(sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+            
+            // 收集数据库通知
+            let query_notices: Vec<DbMessage> = {
+                let state = self.state.lock().await;
+                let mut guard = state.notices.lock().unwrap_or_else(|e| e.into_inner());
+                let notices: Vec<DbMessage> = guard.drain(..).collect();
+                drop(guard);
+                notices
+            };
             
             let mut results = Vec::new();
             let mut current_columns = Vec::new();
@@ -288,6 +354,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                             rows: current_rows.clone(),
                             affected_rows: count,
                             execution_time_ms: start.elapsed().as_millis(),
+                            messages: Vec::new(),
                         });
                         current_columns.clear();
                         current_rows.clear();
@@ -302,11 +369,19 @@ impl DatabaseOperations for PostgreSqlDatabase {
                     rows: current_rows,
                     affected_rows: 0,
                     execution_time_ms: start.elapsed().as_millis(),
+                    messages: Vec::new(),
                 });
             }
 
             if results.is_empty() {
                 results.push(QueryResult::empty(start.elapsed().as_millis()));
+            }
+
+            // 将数据库通知附加到第一个结果集
+            if !query_notices.is_empty() {
+                if let Some(first) = results.first_mut() {
+                    first.messages = query_notices;
+                }
             }
 
             Ok(results)
@@ -778,7 +853,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             }
         }
 
-        let cancel_client = Self::create_client(&config).await?;
+        let cancel_client = Self::create_client(&config, Arc::new(StdMutex::new(Vec::new()))).await?;
         let cancelled: bool = cancel_client
             .query_one("SELECT pg_cancel_backend($1)", &[&backend_pid])
             .await

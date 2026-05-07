@@ -16,12 +16,14 @@ export interface ExecutionCallbacks {
   isReadOnly: () => boolean
   /** 追加查询结果，返回起始索引 */
   onAppendResults: (results: QueryResult[], states: ResultPageState[]) => number
-  /** 切换到指定结果 Tab */
-  onSwitchToResultTab: (tabKey: string) => void
+  /** 切换到指定 Tab */
+  onSwitchToTab: (tabKey: string) => void
+  /** 添加错误 Tab (持久化) */
+  onAddErrorTab: (status: 'failed' | 'cancelled' | 'partial_success', summary: string, detail: string, elapsedMs: number) => void
   /** 展开结果面板 */
   onRevealPanel: () => void
-  /** 添加消息 */
-  onAddMessage: (type: string, text: string) => void
+  /** 添加数据库消息 (NOTICE, DEBUG, WARNING 等) */
+  onDbMessage: (severity: string, text: string) => void
   /** 保存到历史记录 */
   onSaveHistory: (sql: string) => void
   /** i18n 翻译 */
@@ -102,19 +104,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       affectedRows: options.affectedRows ?? executionState.value.affectedRows,
       elapsedMs: options.elapsedMs ?? executionState.value.elapsedMs,
     })
-    callbacks.onAddMessage(getMessageTypeForStatus(status), summary)
-    if (options.detail) callbacks.onAddMessage('error', options.detail)
-    showSummaryTemporarily()
-  }
-
-  function getMessageTypeForStatus(status: SqlExecutionStatus): string {
-    switch (status) {
-      case 'success': return 'success'
-      case 'failed': return 'error'
-      case 'cancelled':
-      case 'partial_success': return 'warning'
-      default: return 'info'
-    }
+    keepSummaryVisible()
   }
 
   function getAffectedRows(results: QueryResult[]) {
@@ -127,13 +117,22 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     const cs = response.statements_succeeded
     const sc = response.statements_total
     const { t } = callbacks
+    const elapsedMs = response.execution_time_ms || 0
+
+    // 转发数据库消息 (NOTICE, DEBUG, WARNING 等)
+    if (response.messages) {
+      for (const msg of response.messages) {
+        callbacks.onDbMessage(msg.severity || 'info', msg.text)
+      }
+    }
 
     if (response.was_cancelled) {
       const status: SqlExecutionStatus = cs > 0 ? 'partial_success' : 'cancelled'
       const summary = cs > 0
         ? t('editor.summary.query_cancelled_partial', { success: cs, total: sc })
         : t('editor.summary.query_cancelled')
-      finalizeExecutionState(status, summary, { mode: 'query', statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar })
+      finalizeExecutionState(status, summary, { mode: 'query', statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar, elapsedMs })
+      callbacks.onAddErrorTab(status === 'partial_success' ? 'partial_success' : 'cancelled', summary, '', elapsedMs)
       return
     }
     if (response.error_message) {
@@ -141,13 +140,14 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       const summary = cs > 0
         ? t('editor.summary.query_partial', { success: cs, total: sc, failed: response.failed_statement_index || cs + 1 })
         : t('editor.summary.query_failed', { failed: response.failed_statement_index || 1 })
-      finalizeExecutionState(status, summary, { mode: 'query', detail: response.error_message, statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar })
+      finalizeExecutionState(status, summary, { mode: 'query', detail: response.error_message, statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar, elapsedMs })
+      callbacks.onAddErrorTab(status === 'partial_success' ? 'partial_success' : 'failed', summary, response.error_message, elapsedMs)
       return
     }
     const summary = rsc > 0
       ? t('editor.summary.query_success', { count: cs, sets: rsc })
       : t('editor.summary.query_success_empty', { count: cs })
-    finalizeExecutionState('success', summary, { mode: 'query', statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar })
+    finalizeExecutionState('success', summary, { mode: 'query', statementCount: sc, completedStatements: cs, resultSetCount: rsc, affectedRows: ar, elapsedMs })
   }
 
   function showSummaryTemporarily(duration = 3600) {
@@ -186,6 +186,8 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     })
     startExecutionTicker()
     keepSummaryVisible()
+    callbacks.onSwitchToTab('progress')
+    callbacks.onRevealPanel()
     return id
   }
 
@@ -210,8 +212,8 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
         title: t('editor.danger.confirm_title'),
         content, okText: t('editor.danger.confirm_ok'), cancelText: t('common.cancel'),
         okType: 'danger', width: 720,
-        onOk: () => { callbacks.onAddMessage('warning', t('editor.danger.confirmed')); resolve(true) },
-        onCancel: () => { callbacks.onAddMessage('info', t('editor.danger.cancelled')); resolve(false) },
+        onOk: () => { message.warning(t('editor.danger.confirmed')); resolve(true) },
+        onCancel: () => { message.info(t('editor.danger.cancelled')); resolve(false) },
       })
     })
   }
@@ -223,7 +225,6 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     const fullSql = callbacks.getSelectionSql() || callbacks.getSql()
     if (!fullSql.trim()) return message.warning(t('editor.input_sql_warn'))
 
-    const isSelection = callbacks.getSelectionSql() !== null
     let executionId: number | null = null
 
     try {
@@ -234,8 +235,6 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       if (callbacks.isReadOnly() && writeAnalysis.hasWrites) {
         const warn = t('editor.read_only_blocked', { count: writeAnalysis.writeStatements.length })
         message.warning(warn)
-        callbacks.onAddMessage('warning', warn)
-        callbacks.onSwitchToResultTab('messages')
         return
       }
 
@@ -243,9 +242,8 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       if (!await confirmDangerousExecution(safetyAnalysis.issues)) return
 
       executionId = beginExecution('query', preparedStatements.length)
-      if (isSelection) callbacks.onAddMessage('info', t('editor.executing_selection'))
 
-      // Note: currentDatabaseLabel is handled by caller via callback.onAddMessage
+      // Note: currentDatabaseLabel is handled by caller
       const processedStatements = preparedStatements.map(s => s.can_page ? `${s.sql} LIMIT 100` : s.sql)
       const response = await queryApi.executeQueryBatch(connId, processedStatements, database, executionId, { allowReconnectRetry: true })
       if (isStale(executionId)) return
@@ -260,9 +258,9 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
 
       applyBatchExecutionState(response)
       callbacks.onRevealPanel()
-      callbacks.onSwitchToResultTab(response.results.length > 0 ? `result-${appendedIndex}` : 'messages')
-
+      // 仅在成功时切换到结果 tab（失败时 onAddErrorTab 已设置）
       if (!response.error_message && !response.was_cancelled) {
+        callbacks.onSwitchToTab(response.results.length > 0 ? `result-${appendedIndex}` : 'empty')
         callbacks.onSaveHistory(fullSql)
       }
     } catch (e: unknown) {
@@ -273,13 +271,14 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
           mode: 'query', statementCount: executionState.value.statementCount,
           completedStatements: executionState.value.completedStatements,
         })
+        callbacks.onAddErrorTab('cancelled', t('editor.summary.query_cancelled'), '', executionState.value.elapsedMs || 0)
       } else {
         message.error(errMsg)
         finalizeExecutionState('failed', t('editor.summary.query_failed', { failed: 1 }), {
           mode: 'query', detail: errMsg, statementCount: executionState.value.statementCount || 1, completedStatements: 0,
         })
+        callbacks.onAddErrorTab('failed', t('editor.summary.query_failed', { failed: 1 }), errMsg, executionState.value.elapsedMs || 0)
       }
-      callbacks.onSwitchToResultTab('messages')
     } finally {
       if (executionId !== null && !isStale(executionId)) executing.value = false
     }
@@ -300,7 +299,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
         results.map(() => ({ pagination: { current: 1, pageSize: 100 }, loading: false, hasMore: false, sql: '' }))
       )
       callbacks.onRevealPanel()
-      callbacks.onSwitchToResultTab(`result-${appendedIndex}`)
+      callbacks.onSwitchToTab(`result-${appendedIndex}`)
       finalizeExecutionState('success', t('editor.summary.explain_success', { sets: results.length }), {
         mode: 'explain', statementCount: 1, completedStatements: 1,
         resultSetCount: results.length, affectedRows: getAffectedRows(results),
@@ -312,13 +311,14 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
         finalizeExecutionState('cancelled', t('editor.summary.explain_cancelled'), {
           mode: 'explain', statementCount: 1, completedStatements: 0,
         })
+        callbacks.onAddErrorTab('cancelled', t('editor.summary.explain_cancelled'), '', executionState.value.elapsedMs || 0)
       } else {
         message.error(errMsg)
         finalizeExecutionState('failed', t('editor.summary.explain_failed'), {
           mode: 'explain', detail: errMsg, statementCount: 1, completedStatements: 0,
         })
+        callbacks.onAddErrorTab('failed', t('editor.summary.explain_failed'), errMsg, executionState.value.elapsedMs || 0)
       }
-      callbacks.onSwitchToResultTab('messages')
     } finally {
       if (!isStale(executionId)) executing.value = false
     }
@@ -330,7 +330,6 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
     activeExecutionId.value = executionSeq.value + 1
     executing.value = false
     stopExecutionTicker()
-    callbacks.onSwitchToResultTab('messages')
 
     if (connId && eid > 0) {
       try { await queryApi.cancelQuery(connId, eid) } catch { /* ignore */ }
@@ -341,6 +340,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
       completedStatements: prev.completedStatements, resultSetCount: prev.resultSetCount,
       affectedRows: prev.affectedRows, elapsedMs: prev.elapsedMs,
     })
+    callbacks.onAddErrorTab('cancelled', callbacks.t('editor.manual_stop'), '', prev.elapsedMs || 0)
   }
 
   return {

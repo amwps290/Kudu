@@ -61,6 +61,13 @@ impl std::fmt::Display for DatabaseType {
     }
 }
 
+/// 数据库消息 (NOTICE, DEBUG, WARNING 等)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbMessage {
+    pub severity: String,
+    pub text: String,
+}
+
 /// 查询结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryResult {
@@ -68,6 +75,8 @@ pub struct QueryResult {
     pub rows: Vec<HashMap<String, serde_json::Value>>,
     pub affected_rows: u64,
     pub execution_time_ms: u128,
+    #[serde(default)]
+    pub messages: Vec<DbMessage>,
 }
 
 impl QueryResult {
@@ -78,6 +87,7 @@ impl QueryResult {
             rows: vec![],
             affected_rows: 0,
             execution_time_ms,
+            messages: vec![],
         }
     }
 }
@@ -92,6 +102,8 @@ pub struct BatchExecutionResult {
     pub error_message: Option<String>,
     pub was_cancelled: bool,
     pub execution_time_ms: u128,
+    #[serde(default)]
+    pub messages: Vec<DbMessage>,
 }
 
 /// 数据库元数据 - 数据库信息

@@ -140,11 +140,17 @@ export interface ExtensionInfo {
 /**
  * 查询结果
  */
+export interface DbMessage {
+  severity: string
+  text: string
+}
+
 export interface QueryResult {
   columns: string[]
   rows: Record<string, any>[]
   affected_rows: number
   execution_time_ms: number
+  messages: DbMessage[]
 }
 
 /**

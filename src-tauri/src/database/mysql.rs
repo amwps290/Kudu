@@ -342,6 +342,7 @@ impl DatabaseOperations for MySqlDatabase {
                     rows: final_rows,
                     affected_rows: conn.affected_rows(),
                     execution_time_ms: start_stmt.elapsed().as_millis(),
+                    messages: Vec::new(),
                 });
             }
 

@@ -71,6 +71,17 @@
             <template #icon><TableOutlined /></template>
           </a-button>
         </a-tooltip>
+        <a-tooltip :title="$t('editor.messages')">
+          <a-button
+            type="text"
+            size="small"
+            class="result-toggle-btn"
+            :class="{ active: messagesPanelVisible }"
+            @click="$emit('action', 'toggleMessagesPanel')"
+          >
+            <template #icon><MessageOutlined /></template>
+          </a-button>
+        </a-tooltip>
       </template>
       <template v-else>
         <a-space :size="12">
@@ -94,7 +105,7 @@
 <script setup lang="ts">
 import {
   PlayCircleFilled, StopOutlined, SaveOutlined,
-  FormatPainterOutlined, ClearOutlined, HistoryOutlined, CodeOutlined, SyncOutlined, SearchOutlined, DatabaseOutlined, TableOutlined
+  FormatPainterOutlined, ClearOutlined, HistoryOutlined, CodeOutlined, SyncOutlined, SearchOutlined, DatabaseOutlined, TableOutlined, MessageOutlined
 } from '@ant-design/icons-vue'
 import { useAppStore } from '@/stores/app'
 import type { DatabaseInfo } from '@/types/database'
@@ -104,9 +115,11 @@ withDefaults(defineProps<{
   selectedDatabase: string
   databases: DatabaseInfo[]
   resultPanelVisible?: boolean
+  messagesPanelVisible?: boolean
   vertical?: boolean
 }>(), {
   resultPanelVisible: false,
+  messagesPanelVisible: false,
   vertical: false,
 })
 
