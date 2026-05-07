@@ -626,6 +626,48 @@ function getConnectionColor(connectionId?: string) {
 .tab-content-wrapper { flex: 1; height: 100%; overflow: hidden; position: relative; }
 .empty-workspace { flex: 1; display: flex; align-items: center; justify-content: center; }
 .context-menu-overlay { position: fixed; inset: 0; z-index: 9999; }
-.context-menu { position: absolute; min-width: 140px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16); overflow: hidden; }
-.dark-mode .context-menu { background: #1f1f1f; border-color: #303030; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36); }
+.context-menu {
+  position: absolute;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  padding: 2px;
+}
+.dark-mode .context-menu {
+  background: #252525;
+  border-color: #383838;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.context-menu :deep(.ant-menu) {
+  background: transparent;
+  border-inline-end: none !important;
+  font-size: 12px;
+}
+.context-menu :deep(.ant-menu-item) {
+  margin: 0 !important;
+  padding: 0 8px !important;
+  height: 28px !important;
+  line-height: 28px !important;
+  border-radius: 3px;
+  color: #333;
+}
+.dark-mode .context-menu :deep(.ant-menu-item) { color: #ccc; }
+.context-menu :deep(.ant-menu-item:hover) {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+.dark-mode .context-menu :deep(.ant-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+.context-menu :deep(.ant-menu-item-disabled) {
+  color: #bbb !important;
+}
+.dark-mode .context-menu :deep(.ant-menu-item-disabled) {
+  color: #555 !important;
+}
+.context-menu :deep(.ant-divider) {
+  margin: 2px 0 !important;
+}
 </style>

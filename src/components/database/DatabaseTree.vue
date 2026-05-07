@@ -915,8 +915,8 @@ defineExpose({ refresh: loadDatabases })
 .database-tree { height: 100%; overflow: visible; padding: 0; user-select: none; }
 .custom-tree { width: 100%; }
 .context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: #fff; border-radius: 2px; border: 1px solid #d9d9d9; box-shadow: 0 3px 10px rgba(0,0,0,0.10); z-index: 10000; min-width: 180px; max-width: min(320px, calc(100vw - 16px)); overflow-y: auto; overflow-x: hidden; padding: 3px; }
-.dark-mode .context-menu { background: #1f1f1f; border-color: #303030; }
+.context-menu { position: absolute; background: #fff; border-radius: 4px; border: 1px solid #e0e0e0; box-shadow: 0 4px 12px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06); z-index: 10000; min-width: 180px; max-width: min(320px, calc(100vw - 16px)); overflow-y: auto; overflow-x: hidden; padding: 2px; }
+.dark-mode .context-menu { background: #252525; border-color: #383838; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
 .context-menu :deep(.ant-menu) { background: transparent; border-inline-end: none; font-size: 12px; }
 .context-menu :deep(.ant-menu-item),
 .context-menu :deep(.ant-menu-submenu),
@@ -926,8 +926,11 @@ defineExpose({ refresh: loadDatabases })
   height: 28px;
   line-height: 28px;
   padding-inline: 8px !important;
-  border-radius: 2px;
+  border-radius: 3px;
+  color: #333;
 }
+.dark-mode .context-menu :deep(.ant-menu-item),
+.dark-mode .context-menu :deep(.ant-menu-submenu-title) { color: #ccc; }
 .context-menu :deep(.ant-menu-item .ant-menu-title-content),
 .context-menu :deep(.ant-menu-submenu-title .ant-menu-title-content) {
   display: flex;
