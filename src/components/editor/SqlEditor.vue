@@ -807,7 +807,7 @@ onMounted(() => {
   loadSearchPath()
   requestAnimationFrame(() => focusEditor())
 })
-onActivated(() => { requestAnimationFrame(() => focusEditor()); loadSearchPath() })
+onActivated(() => { requestAnimationFrame(() => focusEditor()); loadAvailableDatabases(); loadSearchPath() })
 onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
@@ -817,6 +817,12 @@ watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSe
   editor.updateOptions({ readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, lineNumbers: appStore.editorSettings.lineNumbers })
 }, { immediate: true })
 watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
+watch(() => {
+  const bid = props.connectionId || connectionStore.activeConnectionId
+  return bid ? connectionStore.getConnectionStatus(bid) : null
+}, (status) => {
+  if (status === 'connected') loadAvailableDatabases()
+})
 watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
