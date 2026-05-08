@@ -549,9 +549,10 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
     if (!data) return { hints, dispose: () => {} }
 
-    // 匹配函数调用: funcName( 或 schema.funcName(
-    const funcCallRegex = /(?:(\w+)\.)?(\w+)\s*\(/g
     const text = model.getValue()
+    
+    // 使用栈跟踪括号嵌套，找到每个函数调用及其参数位置
+    const funcCallRegex = /(?:(\w+)\.)?(\w+)\s*\(/g
     let match: RegExpExecArray | null
 
     while ((match = funcCallRegex.exec(text)) !== null) {
@@ -559,11 +560,27 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
 
       const schema = match[1] || undefined
       const funcName = match[2]
-      const parenOffset = match.index + match[0].length - 1 // 左括号位置
-      const parenPos = model.getPositionAt(parenOffset)
+      const openParenOffset = match.index + match[0].length - 1
+      const openParenPos = model.getPositionAt(openParenOffset)
+      if (openParenPos.lineNumber < range.startLineNumber || openParenPos.lineNumber > range.endLineNumber) continue
 
-      // 检查括号是否在可视范围内
-      if (parenPos.lineNumber < range.startLineNumber || parenPos.lineNumber > range.endLineNumber) continue
+      // 找匹配的右括号
+      let depth = 0
+      let closeParenOffset = -1
+      for (let i = openParenOffset; i < text.length; i++) {
+        if (text[i] === '(') depth++
+        else if (text[i] === ')') { depth--; if (depth === 0) { closeParenOffset = i; break; } }
+      }
+      if (closeParenOffset < 0) continue
+
+      // 找参数分隔的逗号位置 (只统计 depth===1 的逗号)
+      const commaPositions: number[] = []
+      depth = 0
+      for (let i = openParenOffset; i < closeParenOffset; i++) {
+        if (text[i] === '(') depth++
+        else if (text[i] === ')') depth--
+        else if (text[i] === ',' && depth === 1) commaPositions.push(i)
+      }
 
       // 查找匹配的函数
       const func = data.functions.find(f => {
@@ -572,29 +589,41 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         return nameMatch && (f.schema || '').toLowerCase() === schema.toLowerCase()
       })
 
-      if (!func || !func.arguments || func.arguments.trim() === '' || func.arguments.trim() === '()') continue
-
-      // 解析参数: "id integer, name text" -> ["id: integer", "name: text"]
+      if (!func || !func.arguments) continue
       const args = func.arguments.replace(/^\(|\)$/g, '').trim()
       if (!args) continue
 
+      // 解析参数名
       const argParts = args.split(',').map(a => {
         const parts = a.trim().split(/\s+/)
-        // 跳过 IN/OUT/INOUT/VARIADIC 前缀
         let nameIdx = 0
         if (['IN', 'OUT', 'INOUT', 'VARIADIC'].includes(parts[0]?.toUpperCase())) nameIdx = 1
-        const name = parts[nameIdx] || '?'
-        const type = parts.slice(nameIdx + 1).join(' ') || ''
-        return type ? `${name}: ${type}` : name
+        return parts[nameIdx] || 'arg'
       })
 
-      hints.push({
-        label: `(${argParts.join(', ')})`,
-        position: { lineNumber: parenPos.lineNumber, column: parenPos.column + 1 },
-        kind: monaco.languages.InlayHintKind.Parameter,
-        paddingLeft: true,
-        paddingRight: false,
-      })
+      // 如果有参数但括号内为空(没有逗号)，在 ( 后放置第一个参数提示
+      if (commaPositions.length === 0 && argParts.length > 0) {
+        const hintPos = model.getPositionAt(openParenOffset + 1)
+        hints.push({
+          label: `${argParts[0]}:`,
+          position: { lineNumber: hintPos.lineNumber, column: hintPos.column },
+          kind: monaco.languages.InlayHintKind.Parameter,
+          paddingLeft: true,
+          paddingRight: true,
+        })
+      }
+
+      // 在每个逗号后放置下一个参数提示
+      for (let i = 0; i < commaPositions.length && i < argParts.length - 1; i++) {
+        const commaPos = model.getPositionAt(commaPositions[i] + 1) // 逗号后
+        hints.push({
+          label: `${argParts[i + 1]}:`,
+          position: { lineNumber: commaPos.lineNumber, column: commaPos.column },
+          kind: monaco.languages.InlayHintKind.Parameter,
+          paddingLeft: true,
+          paddingRight: true,
+        })
+      }
     }
 
     return { hints, dispose: () => {} }
