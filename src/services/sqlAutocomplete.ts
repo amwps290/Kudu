@@ -564,22 +564,65 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       const openParenPos = model.getPositionAt(openParenOffset)
       if (openParenPos.lineNumber < range.startLineNumber || openParenPos.lineNumber > range.endLineNumber) continue
 
-      // 找匹配的右括号
+      // 找匹配的右括号 (跳过字符串/注释内的括号)
       let depth = 0
       let closeParenOffset = -1
+      let inStr = false, strChar = ''
+      let inLineComment = false, inBlockComment = false, inDollar = false, dollarTag = ''
+      
       for (let i = openParenOffset; i < text.length; i++) {
-        if (text[i] === '(') depth++
-        else if (text[i] === ')') { depth--; if (depth === 0) { closeParenOffset = i; break; } }
+        const ch = text[i], next = text[i + 1] || ''
+        if (inLineComment && ch === '\n') { inLineComment = false; continue }
+        if (inLineComment) continue
+        if (inBlockComment && ch === '*' && next === '/') { inBlockComment = false; i++; continue }
+        if (inBlockComment) continue
+        if (!inStr && !inLineComment && !inBlockComment && ch === '-' && next === '-') { inLineComment = true; i++; continue }
+        if (!inStr && !inLineComment && !inBlockComment && ch === '/' && next === '*') { inBlockComment = true; i++; continue }
+        if (inDollar) {
+          if (text.substring(i - dollarTag.length + 1, i + 1) === dollarTag) inDollar = false
+          continue
+        }
+        if (!inStr && !inLineComment && !inBlockComment && ch === '$') {
+          const dm = text.substring(i).match(/^(\$[a-zA-Z_\x80-\xff]?[a-zA-Z0-9_\x80-\xff]*\$)/)
+          if (dm) { inDollar = true; dollarTag = dm[1]; i += dm[1].length - 1; continue }
+        }
+        if (!inDollar && !inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
+          if (!inStr) { inStr = true; strChar = ch }
+          else if (ch === strChar) inStr = false
+        }
+        if (inStr || inDollar || inLineComment || inBlockComment) continue
+        if (ch === '(') depth++
+        else if (ch === ')') { depth--; if (depth === 0) { closeParenOffset = i; break } }
       }
       if (closeParenOffset < 0) continue
 
-      // 找参数分隔的逗号位置 (只统计 depth===1 的逗号)
+      // 找参数分隔的逗号位置 (跳过字符串/注释/嵌套调用内的逗号)
       const commaPositions: number[] = []
-      depth = 0
+      depth = 0; inStr = false; inLineComment = false; inBlockComment = false; inDollar = false; dollarTag = ''
       for (let i = openParenOffset; i < closeParenOffset; i++) {
-        if (text[i] === '(') depth++
-        else if (text[i] === ')') depth--
-        else if (text[i] === ',' && depth === 1) commaPositions.push(i)
+        const ch = text[i], next = text[i + 1] || ''
+        if (inLineComment && ch === '\n') { inLineComment = false; continue }
+        if (inLineComment) continue
+        if (inBlockComment && ch === '*' && next === '/') { inBlockComment = false; i++; continue }
+        if (inBlockComment) continue
+        if (!inStr && !inLineComment && !inBlockComment && ch === '-' && next === '-') { inLineComment = true; i++; continue }
+        if (!inStr && !inLineComment && !inBlockComment && ch === '/' && next === '*') { inBlockComment = true; i++; continue }
+        if (inDollar) {
+          if (text.substring(i - dollarTag.length + 1, i + 1) === dollarTag) inDollar = false
+          continue
+        }
+        if (!inStr && !inLineComment && !inBlockComment && ch === '$') {
+          const dm = text.substring(i).match(/^(\$[a-zA-Z_\x80-\xff]?[a-zA-Z0-9_\x80-\xff]*\$)/)
+          if (dm) { inDollar = true; dollarTag = dm[1]; i += dm[1].length - 1; continue }
+        }
+        if (!inDollar && !inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
+          if (!inStr) { inStr = true; strChar = ch }
+          else if (ch === strChar) inStr = false
+        }
+        if (inStr || inDollar || inLineComment || inBlockComment) continue
+        if (ch === '(') depth++
+        else if (ch === ')') depth--
+        else if (ch === ',' && depth === 1) commaPositions.push(i)
       }
 
       // 查找匹配的函数
