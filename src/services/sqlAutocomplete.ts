@@ -51,7 +51,7 @@ interface QuerySource {
 /**
  * 全局 SQL 自动补全管理器
  */
-export class SqlAutocompleteManager implements monaco.languages.CompletionItemProvider {
+export class SqlAutocompleteManager implements monaco.languages.CompletionItemProvider, monaco.languages.InlayHintsProvider {
   private static instance: SqlAutocompleteManager
   private contextMap = new Map<string, ModelContext>() // modelId -> context
   private dataCache = new Map<string, AutoCompleteData>() // "connId:db" -> data
@@ -59,6 +59,8 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
   public readonly triggerCharacters = [' ', '.', '(', ',']
 
   private gucParameters: Set<string>
+  private inlayHintsEmitter = new monaco.Emitter<void>()
+  public onDidChangeInlayHints = this.inlayHintsEmitter.event
 
   private constructor() {
     // GUC 参数 (PostgreSQL)
@@ -119,6 +121,7 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     ])
     // 注册到 Monaco
     monaco.languages.registerCompletionItemProvider('sql', this)
+    monaco.languages.registerInlayHintsProvider('sql', this)
   }
 
   public static getInstance(): SqlAutocompleteManager {
@@ -134,7 +137,9 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
   public bindModel(model: monaco.editor.ITextModel, context: ModelContext) {
     this.contextMap.set(model.id, context)
     // 预加载数据
-    this.fetchData(context.connectionId, context.database)
+    this.fetchData(context.connectionId, context.database).then(() => {
+      this.inlayHintsEmitter.fire()
+    })
   }
 
   /**
@@ -167,6 +172,7 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
           database,
         })
         this.dataCache.set(cacheKey, data)
+        this.inlayHintsEmitter.fire()
         return data
       } catch (error) {
         console.error('加载补全数据失败:', error)
@@ -526,6 +532,72 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         }
       }
     }
+  }
+
+  /**
+   * InlayHints: 函数参数提示
+   */
+  async provideInlayHints(
+    model: monaco.editor.ITextModel,
+    range: monaco.Range,
+    token: monaco.CancellationToken
+  ): Promise<monaco.languages.InlayHintList> {
+    const context = this.contextMap.get(model.id)
+    const hints: monaco.languages.InlayHint[] = []
+    if (!context) return { hints, dispose: () => {} }
+
+    const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
+    if (!data) return { hints, dispose: () => {} }
+
+    // 匹配函数调用: funcName( 或 schema.funcName(
+    const funcCallRegex = /(?:(\w+)\.)?(\w+)\s*\(/g
+    const text = model.getValue()
+    let match: RegExpExecArray | null
+
+    while ((match = funcCallRegex.exec(text)) !== null) {
+      if (token.isCancellationRequested) break
+
+      const schema = match[1] || undefined
+      const funcName = match[2]
+      const parenOffset = match.index + match[0].length - 1 // 左括号位置
+      const parenPos = model.getPositionAt(parenOffset)
+
+      // 检查括号是否在可视范围内
+      if (parenPos.lineNumber < range.startLineNumber || parenPos.lineNumber > range.endLineNumber) continue
+
+      // 查找匹配的函数
+      const func = data.functions.find(f => {
+        const nameMatch = f.name.toLowerCase() === funcName.toLowerCase()
+        if (!schema) return nameMatch
+        return nameMatch && (f.schema || '').toLowerCase() === schema.toLowerCase()
+      })
+
+      if (!func || !func.arguments || func.arguments.trim() === '' || func.arguments.trim() === '()') continue
+
+      // 解析参数: "id integer, name text" -> ["id: integer", "name: text"]
+      const args = func.arguments.replace(/^\(|\)$/g, '').trim()
+      if (!args) continue
+
+      const argParts = args.split(',').map(a => {
+        const parts = a.trim().split(/\s+/)
+        // 跳过 IN/OUT/INOUT/VARIADIC 前缀
+        let nameIdx = 0
+        if (['IN', 'OUT', 'INOUT', 'VARIADIC'].includes(parts[0]?.toUpperCase())) nameIdx = 1
+        const name = parts[nameIdx] || '?'
+        const type = parts.slice(nameIdx + 1).join(' ') || ''
+        return type ? `${name}: ${type}` : name
+      })
+
+      hints.push({
+        label: `(${argParts.join(', ')})`,
+        position: { lineNumber: parenPos.lineNumber, column: parenPos.column + 1 },
+        kind: monaco.languages.InlayHintKind.Parameter,
+        paddingLeft: true,
+        paddingRight: false,
+      })
+    }
+
+    return { hints, dispose: () => {} }
   }
 }
 

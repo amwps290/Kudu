@@ -1020,7 +1020,7 @@ onMounted(() => {
     theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true,
     readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
     fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap },
-    scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers,
+    scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers, inlayHints: { enabled: 'on' },
     renderLineHighlight: 'all', quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true, acceptSuggestionOnCommitCharacter: true,
     acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false,
