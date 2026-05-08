@@ -60,7 +60,7 @@
         </a-tabs>
 
         <div v-if="dataTabs.length === 0" class="empty-workspace">
-          <a-empty :description="$t('common.loading')">
+          <a-empty :description="$t('editor.no_open_tabs')">
             <template #extra><a-button type="primary" @click="handleNewQuery({})">{{ $t('tree.new_query') }}</a-button></template>
           </a-empty>
         </div>
