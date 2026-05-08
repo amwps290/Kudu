@@ -777,7 +777,7 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
       }
       // 检测 $$ 开始 (支持 $tag$ 格式)
       if (ch === '$') {
-        const dollarMatch = fullText.substring(i).match(/^(\$[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*\$)/)
+        const dollarMatch = fullText.substring(i).match(/^(\$[a-zA-Z_\x80-\xff]?[a-zA-Z0-9_\x80-\xff]*\$)/)
         if (dollarMatch) {
           dollarTag = dollarMatch[1]
           current += dollarTag
