@@ -565,7 +565,7 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       if (openParenPos.lineNumber < range.startLineNumber || openParenPos.lineNumber > range.endLineNumber) continue
 
       // 找匹配的右括号 (跳过字符串/注释内的括号)
-      let depth = 0
+      let depth = 0, bracketDepth = 0
       let closeParenOffset = -1
       let inStr = false, strChar = ''
       let inLineComment = false, inBlockComment = false, inDollar = false, dollarTag = ''
@@ -592,13 +592,16 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         }
         if (inStr || inDollar || inLineComment || inBlockComment) continue
         if (ch === '(') depth++
-        else if (ch === ')') { depth--; if (depth === 0) { closeParenOffset = i; break } }
+        else if (ch === ')') { depth--; if (depth === 0 && bracketDepth === 0) { closeParenOffset = i; break } }
+        else if (ch === '[') bracketDepth++
+        else if (ch === ']') bracketDepth--
       }
       if (closeParenOffset < 0) continue
 
-      // 找参数分隔的逗号位置 (跳过字符串/注释/嵌套调用内的逗号)
+      // 找参数分隔的逗号位置
       const commaPositions: number[] = []
-      depth = 0; inStr = false; inLineComment = false; inBlockComment = false; inDollar = false; dollarTag = ''
+      depth = 0; bracketDepth = 0
+      inStr = false; inLineComment = false; inBlockComment = false; inDollar = false; dollarTag = ''
       for (let i = openParenOffset; i < closeParenOffset; i++) {
         const ch = text[i], next = text[i + 1] || ''
         if (inLineComment && ch === '\n') { inLineComment = false; continue }
@@ -622,7 +625,9 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         if (inStr || inDollar || inLineComment || inBlockComment) continue
         if (ch === '(') depth++
         else if (ch === ')') depth--
-        else if (ch === ',' && depth === 1) commaPositions.push(i)
+        else if (ch === '[') bracketDepth++
+        else if (ch === ']') bracketDepth--
+        else if (ch === ',' && depth === 1 && bracketDepth === 0) commaPositions.push(i)
       }
 
       // 查找匹配的函数
