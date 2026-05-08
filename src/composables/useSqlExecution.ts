@@ -12,6 +12,8 @@ export interface ExecutionCallbacks {
   getSql: () => string
   /** 编辑器选中内容获取器 */
   getSelectionSql: () => string | null
+  /** 光标所在完整语句获取器 */
+  getCurrentStatementSql: () => string | null
   /** 当前连接是否为只读 */
   isReadOnly: () => boolean
   /** 追加查询结果，返回起始索引 */
@@ -222,7 +224,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
 
   async function executeQuery(connId: string, database: string | null) {
     const { t } = callbacks
-    const fullSql = callbacks.getSelectionSql() || callbacks.getSql()
+    const fullSql = callbacks.getSelectionSql() || callbacks.getCurrentStatementSql() || callbacks.getSql()
     if (!fullSql.trim()) return message.warning(t('editor.input_sql_warn'))
 
     let executionId: number | null = null
@@ -286,7 +288,7 @@ export function useSqlExecution(callbacks: ExecutionCallbacks) {
 
   async function explainQuery(connId: string, database: string | null) {
     const { t } = callbacks
-    const sql = callbacks.getSql()
+    const sql = callbacks.getSelectionSql() || callbacks.getCurrentStatementSql() || callbacks.getSql()
     if (!sql.trim()) return message.warning(t('editor.input_sql_warn'))
 
     const executionId = beginExecution('explain')

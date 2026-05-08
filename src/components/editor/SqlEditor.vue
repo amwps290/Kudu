@@ -705,6 +705,198 @@ const historyEmptyDescription = computed(() =>
   historySearch.value ? t('editor.history_no_match') : t('editor.history_empty')
 )
 
+// ── 当前语句检测 ──
+interface StatementRange {
+  sql: string
+  startLine: number
+  startCol: number
+  endLine: number
+  endCol: number
+}
+
+const STATEMENT_KEYWORDS = /^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|SET|WITH|EXPLAIN|GRANT|REVOKE|TRUNCATE|BEGIN|COMMIT|ROLLBACK|DECLARE|DO|CALL|COPY|LOCK|UNLOCK|REINDEX|REFRESH|VACUUM|ANALYZE|CLUSTER|COMMENT|LISTEN|NOTIFY|MOVE|FETCH|CLOSE|PREPARE|EXECUTE|DEALLOCATE|DISCARD|REASSIGN|CHECKPOINT)\b/i
+
+function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.Position): StatementRange | null {
+  const fullText = model.getValue()
+  if (!fullText.trim()) return null
+  
+  const cursorOffset = model.getOffsetAt(position)
+  
+  // 方法1: 按分号分割 (处理注释内的分号)
+  const segments: Array<{ sql: string; startOffset: number; endOffset: number }> = []
+  let current = ''
+  let segStart = 0
+  let inString = false
+  let stringChar = ''
+  let inLineComment = false
+  let inBlockComment = false
+  
+  for (let i = 0; i < fullText.length; i++) {
+    const ch = fullText[i]
+    const next = fullText[i + 1] || ''
+    
+    // 行注释
+    if (!inString && !inBlockComment && ch === '-' && next === '-') {
+      inLineComment = true
+      current += ch + next
+      i++
+      continue
+    }
+    if (inLineComment && (ch === '\n' || ch === '\r')) {
+      inLineComment = false
+      current += ch
+      continue
+    }
+    if (inLineComment) { current += ch; continue }
+    
+    // 块注释
+    if (!inString && !inLineComment && ch === '/' && next === '*') {
+      inBlockComment = true
+      current += ch + next
+      i++
+      continue
+    }
+    if (inBlockComment && ch === '*' && next === '/') {
+      inBlockComment = false
+      current += ch + next
+      i++
+      continue
+    }
+    if (inBlockComment) { current += ch; continue }
+    
+    // 字符串
+    if (!inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
+      if (!inString) {
+        inString = true
+        stringChar = ch
+      } else if (ch === stringChar && (i === 0 || fullText[i - 1] !== '\\')) {
+        inString = false
+      }
+    }
+    
+    // 分号分隔
+    if (!inString && !inLineComment && !inBlockComment && ch === ';') {
+      current += ch
+      segments.push({ sql: current, startOffset: segStart, endOffset: i + 1 })
+      current = ''
+      segStart = i + 1
+      continue
+    }
+    
+    if (current === '') segStart = i
+    current += ch
+  }
+  
+  // 最后一段
+  if (current.trim()) {
+    segments.push({ sql: current, startOffset: segStart, endOffset: fullText.length })
+  }
+  
+  // 找光标所在段
+  let targetSegment: { sql: string; startOffset: number; endOffset: number } | null = null
+  for (const seg of segments) {
+    if (cursorOffset >= seg.startOffset && cursorOffset <= seg.endOffset) {
+      targetSegment = seg
+      break
+    }
+  }
+  
+  // 如果只有一个段且没有分号，尝试按关键字分割
+  if (segments.length === 1 && !fullText.includes(';')) {
+    targetSegment = splitByKeywords(fullText, cursorOffset)
+  }
+  
+  if (!targetSegment || !targetSegment.sql.trim()) return null
+  
+  const startPos = model.getPositionAt(targetSegment.startOffset)
+  const endPos = model.getPositionAt(Math.min(targetSegment.endOffset, fullText.length))
+  
+  return {
+    sql: targetSegment.sql.trim(),
+    startLine: startPos.lineNumber,
+    startCol: startPos.column,
+    endLine: endPos.lineNumber,
+    endCol: endPos.column,
+  }
+}
+
+function splitByKeywords(fullText: string, cursorOffset: number): { sql: string; startOffset: number; endOffset: number } | null {
+  const lines = fullText.split('\n')
+  const keywordLines: number[] = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (STATEMENT_KEYWORDS.test(lines[i].trimStart())) {
+      keywordLines.push(i)
+    }
+  }
+  
+  if (keywordLines.length === 0) return null
+  
+  // 计算光标所在行
+  let cursorLine = 0
+  let offset = 0
+  for (let i = 0; i < lines.length; i++) {
+    const lineLen = lines[i].length + 1 // +1 for newline
+    if (cursorOffset >= offset && cursorOffset < offset + lineLen) {
+      cursorLine = i
+      break
+    }
+    offset += lineLen
+  }
+  
+  // 找光标所在的语句边界
+  let startLine = keywordLines[0]
+  let endLine = lines.length
+  
+  for (let i = 0; i < keywordLines.length; i++) {
+    if (keywordLines[i] <= cursorLine) {
+      startLine = keywordLines[i]
+    }
+    if (keywordLines[i] > cursorLine) {
+      endLine = keywordLines[i]
+      break
+    }
+  }
+  
+  // 计算偏移
+  let startOffset = 0
+  for (let i = 0; i < startLine; i++) startOffset += lines[i].length + 1
+  
+  let endOffset = 0
+  for (let i = 0; i < endLine; i++) endOffset += lines[i].length + 1
+  endOffset = Math.min(endOffset, fullText.length)
+  
+  const sql = fullText.substring(startOffset, endOffset).trim()
+  if (!sql) return null
+  
+  return { sql, startOffset, endOffset }
+}
+
+// ── 当前语句高亮 ──
+let currentStatementDecoration: monaco.editor.IEditorDecorationsCollection | null = null
+
+function updateCurrentStatementHighlight() {
+  if (!editor || !currentStatementDecoration) return
+  const model = editor.getModel()
+  const position = editor.getPosition()
+  if (!model || !position) {
+    currentStatementDecoration.clear()
+    return
+  }
+  const stmt = findCurrentStatement(model, position)
+  if (!stmt || stmt.sql === model.getValue().trim()) {
+    currentStatementDecoration.clear()
+    return
+  }
+  currentStatementDecoration.set([{
+    range: new monaco.Range(stmt.startLine, stmt.startCol, stmt.endLine, stmt.endCol),
+    options: {
+      isWholeLine: false,
+      className: 'current-statement-highlight',
+    },
+  }])
+}
+
 // ── 执行管线（composable） ──
 const execution = useSqlExecution({
   getSql: () => editor?.getValue() || '',
@@ -712,6 +904,12 @@ const execution = useSqlExecution({
     const sel = editor?.getSelection(); const model = editor?.getModel()
     if (sel && model && !sel.isEmpty()) return model.getValueInRange(sel).trim() || null
     return null
+  },
+  getCurrentStatementSql: () => {
+    const model = editor?.getModel(); const pos = editor?.getPosition()
+    if (!model || !pos) return null
+    const stmt = findCurrentStatement(model, pos)
+    return stmt?.sql || null
   },
   isReadOnly: () => Boolean(currentConnection.value?.read_only),
   onAppendResults: (results, states) => appendQueryResults(results, states),
@@ -799,9 +997,13 @@ onMounted(() => {
   })
   updateAutocompleteContext()
   editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || ''); triggerAutoSave() })
-  editor.onKeyUp(e => { if (e.keyCode === monaco.KeyCode.Space || e.keyCode === monaco.KeyCode.Period) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
+    editor.onKeyUp(e => { if (e.keyCode === monaco.KeyCode.Space || e.keyCode === monaco.KeyCode.Period) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
   editor.addCommand(monaco.KeyCode.F5, () => executeQuery())
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave())
+  currentStatementDecoration = editor.createDecorationsCollection()
+  editor.onDidChangeCursorPosition(() => updateCurrentStatementHighlight())
+  editor.onDidChangeModelContent(() => updateCurrentStatementHighlight())
+  updateCurrentStatementHighlight()
   loadHistory()
   loadAvailableDatabases()
   loadSearchPath()
@@ -837,6 +1039,14 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .dark-mode .editor-workbench { background: #1f1f1f; }
 .editor-section { flex: 1; min-width: 0; min-height: 100px; overflow: hidden; position: relative; background: inherit; }
 .monaco-container { height: 100%; width: 100%; background: transparent; }
+.monaco-container :deep(.current-statement-highlight) {
+  background: rgba(22, 119, 255, 0.04);
+  border-left: 2px solid rgba(22, 119, 255, 0.25);
+}
+.dark-mode .monaco-container :deep(.current-statement-highlight) {
+  background: rgba(22, 119, 255, 0.08);
+  border-left-color: rgba(22, 119, 255, 0.35);
+}
 .result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid #e5e7eb; background: rgba(255,255,255,0.96); box-shadow: 0 -12px 24px rgba(15,23,42,0.06); transition: height 0.18s ease; }
 .dark-mode .result-dock { background: rgba(24,24,24,0.98); border-top-color: #303030; box-shadow: 0 -12px 24px rgba(0,0,0,0.24); }
 .result-dock.collapsed { border-top-color: transparent; box-shadow: none; }
