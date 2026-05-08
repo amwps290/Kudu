@@ -722,7 +722,7 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
   
   const cursorOffset = model.getOffsetAt(position)
   
-  // 方法1: 按分号分割 (处理注释内的分号)
+  // 按分号分割 (处理注释、字符串、$$ 内的分号)
   const segments: Array<{ sql: string; startOffset: number; endOffset: number }> = []
   let current = ''
   let segStart = 0
@@ -730,13 +730,14 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
   let stringChar = ''
   let inLineComment = false
   let inBlockComment = false
+  let dollarTag = ''
   
   for (let i = 0; i < fullText.length; i++) {
     const ch = fullText[i]
     const next = fullText[i + 1] || ''
     
     // 行注释
-    if (!inString && !inBlockComment && ch === '-' && next === '-') {
+    if (!inString && !inBlockComment && !dollarTag && ch === '-' && next === '-') {
       inLineComment = true
       current += ch + next
       i++
@@ -750,7 +751,7 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
     if (inLineComment) { current += ch; continue }
     
     // 块注释
-    if (!inString && !inLineComment && ch === '/' && next === '*') {
+    if (!inString && !inLineComment && !dollarTag && ch === '/' && next === '*') {
       inBlockComment = true
       current += ch + next
       i++
@@ -764,8 +765,30 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
     }
     if (inBlockComment) { current += ch; continue }
     
+    // $$ 引用 (PostgreSQL)
+    if (!inString && !inLineComment && !inBlockComment) {
+      if (dollarTag) {
+        // 在 $$ 内部，找结束标记
+        current += ch
+        if (fullText.substring(i - dollarTag.length + 1, i + 1) === dollarTag) {
+          dollarTag = ''
+        }
+        continue
+      }
+      // 检测 $$ 开始 (支持 $tag$ 格式)
+      if (ch === '$') {
+        const dollarMatch = fullText.substring(i).match(/^(\$[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*\$)/)
+        if (dollarMatch) {
+          dollarTag = dollarMatch[1]
+          current += dollarTag
+          i += dollarTag.length - 1
+          continue
+        }
+      }
+    }
+    
     // 字符串
-    if (!inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
+    if (!inLineComment && !inBlockComment && !dollarTag && (ch === "'" || ch === '"')) {
       if (!inString) {
         inString = true
         stringChar = ch
@@ -775,7 +798,7 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
     }
     
     // 分号分隔
-    if (!inString && !inLineComment && !inBlockComment && ch === ';') {
+    if (!inString && !inLineComment && !inBlockComment && !dollarTag && ch === ';') {
       current += ch
       segments.push({ sql: current, startOffset: segStart, endOffset: i + 1 })
       current = ''
