@@ -651,7 +651,10 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
 
       // 如果有参数但括号内为空(没有逗号)，在 ( 后放置第一个参数提示
       if (commaPositions.length === 0 && argParts.length > 0) {
-        const hintPos = model.getPositionAt(openParenOffset + 1)
+        // 跳过 ( 后的空白/换行，找到第一个有意义字符的位置
+        let hintOffset = openParenOffset + 1
+        while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
+        const hintPos = model.getPositionAt(hintOffset)
         hints.push({
           label: `${argParts[0]}:`,
           position: { lineNumber: hintPos.lineNumber, column: hintPos.column },
@@ -663,10 +666,13 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
 
       // 在每个逗号后放置下一个参数提示
       for (let i = 0; i < commaPositions.length && i < argParts.length - 1; i++) {
-        const commaPos = model.getPositionAt(commaPositions[i] + 1) // 逗号后
+        // 跳过逗号后的空白，找到下一个有意义字符的位置
+        let hintOffset = commaPositions[i] + 1
+        while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
+        const nextPos = model.getPositionAt(hintOffset)
         hints.push({
           label: `${argParts[i + 1]}:`,
-          position: { lineNumber: commaPos.lineNumber, column: commaPos.column },
+          position: { lineNumber: nextPos.lineNumber, column: nextPos.column },
           kind: monaco.languages.InlayHintKind.Parameter,
           paddingLeft: true,
           paddingRight: true,
