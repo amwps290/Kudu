@@ -808,11 +808,18 @@ function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.
   
   if (!targetSegment || !targetSegment.sql.trim()) return null
   
-  const startPos = model.getPositionAt(targetSegment.startOffset)
-  const endPos = model.getPositionAt(Math.min(targetSegment.endOffset, fullText.length))
+  // 计算去除首尾空白后的实际偏移
+  const trimmedSql = targetSegment.sql.trim()
+  const leadTrim = targetSegment.sql.length - targetSegment.sql.trimStart().length
+  const trailTrim = targetSegment.sql.length - targetSegment.sql.trimEnd().length
+  const adjStartOffset = targetSegment.startOffset + leadTrim
+  const adjEndOffset = targetSegment.endOffset - trailTrim
+  
+  const startPos = model.getPositionAt(adjStartOffset)
+  const endPos = model.getPositionAt(Math.min(adjEndOffset, fullText.length))
   
   return {
-    sql: targetSegment.sql.trim(),
+    sql: trimmedSql,
     startLine: startPos.lineNumber,
     startCol: startPos.column,
     endLine: endPos.lineNumber,
