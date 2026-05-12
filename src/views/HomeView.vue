@@ -4,18 +4,18 @@
     <AppHeader
       :show-query-builder="showQueryBuilderEntry"
       :show-data-compare="showDataCompareEntry"
-      @new-connection="showConnectionDialog = true"
+      @new-connection="openConnectionDialog"
       @open-query-builder="handleOpenQueryBuilder"
       @open-data-compare="handleOpenDataCompare"
       @open-settings="openSettings"
-      @open-search="showGlobalSearch = true"
+      @open-search="openGlobalSearch"
     />
 
     <a-layout-content class="content-container">
       <div class="sidebar-wrapper" :style="{ width: appStore.sidebarCollapsed ? '0' : sidebarWidth + 'px' }">
         <div class="sidebar-inner">
           <ConnectionPanel
-            @add-connection="showConnectionDialog = true"
+            @add-connection="openConnectionDialog"
             @edit-connection="handleEditConnection"
             @table-selected="handleTableSelected"
             @database-selected="handleDatabaseSelected"
@@ -101,14 +101,13 @@
       </div>
     </div>
 
-    <ConnectionDialog v-model:visible="showConnectionDialog" :editing-connection="editingConnection" @close="editingConnection = null" />
+    <ConnectionDialog v-model:visible="showConnectionDialog" :editing-connection="editingConnection" @close="handleConnectionDialogClose" />
     <GlobalSearch v-model:visible="showGlobalSearch" :connection-id="connectionStore.activeConnectionId" @view-data="handleTableSelected" />
   </a-layout>
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, reactive, ref, computed, nextTick, onMounted, onUnmounted, watch, h } from 'vue'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { defineAsyncComponent, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   FileTextOutlined,
@@ -117,14 +116,20 @@ import {
 import { useAppStore } from '@/stores/app'
 import { useConnectionStore } from '@/stores/connection'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { message, Modal } from 'ant-design-vue'
-import type { ConnectionConfig } from '@/types/database'
-import { TabType } from '@/types/workspace'
 import { useSidebarResize } from '@/composables/useSidebarResize'
-import { useTabManager, type DataTab } from '@/composables/useTabManager'
-import { useContextMenu } from '@/composables/useContextMenu'
-import { getDatabaseSupportProfile, supportsDataCompare, supportsQueryBuilder, supportsSqlWorkspace } from '@/utils/databaseSupport'
-import { logStartupStage, createStartupTimer } from '@/utils/startupProfiler'
+import { useTabManager } from '@/composables/useTabManager'
+import { useWorkspaceTabContextMenu } from '@/composables/useWorkspaceTabContextMenu'
+import { useWorkspaceTabMenuActions } from '@/composables/useWorkspaceTabMenuActions'
+import { useWorkspacePageLifecycle } from '@/composables/useWorkspacePageLifecycle'
+import { useWorkspaceViewActions } from '@/composables/useWorkspaceViewActions'
+import { useWorkspaceCloseGuards } from '@/composables/useWorkspaceCloseGuards'
+import { useWorkspaceSessionLifecycle } from '@/composables/useWorkspaceSessionLifecycle'
+import { useWorkspaceClipboardRouting } from '@/composables/useWorkspaceClipboardRouting'
+import {
+  useWorkspaceTabActions,
+  type QueryBuilderExecutePayload,
+} from '@/composables/useWorkspaceTabActions'
+import { getDatabaseSupportProfile, supportsSqlWorkspace } from '@/utils/databaseSupport'
 
 // Step 34: 重量级组件懒加载
 const AppHeader = defineAsyncComponent(() => import('@/components/layout/AppHeader.vue'))
@@ -153,83 +158,7 @@ const {
   removeTabs, findTabByKey, tabExists, addTab, handleContentChange, handleFileSaved,
 } = useTabManager()
 
-const showConnectionDialog = ref(false)
-const showGlobalSearch = ref(false)
-const editingConnection = ref<ConnectionConfig | null>(null)
 const redisEditorRef = ref()
-const appWindow = getCurrentWindow()
-let sessionReconnectTimer: number | null = null
-let sessionSaveTimer: number | null = null
-let unlistenCloseRequested: (() => void) | null = null
-
-function collectSessionConnectionIds(tabs: DataTab[]) {
-  return [...new Set(tabs.map(tab => tab.connectionId).filter((id): id is string => Boolean(id)))]
-}
-
-function scheduleSessionSave() {
-  if (workspaceStore.isRestoring) return
-  if (sessionSaveTimer) clearTimeout(sessionSaveTimer)
-  sessionSaveTimer = window.setTimeout(() => {
-    sessionSaveTimer = null
-    void workspaceStore.saveSession(dataTabs.value, mainTabKey.value)
-  }, 800)
-}
-
-function clearSessionReconnectTimer() {
-  if (sessionReconnectTimer !== null) {
-    clearTimeout(sessionReconnectTimer)
-    sessionReconnectTimer = null
-  }
-}
-
-function getDirtyQueryTabs(tabKeys?: string[]) {
-  const targetKeys = tabKeys ? new Set(tabKeys) : null
-  return dataTabs.value.filter(tab =>
-    tab.type === TabType.Query &&
-    tab.dirty &&
-    (!targetKeys || targetKeys.has(tab.key))
-  )
-}
-
-function scheduleSessionReconnect(connectionIds: string[]) {
-  clearSessionReconnectTimer()
-  if (connectionIds.length === 0) return
-
-  void logStartupStage('sessionReconnect:scheduled', `count=${connectionIds.length}`, true)
-
-  sessionReconnectTimer = window.setTimeout(async () => {
-    const finishReconnect = createStartupTimer('sessionReconnect.total')
-    sessionReconnectTimer = null
-    await nextTick()
-
-    // 所有连接并行重连，不做串行等待
-    await Promise.allSettled(
-      connectionIds.map(async (id) => {
-        const conn = connectionStore.connections.find(item => item.id === id)
-        if (!conn || connectionStore.getConnectionStatus(id) === 'connected') return
-        const finish = createStartupTimer(`sessionReconnect.${id}`)
-        await connectionStore.connectToDatabase(id, { showErrorMessage: false }).catch(() => {})
-        await finish(conn.name)
-      })
-    )
-
-    await finishReconnect(`count=${connectionIds.length}`)
-  }, 450)
-}
-
-function openSettings() {
-  const key = 'settings'
-  if (tabExists(key)) {
-    mainTabKey.value = key
-    return
-  }
-
-  addTab({
-    key,
-    title: t('common.settings'),
-    type: TabType.Settings,
-  })
-}
 
 const activeConnection = computed(() => connectionStore.getActiveConnection())
 const activeSupportProfile = computed(() => getDatabaseSupportProfile(activeConnection.value?.db_type || null))
@@ -239,414 +168,122 @@ const isSqlSupported = computed(() => {
   return !activeConnection.value || supportsSqlWorkspace(activeConnection.value.db_type)
 })
 
-watch(dataTabs, scheduleSessionSave, { deep: true })
-watch(mainTabKey, scheduleSessionSave)
-watch(mainTabKey, async () => {
-  await nextTick()
-  if (activeTabType.value === 'query') {
-    window.setTimeout(() => callActiveEditor('focusEditor'), 0)
-  }
+const tabActions = useWorkspaceTabActions({
+  connectionStore,
+  dataTabs,
+  mainTabKey,
+  activeTabType,
+  activeTabDatabase,
+  isSqlSupported,
+  redisEditorRef,
+  t,
+  tabExists,
+  addTab,
 })
 
-function isEditableTargetOutsideMonaco(target: EventTarget | null) {
-  const element = target instanceof HTMLElement ? target : null
-  if (!element) return false
-  if (element.closest('.monaco-editor')) return false
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) return true
-  if (element.isContentEditable) return true
-  return Boolean(element.closest('[contenteditable="true"], [contenteditable=""], input, textarea'))
-}
+const {
+  handleTableSelected,
+  handleDatabaseSelected,
+  handleNewQuery,
+  handleOpenSavedScript,
+  handleGeneratedSql,
+  handleViewStructure,
+  handleDesignTable,
+  handleOpenQueryBuilder,
+  handleQueryBuilderExecute,
+  handleOpenDataCompare,
+  getConnectionColor,
+} = tabActions
 
-function shouldRouteClipboardToActiveEditor(target: EventTarget | null) {
-  return activeTabType.value === 'query' && !isEditableTargetOutsideMonaco(target)
-}
-
-function routeClipboardAction(action: 'copy' | 'cut' | 'paste') {
-  window.setTimeout(() => callActiveEditor('handleSystemClipboardAction', action), 0)
-}
-
-function handleGlobalClipboardKeydown(event: KeyboardEvent) {
-  // 快速退出：非 Ctrl/Cmd 组合键、非 query tab、焦点在无关元素
-  if (!(event.ctrlKey || event.metaKey) || event.altKey) return
-  if (activeTabType.value !== 'query') return
-  if (!shouldRouteClipboardToActiveEditor(event.target)) return
-
-  const key = event.key.toLowerCase()
-  if (key !== 'c' && key !== 'x' && key !== 'v') return
-
-  event.preventDefault()
-  event.stopPropagation()
-  routeClipboardAction(key === 'c' ? 'copy' : key === 'x' ? 'cut' : 'paste')
-}
-
-function handleGlobalClipboardEvent(event: ClipboardEvent) {
-  const type = event.type
-  if ((type !== 'copy' && type !== 'cut' && type !== 'paste') || !shouldRouteClipboardToActiveEditor(event.target)) {
-    return
-  }
-
-  event.preventDefault()
-  event.stopPropagation()
-  routeClipboardAction(type)
-}
-
-async function restoreSession() {
-  workspaceStore.isRestoring = true
-  const finishRestore = createStartupTimer('restoreSession')
-  let pendingReconnectIds: string[] = []
-  try {
-    await logStartupStage('restoreSession:start')
-    const session = await workspaceStore.loadSession()
-    await logStartupStage('restoreSession:session-loaded', session ? `tabs=${session.open_tabs.length}` : 'tabs=0')
-    if (session && session.open_tabs.length > 0) {
-      dataTabs.value = session.open_tabs.map(tab => ({
-        ...tab,
-        type: tab.type,
-      })) as DataTab[]
-      mainTabKey.value = session.active_tab_key
-      await logStartupStage('restoreSession:tabs-applied', `active=${session.active_tab_key}`)
-      if (connectionStore.connections.length === 0) {
-        const finishFetchConnections = createStartupTimer('restoreSession.fetchConnections')
-        await connectionStore.fetchConnections()
-        await finishFetchConnections(`count=${connectionStore.connections.length}`)
-      }
-      pendingReconnectIds = collectSessionConnectionIds(dataTabs.value)
-      await logStartupStage('restoreSession:pending-reconnects', pendingReconnectIds.join(',') || 'none')
-    } else if (isSqlSupported.value) {
-      handleNewQuery({})
-      await logStartupStage('restoreSession:created-default-query')
-    }
-  } catch (_e) {
-    if (isSqlSupported.value) handleNewQuery({})
-    await logStartupStage('restoreSession:error-fallback', undefined, true)
-  } finally {
-    workspaceStore.isRestoring = false
-    scheduleSessionReconnect(pendingReconnectIds)
-    await finishRestore(`reconnects=${pendingReconnectIds.length}`)
-  }
-}
-
-function handleEditorDatabaseChange(tabKey: string, database: string) {
-  const tab = dataTabs.value.find(item => item.key === tabKey)
-  if (tab) tab.database = database
-}
-
-async function handleWindowCloseRequested() {
-  const dirtyTabs = getDirtyQueryTabs()
-  if (dirtyTabs.length === 0) return true
-
-  for (const tab of dirtyTabs) {
-    mainTabKey.value = tab.key
-    const canClose = await confirmCloseDirtyQueryTab(tab.key)
-    if (!canClose) {
-      return false
-    }
-  }
-
-  return true
-}
-
-onMounted(async () => {
-  await logStartupStage('HomeView mounted')
-  window.addEventListener('keydown', handleGlobalClipboardKeydown, true)
-  window.addEventListener('copy', handleGlobalClipboardEvent, true)
-  window.addEventListener('cut', handleGlobalClipboardEvent, true)
-  window.addEventListener('paste', handleGlobalClipboardEvent, true)
-  unlistenCloseRequested = await appWindow.onCloseRequested(async (event) => {
-    const canClose = await handleWindowCloseRequested()
-    if (!canClose) {
-      event.preventDefault()
-    }
-  })
-  restoreSession()
+const {
+  showConnectionDialog,
+  showGlobalSearch,
+  editingConnection,
+  openConnectionDialog,
+  openGlobalSearch,
+  openSettings,
+  handleEditConnection,
+  handleConnectionDialogClose,
+} = useWorkspaceViewActions({
+  mainTabKey,
+  tabExists,
+  addTab,
+  t,
 })
 
-onUnmounted(() => {
-  clearSessionReconnectTimer()
-  if (sessionSaveTimer) {
-    clearTimeout(sessionSaveTimer)
-    sessionSaveTimer = null
-  }
-  if (unlistenCloseRequested) {
-    unlistenCloseRequested()
-    unlistenCloseRequested = null
-  }
-  window.removeEventListener('keydown', handleGlobalClipboardKeydown, true)
-  window.removeEventListener('copy', handleGlobalClipboardEvent, true)
-  window.removeEventListener('cut', handleGlobalClipboardEvent, true)
-  window.removeEventListener('paste', handleGlobalClipboardEvent, true)
+const {
+  contextMenuVisible,
+  contextMenuX,
+  contextMenuY,
+  currentContextTab,
+  handleTabContextMenu,
+  hideContextMenu,
+  hasClosableTabsOnLeft,
+  hasClosableTabsOnRight,
+  hasClosableOtherTabs,
+  hasClosableSavedTabs,
+  currentContextTabFilePath,
+} = useWorkspaceTabContextMenu({ dataTabs })
+
+const sessionLifecycle = useWorkspaceSessionLifecycle({
+  workspaceStore,
+  connectionStore,
+  dataTabs,
+  mainTabKey,
+  isSqlSupported,
+  handleNewQuery,
 })
 
-interface TableEventData { connectionId?: string; database?: string; table?: string; schema?: string; metadata?: { schema?: string } }
-interface QueryEventData { connectionId?: string; database?: string; filePath?: string; title?: string; content?: string }
-interface DatabaseEventData { connectionId?: string; name?: string }
-interface QueryBuilderExecutePayload { sql: string; database?: string }
+const { restoreSession } = sessionLifecycle
 
-function handleOpenSavedScript(data: QueryEventData) { handleNewQuery(data) }
-function handleGeneratedSql(data: { sql: string; database: string; connectionId: string }) {
-  handleNewQuery({ connectionId: data.connectionId, database: data.database, content: data.sql })
-}
-function handleViewStructure(data: TableEventData) {
-  const key = `structure-${data.connectionId}-${data.database}-${data.table}`
-  if (tabExists(key)) { mainTabKey.value = key; return }
-  addTab({ key, title: `${t('common.file')}: ${data.table}`, type: TabType.Design, connectionId: data.connectionId, database: data.database, table: data.table, schema: data.schema, readOnly: true })
-}
-function handleDesignTable(data: TableEventData) {
-  const key = `design-${data.connectionId}-${data.database}-${data.table}`
-  if (tabExists(key)) { mainTabKey.value = key; return }
-  addTab({ key, title: `${t('tree.design_table')}: ${data.table}`, type: TabType.Design, connectionId: data.connectionId, database: data.database, table: data.table, schema: data.schema, readOnly: false })
-}
+watch(dataTabs, sessionLifecycle.scheduleSessionSave, { deep: true })
+watch(mainTabKey, sessionLifecycle.scheduleSessionSave)
 
-const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
-const currentContextTab = reactive({ key: '', closable: false })
-function handleTabContextMenu(e: MouseEvent, key: string, closable: boolean) { currentContextTab.key = key; currentContextTab.closable = closable; showContextMenu(e); }
+const { setupClipboardRouting, cleanupClipboardRouting } = useWorkspaceClipboardRouting({
+  activeTabType,
+  callActiveEditor,
+})
 
-const currentContextTabIndex = computed(() => dataTabs.value.findIndex(tab => tab.key === currentContextTab.key))
-const hasClosableTabsOnLeft = computed(() => currentContextTabIndex.value > 0 && dataTabs.value.slice(0, currentContextTabIndex.value).some(tab => tab.closable !== false))
-const hasClosableTabsOnRight = computed(() => currentContextTabIndex.value >= 0 && dataTabs.value.slice(currentContextTabIndex.value + 1).some(tab => tab.closable !== false))
-const hasClosableOtherTabs = computed(() => dataTabs.value.some(tab => tab.key !== currentContextTab.key && tab.closable !== false))
-const hasClosableSavedTabs = computed(() => dataTabs.value.some(tab => tab.closable !== false && Boolean(tab.filePath)))
-const currentContextTabFilePath = computed(() => dataTabs.value.find(tab => tab.key === currentContextTab.key)?.filePath || '')
+const {
+  closeTabWithConfirm,
+  closeTabsWithConfirm,
+  setupWindowCloseGuard,
+  cleanupWindowCloseGuard,
+} = useWorkspaceCloseGuards({
+  dataTabs,
+  mainTabKey,
+  findTabByKey,
+  callActiveEditor,
+  closeTab,
+  removeTabs,
+  t,
+})
 
-function generateNextScriptTitle() {
-  const used = new Set(
-    dataTabs.value
-      .map(tab => /^script-(\d+)\.sql$/i.exec(tab.title)?.[1])
-      .filter((value): value is string => Boolean(value))
-      .map(value => Number(value))
-      .filter(value => Number.isInteger(value) && value > 0)
-  )
+const { handleTabMenuClick } = useWorkspaceTabMenuActions({
+  dataTabs,
+  currentContextTab,
+  currentContextTabFilePath,
+  closeTabWithConfirm,
+  closeTabsWithConfirm,
+  hideContextMenu,
+  openFileLocation: async (path: string) => {
+    const { utilsApi } = await import('@/api/utils')
+    await utilsApi.openInFileManager(path).catch(() => {})
+  },
+})
 
-  let index = 1
-  while (used.has(index)) index += 1
-  return `script-${index}.sql`
-}
-
-function getDirtyQueryTab(tabKey: string) {
-  const tab = findTabByKey(tabKey)
-  if (!tab || tab.type !== TabType.Query || !tab.dirty) return null
-  return tab
-}
-
-async function confirmCloseDirtyQueryTab(tabKey: string) {
-  const tab = getDirtyQueryTab(tabKey)
-  if (!tab) return true
-
-  return new Promise<boolean>((resolve) => {
-    let resolved = false
-    let modal: { destroy: () => void } | null = null
-
-    const finish = (result: boolean) => {
-      if (resolved) return
-      resolved = true
-      resolve(result)
-      modal?.destroy()
-    }
-
-    modal = Modal.confirm({
-      title: t('common.warning'),
-      content: t('editor.unsaved_close_confirm', { title: tab.title }),
-      closable: false,
-      maskClosable: false,
-      keyboard: false,
-      icon: () => null,
-      footer: () => [
-        h('button', {
-          class: 'ant-btn ant-btn-default',
-          type: 'button',
-          onClick: () => finish(false),
-        }, t('common.cancel')),
-        h('button', {
-          class: 'ant-btn ant-btn-default',
-          type: 'button',
-          onClick: () => finish(true),
-        }, t('editor.discard_changes')),
-        h('button', {
-          class: 'ant-btn ant-btn-primary',
-          type: 'button',
-          onClick: async () => {
-            try {
-              const saved = await (callActiveEditor('handleSave') as Promise<boolean> | undefined)
-              if (saved) {
-                finish(true)
-              }
-            } catch {
-              finish(false)
-            }
-          },
-        }, t('common.save')),
-      ],
-    })
-  })
-}
-
-async function closeTabWithConfirm(tabKey: string) {
-  const canClose = await confirmCloseDirtyQueryTab(tabKey)
-  if (!canClose) return false
-  closeTab(tabKey)
-  return true
-}
-
-async function closeTabsWithConfirm(keys: string[], fallbackActiveKey?: string) {
-  const dirtyTabs = keys
-    .map(key => getDirtyQueryTab(key))
-    .filter((tab): tab is DataTab => Boolean(tab))
-
-  for (const tab of dirtyTabs) {
-    mainTabKey.value = tab.key
-    const canClose = await confirmCloseDirtyQueryTab(tab.key)
-    if (!canClose) {
-      return false
-    }
-  }
-
-  removeTabs(keys, fallbackActiveKey)
-  return true
-}
-
-async function handleTabMenuClick({ key }: { key: string | number }) {
-  if (!currentContextTab.key) return
-  const action = String(key)
-
-  if (action === 'close-current' && currentContextTab.closable) {
-    await closeTabWithConfirm(currentContextTab.key)
-  } else if (action === 'close-left') {
-    const anchorIndex = dataTabs.value.findIndex(tab => tab.key === currentContextTab.key)
-    const keys = dataTabs.value.slice(0, anchorIndex).filter(tab => tab.closable !== false).map(tab => tab.key)
-    await closeTabsWithConfirm(keys, currentContextTab.key)
-  } else if (action === 'close-right') {
-    const anchorIndex = dataTabs.value.findIndex(tab => tab.key === currentContextTab.key)
-    const keys = dataTabs.value.slice(anchorIndex + 1).filter(tab => tab.closable !== false).map(tab => tab.key)
-    await closeTabsWithConfirm(keys, currentContextTab.key)
-  } else if (action === 'close-others') {
-    const keys = dataTabs.value.filter(tab => tab.key !== currentContextTab.key && tab.closable !== false).map(tab => tab.key)
-    await closeTabsWithConfirm(keys, currentContextTab.key)
-  } else if (action === 'close-saved') {
-    const keys = dataTabs.value.filter(tab => tab.closable !== false && Boolean(tab.filePath)).map(tab => tab.key)
-    await closeTabsWithConfirm(keys, currentContextTab.key)
-  } else if (action === 'open-file-location') {
-    const fp = currentContextTabFilePath.value
-    if (fp) {
-      import('@/api/utils').then(({ utilsApi }) => utilsApi.openInFileManager(fp).catch(() => {}))
-    }
-  }
-
-  hideContextMenu()
-}
-
-function handleTableSelected(d: TableEventData) {
-  const id = d.connectionId || connectionStore.activeConnectionId, key = `table-${id}-${d.database}-${d.table}`
-  if (tabExists(key)) { mainTabKey.value = key; return }
-  addTab({ key, title: d.table || '', type: TabType.Data, connectionId: id!, database: d.database, table: d.table, schema: d.schema || d.metadata?.schema })
-}
-async function handleDatabaseSelected(d: DatabaseEventData) {
-  if (d.connectionId) connectionStore.setActiveConnection(d.connectionId)
-  if (!isSqlSupported.value) {
-    if (connectionStore.getActiveConnection()?.db_type === 'redis') {
-      if (!tabExists('redis')) addTab({ key: 'redis', title: 'Redis 命令行', type: TabType.Redis, closable: false })
-      mainTabKey.value = 'redis'; await nextTick(); setTimeout(() => redisEditorRef.value?.switchDatabase(d.name || ''), 100)
-    }
-    return
-  }
-}
-
-async function handleNewQuery(d: QueryEventData) {
-  if (!isSqlSupported.value) return
-  const connId = d.connectionId || connectionStore.activeConnectionId
-  let dbName = d.database
-  if (connId && !dbName) {
-    const conn = connectionStore.connections.find(c => c.id === connId)
-    if (conn?.db_type === 'sqlite') dbName = 'main'
-  }
-
-  if (d.filePath) {
-    const existingTab = dataTabs.value.find(tab => tab.type === TabType.Query && tab.filePath === d.filePath)
-    if (existingTab) {
-      mainTabKey.value = existingTab.key
-      return
-    }
-  }
-
-  const initialContent = d.content || ''
-  const key = `query-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  addTab({
-    key,
-    title: d.title || generateNextScriptTitle(),
-    type: TabType.Query,
-    connectionId: connId || undefined,
-    database: dbName,
-    content: initialContent,
-    filePath: d.filePath,
-    dirty: false,
-  })
-}
-
-function handleOpenQueryBuilder() {
-  const activeConnection = connectionStore.getActiveConnection()
-
-  if (!activeConnection?.id) {
-    message.warning(t('tools.query_builder.require_connection'))
-    return
-  }
-
-  if (!supportsQueryBuilder(activeConnection.db_type)) {
-    message.warning(t('tools.query_builder.unsupported_connection'))
-    return
-  }
-
-  const key = `builder-${activeConnection.id}`
-  if (tabExists(key)) {
-    mainTabKey.value = key
-    return
-  }
-
-  addTab({
-    key,
-    title: t('tools.query_builder.title'),
-    type: TabType.Builder,
-    connectionId: activeConnection.id,
-    database: activeTabType.value === 'query' ? activeTabDatabase.value : activeConnection.database,
-  })
-}
-
-function handleQueryBuilderExecute(tab: DataTab, payload: QueryBuilderExecutePayload | string) {
-  const sql = typeof payload === 'string' ? payload : payload.sql
-  const database = typeof payload === 'string' ? tab.database : payload.database || tab.database
-
-  handleNewQuery({
-    connectionId: tab.connectionId,
-    database,
-    content: sql,
-  })
-}
-
-function handleOpenDataCompare() {
-  const activeConnection = connectionStore.getActiveConnection()
-
-  if (!activeConnection?.id) {
-    message.warning(t('tools.data_compare.require_connection'))
-    return
-  }
-
-  if (!supportsDataCompare(activeConnection.db_type)) {
-    message.warning(t('tools.data_compare.unsupported_connection'))
-    return
-  }
-
-  const key = `compare-${activeConnection.id}`
-  if (tabExists(key)) {
-    mainTabKey.value = key
-    return
-  }
-
-  addTab({
-    key,
-    title: t('tools.data_compare.title'),
-    type: TabType.Compare,
-    connectionId: activeConnection.id,
-    database: activeTabType.value === 'query' ? activeTabDatabase.value : activeConnection.database,
-  })
-}
+const { handleEditorDatabaseChange } = useWorkspacePageLifecycle({
+  dataTabs,
+  mainTabKey,
+  activeTabType,
+  callActiveEditor,
+  restoreSession,
+  sessionCleanup: sessionLifecycle.cleanup,
+  setupClipboardRouting,
+  cleanupClipboardRouting,
+  setupWindowCloseGuard,
+  cleanupWindowCloseGuard,
+})
 
 async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, action: string) {
   if (action === 'add') {
@@ -654,11 +291,6 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
     return
   }
   await closeTabWithConfirm(String(key))
-}
-function handleEditConnection(c: ConnectionConfig) { editingConnection.value = c; showConnectionDialog.value = true; }
-function getConnectionColor(connectionId?: string) {
-  if (!connectionId) return ''
-  return connectionStore.connections.find(connection => connection.id === connectionId)?.color || ''
 }
 </script>
 
