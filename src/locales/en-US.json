@@ -290,6 +290,7 @@
     "format_success": "Format complete",
     "refresh_cache_success": "Autocomplete cache refreshed",
     "save_as": "Save As",
+    "discard_changes": "Discard",
     "unsaved_close_confirm": "Tab \"{title}\" has unsaved changes. Save before closing?",
     "statement_progress": "{completed}/{total} SQL",
     "affected_rows_short": "{n} rows affected",
