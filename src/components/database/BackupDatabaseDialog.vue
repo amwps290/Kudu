@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { FolderOpenOutlined } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { metadataApi, queryApi, exportApi, utilsApi } from '@/api'
 import { save } from '@tauri-apps/plugin-dialog'

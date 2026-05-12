@@ -162,7 +162,7 @@ import {
   DatabaseOutlined, PlusOutlined, LinkOutlined, EditOutlined, DeleteOutlined,
   DisconnectOutlined, DownOutlined, RightOutlined, SearchOutlined
 } from '@ant-design/icons-vue'
-import { message, Modal, Empty } from 'ant-design-vue'
+import { message, Modal, Empty } from '@/ui/antd'
 import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'
 import type { ConnectionConfig } from '@/types/database'

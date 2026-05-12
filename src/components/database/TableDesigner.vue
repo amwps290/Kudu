@@ -176,7 +176,7 @@ import {
   PlusOutlined,
   CopyOutlined,
 } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { metadataApi, queryApi } from '@/api'
 import { useI18n } from 'vue-i18n'
 import { withErrorHandler } from '@/utils/errorHandler'

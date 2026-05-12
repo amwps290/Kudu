@@ -1,4 +1,4 @@
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 
 /**
  * 从各种错误对象中提取可读的错误消息

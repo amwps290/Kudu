@@ -1,5 +1,5 @@
 import { nextTick, type ComputedRef, type Ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { TabType } from '@/types/workspace'
 import type { DataTab } from '@/composables/useTabManager'
 import { supportsDataCompare, supportsQueryBuilder } from '@/utils/databaseSupport'

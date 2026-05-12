@@ -192,7 +192,7 @@ import {
   ReloadOutlined, PlusOutlined, DeleteOutlined, FilterOutlined,
   ExportOutlined, FormOutlined, UploadOutlined
 } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { queryApi, metadataApi, dataApi, exportApi } from '@/api'
 import { save } from '@tauri-apps/plugin-dialog'
 import { useConnectionStore } from '@/stores/connection'

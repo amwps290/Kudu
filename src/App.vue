@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted } from 'vue'
-import { theme as antTheme } from 'ant-design-vue'
+import { theme as antTheme } from '@/ui/antd'
 import { useAppStore } from '@/stores/app'
 import { applyVxeTheme } from '@/utils/vxeTheme'
 

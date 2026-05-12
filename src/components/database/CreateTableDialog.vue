@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { queryApi } from '@/api'
 import { useDialogModel } from '@/composables/useDialogModel'

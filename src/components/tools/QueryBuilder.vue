@@ -179,7 +179,7 @@ import {
   CopyOutlined,
   CaretRightOutlined,
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { metadataApi } from '@/api'
 import { useConnectionStore } from '@/stores/connection'

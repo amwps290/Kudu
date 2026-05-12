@@ -137,7 +137,7 @@ import {
   FolderOpenOutlined, EditOutlined, NumberOutlined,
   FileTextOutlined, CodeOutlined, DownloadOutlined, UploadOutlined, DeleteOutlined
 } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { metadataApi, workspaceApi, utilsApi, queryApi } from '@/api'
 import { getErrorMessage } from '@/utils/errorHandler'
 import { useConnectionStore } from '@/stores/connection'

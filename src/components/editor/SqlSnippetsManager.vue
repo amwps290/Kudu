@@ -141,7 +141,7 @@ import {
   DeleteOutlined,
   SaveOutlined,
 } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { writeClipboardText } from '@/utils/clipboard'
 import { getStorageItem, setStorageItem, STORAGE_KEYS } from '@/utils/storageService'

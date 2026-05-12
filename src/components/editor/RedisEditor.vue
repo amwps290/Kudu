@@ -150,7 +150,7 @@ import {
   InfoCircleOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { redisApi } from '@/api'
 import { useConnectionStore } from '@/stores/connection'

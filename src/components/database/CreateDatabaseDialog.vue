@@ -59,10 +59,10 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { queryApi } from '@/api'
-import type { FormInstance } from 'ant-design-vue'
+import type { FormInstance } from '@/ui/antd'
 
 const { t } = useI18n()
 

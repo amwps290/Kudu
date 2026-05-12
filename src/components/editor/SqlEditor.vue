@@ -222,7 +222,7 @@ import { defineAsyncComponent, onMounted, onUnmounted, watch, ref, computed, onA
 import { useI18n } from 'vue-i18n'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportApi, queryApi, metadataApi, utilsApi, SQL_FILE_FILTERS } from '@/api'

@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { queryApi } from '@/api'
 import { useMonacoEditor } from '@/composables/useMonacoEditor'

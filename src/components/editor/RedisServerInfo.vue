@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message } from '@/ui/antd'
 import { redisApi } from '@/api'
 
 const props = defineProps<{

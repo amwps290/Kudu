@@ -1,0 +1,5 @@
+export { default as theme } from 'ant-design-vue/es/theme'
+export { default as Modal } from 'ant-design-vue/es/modal'
+export { default as message } from 'ant-design-vue/es/message'
+export { default as Empty } from 'ant-design-vue/es/empty'
+export type { FormInstance } from 'ant-design-vue/es/form'

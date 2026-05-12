@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { FileOutlined } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { queryApi, utilsApi } from '@/api'
 import { open } from '@tauri-apps/plugin-dialog'

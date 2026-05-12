@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { redisApi } from '@/api'
 

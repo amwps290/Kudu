@@ -1,5 +1,5 @@
 import { h, type Ref } from 'vue'
-import { Modal } from 'ant-design-vue'
+import { Modal } from '@/ui/antd'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { TabType } from '@/types/workspace'
 import type { DataTab } from '@/composables/useTabManager'

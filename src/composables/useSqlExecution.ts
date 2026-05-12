@@ -1,5 +1,5 @@
 import { ref, h } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal } from '@/ui/antd'
 import type { QueryResult } from '@/types/database'
 import type { QueryBatchExecutionResult } from '@/api/query'
 import { queryApi } from '@/api'
