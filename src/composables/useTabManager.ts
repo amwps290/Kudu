@@ -3,7 +3,6 @@ import type { TabState } from '@/types/workspace'
 import { createIdleExecutionState, type SqlExecutionState } from '@/types/sqlExecution'
 
 export interface DataTab extends TabState {
-  table?: string
   closable?: boolean
 }
 
@@ -12,7 +11,8 @@ export interface SqlEditorExposed {
   executeQuery: () => void
   explainQuery: () => void
   stopExecution: () => void
-  handleSave: () => void
+  handleSave: () => Promise<boolean>
+  saveAsFile: () => Promise<boolean>
   focusEditor: () => void
   handleSystemClipboardAction: (action: 'copy' | 'cut' | 'paste') => void
   formatSql: () => void
@@ -77,7 +77,7 @@ export function useTabManager() {
         method,
         args,
       })
-      return
+      return undefined
     }
 
     if (typeof editor[method] !== 'function') {
@@ -86,7 +86,7 @@ export function useTabManager() {
         method,
         args,
       })
-      return
+      return undefined
     }
 
     console.info('[SQL][Toolbar] invoking editor method', {
@@ -94,7 +94,7 @@ export function useTabManager() {
       method,
       args,
     })
-    ;(editor[method] as (...a: unknown[]) => void)(...args)
+    return (editor[method] as (...a: unknown[]) => unknown)(...args)
   }
 
   function closeTab(key: string) {
@@ -195,7 +195,11 @@ export function useTabManager() {
 
   function handleContentChange(key: string, val: string) {
     const tab = dataTabs.value.find(t => t.key === key)
-    if (tab) tab.content = val
+    if (!tab) return
+    tab.content = val
+    if (tab.type === 'query') {
+      tab.dirty = true
+    }
   }
 
   function handleFileSaved(key: string, path: string, title: string) {
@@ -203,7 +207,12 @@ export function useTabManager() {
     if (tab) {
       tab.filePath = path
       tab.title = title
+      tab.dirty = false
     }
+  }
+
+  function removeTabs(keys: Iterable<string>, fallbackActiveKey?: string) {
+    applyTabRemoval(new Set(keys), fallbackActiveKey)
   }
 
   return {
@@ -223,6 +232,7 @@ export function useTabManager() {
     closeTabsRightOf,
     closeOtherTabs,
     closeSavedTabs,
+    removeTabs,
     findTabByKey,
     tabExists,
     addTab,

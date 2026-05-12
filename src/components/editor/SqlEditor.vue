@@ -225,7 +225,7 @@ import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { message } from 'ant-design-vue'
 import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
-import { exportApi, queryApi, metadataApi, utilsApi } from '@/api'
+import { exportApi, queryApi, metadataApi, utilsApi, SQL_FILE_FILTERS } from '@/api'
 import type { QueryResult, DatabaseInfo } from '@/types/database'
 import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
@@ -294,6 +294,15 @@ async function handleSearchPathChange(newPath: string) {
 const currentConnection = computed(() =>
   connectionStore.connections.find(c => c.id === (props.connectionId || connectionStore.activeConnectionId)) || null
 )
+const currentFilePath = ref(props.filePath || '')
+const isDirty = ref(false)
+
+watch(() => props.filePath, (value) => {
+  currentFilePath.value = value || ''
+  if (value) {
+    isDirty.value = false
+  }
+})
 const currentDatabaseLabel = computed(() => {
   const conn = currentConnection.value
   if (selectedDatabase.value) return selectedDatabase.value
@@ -662,10 +671,70 @@ function startMessagesResize(e: MouseEvent) {
 function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
 async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: unknown) { message.error(getErrorMessage(e)) } }
 function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'result-0'; errorTabs.value = []; resultTabCreatedAt.value = {}; dbMessages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
+function buildSuggestedFileName() {
+  const base = currentDatabaseLabel.value && currentDatabaseLabel.value !== t('editor.default_database')
+    ? currentDatabaseLabel.value
+    : 'query'
+  return `${base}.sql`.replace(/[\\/:*?"<>|]+/g, '_')
+}
+
 function handleQuerySaved() { message.success(t('common.save')) }
-async function handleSave(isAuto = false) { if (!editor || !props.filePath) return; const c = editor.getValue(); if (!c.trim()) return; try { await utilsApi.writeFile(props.filePath, c); if (!isAuto) message.success(t('common.save')) } catch (err: unknown) { if (!isAuto) message.error(`${t('common.fail')}: ${getErrorMessage(err)}`) } }
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-function triggerAutoSave() { if (autoSaveTimer) clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { handleSave(true) }, 2000) }
+
+async function saveAsFile(): Promise<boolean> {
+  if (!editor) return false
+
+  const filePath = await save({
+    defaultPath: currentFilePath.value || buildSuggestedFileName(),
+    filters: [...SQL_FILE_FILTERS],
+  })
+  if (!filePath) return false
+
+  try {
+    const saved = await utilsApi.saveFileAs({ path: filePath, content: editor.getValue() })
+    currentFilePath.value = saved.path
+    isDirty.value = false
+    emit('fileSaved', saved.path, saved.title)
+    message.success(t('common.save'))
+    return true
+  } catch (err: unknown) {
+    message.error(`${t('common.fail')}: ${getErrorMessage(err)}`)
+    return false
+  }
+}
+
+async function handleSave(isAuto = false): Promise<boolean> {
+  if (!editor) return false
+
+  const content = editor.getValue()
+  if (!content.trim()) return false
+
+  const targetPath = currentFilePath.value || props.filePath
+  if (!targetPath) {
+    if (!isAuto) {
+      return saveAsFile()
+    }
+    return false
+  }
+
+  try {
+    await utilsApi.writeFile(targetPath, content)
+    currentFilePath.value = targetPath
+    isDirty.value = false
+    emit('fileSaved', targetPath, targetPath.split(/[\\/]/).pop() || buildSuggestedFileName())
+    if (!isAuto) message.success(t('common.save'))
+    return true
+  } catch (err: unknown) {
+    if (!isAuto) message.error(`${t('common.fail')}: ${getErrorMessage(err)}`)
+    return false
+  }
+}
+let autoSaveTimer: number | null = null
+function triggerAutoSave() {
+  isDirty.value = true
+  if (!currentFilePath.value) return
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = window.setTimeout(() => { void handleSave(true) }, 2000)
+}
 async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
 
 // ── 历史记录（composable） ──
@@ -986,9 +1055,19 @@ function stopExec() { execution.stopExecution(sessionConnectionId.value) }
 
 // ── 工具栏分发 ──
 function handleToolbarAction(method: string) {
-  const actions: Record<string, () => void | Promise<void>> = {
-    executeQuery, explainQuery, stopExecution: stopExec, handleSave, formatSql,
-    clearEditor, openHistory, openSnippets, refreshAutocomplete, toggleResultPanel, toggleMessagesPanel,
+  const actions: Record<string, () => unknown> = {
+    executeQuery,
+    explainQuery,
+    stopExecution: stopExec,
+    handleSave,
+    saveAsFile,
+    formatSql,
+    clearEditor,
+    openHistory,
+    openSnippets,
+    refreshAutocomplete,
+    toggleResultPanel,
+    toggleMessagesPanel,
   }
   actions[method]?.()
 }
@@ -1003,7 +1082,17 @@ function updateAutocompleteContext() {
     autocompleteManager.bindModel(model, { connectionId: bid, database: fb || null, dbType: conn?.db_type || null })
   }
 }
-async function loadAvailableDatabases() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; try { availableDatabases.value = await metadataApi.getDatabases(bid); emit('databasesLoaded', availableDatabases.value) } catch (e) { console.error(e) } }
+async function loadAvailableDatabases() {
+  const bid = props.connectionId || connectionStore.activeConnectionId
+  if (!bid) return
+
+  try {
+    availableDatabases.value = await metadataApi.getDatabases(bid)
+    emit('databasesLoaded', availableDatabases.value)
+  } catch {
+    availableDatabases.value = []
+  }
+}
 function handleDatabaseChange(dbName: string) {
   selectedDatabase.value = dbName; updateAutocompleteContext(); emit('databaseChange', dbName)
   const notice = t('editor.database_switched', { database: currentDatabaseLabel.value })
@@ -1059,7 +1148,7 @@ watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
 
-defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete, handleSave })
+defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete, handleSave, saveAsFile })
 </script>
 
 <style scoped>

@@ -289,6 +289,8 @@
     "manual_stop": "已手动停止",
     "format_success": "格式化完成",
     "refresh_cache_success": "已刷新提示缓存",
+    "save_as": "另存为",
+    "unsaved_close_confirm": "标签页“{title}”存在未保存修改，是否先保存？",
     "statement_progress": "{completed}/{total} 条 SQL",
     "affected_rows_short": "{n} 行受影响",
     "messages_result_sets": "结果集",

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use std::time::Instant;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -17,6 +17,7 @@ pub struct ConnectionManager {
     configs: Arc<RwLock<HashMap<String, ConnectionConfig>>>,
     active_queries: Arc<RwLock<HashMap<String, u64>>>,
     cancelled_queries: Arc<RwLock<HashMap<String, u64>>>,
+    session_creation_locks: Arc<RwLock<HashMap<String, Arc<Mutex<()>>>>>,
 }
 
 impl ConnectionManager {
@@ -27,6 +28,7 @@ impl ConnectionManager {
             configs: Arc::new(RwLock::new(HashMap::new())),
             active_queries: Arc::new(RwLock::new(HashMap::new())),
             cancelled_queries: Arc::new(RwLock::new(HashMap::new())),
+            session_creation_locks: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -93,6 +95,18 @@ impl ConnectionManager {
         conns.get(&real_id).cloned().ok_or_else(|| DbError::SessionNotFound(real_id))
     }
 
+    async fn get_session_creation_lock(&self, composite_id: &str) -> Arc<Mutex<()>> {
+        if let Some(lock) = self.session_creation_locks.read().await.get(composite_id) {
+            return lock.clone();
+        }
+
+        let mut locks = self.session_creation_locks.write().await;
+        locks
+            .entry(composite_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
     #[instrument(skip(self, config_id, session_id))]
     pub async fn ensure_session(
         &self,
@@ -100,8 +114,14 @@ impl ConnectionManager {
         session_id: &str,
     ) -> DbResult<String> {
         let composite_id = format!("{}:{}", config_id, session_id);
-        
-        // 双重检查锁定模式
+
+        if self.connections.read().await.contains_key(&composite_id) {
+            return Ok(composite_id);
+        }
+
+        let session_lock = self.get_session_creation_lock(&composite_id).await;
+        let _guard = session_lock.lock().await;
+
         if self.connections.read().await.contains_key(&composite_id) {
             return Ok(composite_id);
         }
@@ -112,14 +132,19 @@ impl ConnectionManager {
         })?;
 
         let db = self.create_instance(&config.db_type)?;
-        
+
         debug!(session = %composite_id, "正在发起驱动层连接...");
         db.connect(config.clone()).await?;
 
-        let mut conns = self.connections.write().await;
-        conns.insert(composite_id.clone(), Arc::from(db));
-        
-        self.connection_types.write().await.insert(composite_id.clone(), config.db_type.clone());
+        let db = Arc::from(db);
+        self.connections
+            .write()
+            .await
+            .insert(composite_id.clone(), db);
+        self.connection_types
+            .write()
+            .await
+            .insert(composite_id.clone(), config.db_type.clone());
 
         info!(session = %composite_id, "物理连接已建立并存入管理器");
         Ok(composite_id)
@@ -162,14 +187,48 @@ impl ConnectionManager {
     }
 
     pub async fn disconnect(&self, config_id: &str) -> DbResult<()> {
-        let mut conns = self.connections.write().await;
         let prefix = format!("{}:", config_id);
-        conns.retain(|k, _| !k.starts_with(&prefix) && k != config_id);
-        
-        self.connection_types.write().await.retain(|k, _| !k.starts_with(&prefix) && k != config_id);
+        let keys_to_remove = {
+            let conns = self.connections.read().await;
+            conns
+                .keys()
+                .filter(|key| key.starts_with(&prefix) || *key == config_id)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+
+        let dbs_to_disconnect = {
+            let mut conns = self.connections.write().await;
+            let mut removed = Vec::new();
+            for key in &keys_to_remove {
+                if let Some(db) = conns.remove(key) {
+                    removed.push(db);
+                }
+            }
+            removed
+        };
+
+        for db in dbs_to_disconnect {
+            db.disconnect().await?;
+        }
+
+        self.connection_types
+            .write()
+            .await
+            .retain(|key, _| !keys_to_remove.iter().any(|removed| removed == key));
+        self.active_queries
+            .write()
+            .await
+            .retain(|key, _| !keys_to_remove.iter().any(|removed| removed == key));
+        self.cancelled_queries
+            .write()
+            .await
+            .retain(|key, _| !keys_to_remove.iter().any(|removed| removed == key));
+        self.session_creation_locks
+            .write()
+            .await
+            .retain(|key, _| !keys_to_remove.iter().any(|removed| removed == key));
         self.configs.write().await.remove(config_id);
-        self.active_queries.write().await.retain(|k, _| !k.starts_with(&prefix) && k != config_id);
-        self.cancelled_queries.write().await.retain(|k, _| !k.starts_with(&prefix) && k != config_id);
         Ok(())
     }
 

@@ -6,24 +6,24 @@ export function useWindowControls() {
   const isMaximized = ref(false)
 
   async function minimizeWindow() {
-    try { await appWindow.minimize() } catch (e) { console.error(e) }
+    try { await appWindow.minimize() } catch { /* ignore */ }
   }
 
   async function toggleMaximize() {
     try {
       await appWindow.toggleMaximize()
       isMaximized.value = await appWindow.isMaximized()
-    } catch (e) { console.error(e) }
+    } catch { /* ignore */ }
   }
 
   async function closeWindow() {
-    try { await appWindow.close() } catch (e) { console.error(e) }
+    try { await appWindow.close() } catch { /* ignore */ }
   }
 
   function setupMaximizeListener() {
-    appWindow.isMaximized().then(v => { isMaximized.value = v }).catch(console.error)
+    appWindow.isMaximized().then(v => { isMaximized.value = v }).catch(() => undefined)
     appWindow.onResized(async () => {
-      try { isMaximized.value = await appWindow.isMaximized() } catch (e) { console.error(e) }
+      try { isMaximized.value = await appWindow.isMaximized() } catch { /* ignore */ }
     })
   }
 

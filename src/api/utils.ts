@@ -5,6 +5,18 @@ export interface SystemFont {
   is_monospace: boolean
 }
 
+export interface SavedFileInfo {
+  path: string
+  title: string
+}
+
+export interface SaveFileAsPayload {
+  path: string
+  content: string
+}
+
+export const SQL_FILE_FILTERS = [{ name: 'SQL', extensions: ['sql'] }]
+
 export const utilsApi = {
   /**
    * 读取文件内容
@@ -18,6 +30,13 @@ export const utilsApi = {
    */
   async writeFile(path: string, content: string): Promise<void> {
     return invoke('write_file', { path, content })
+  },
+
+  /**
+   * 保存到新文件
+   */
+  async saveFileAs(payload: SaveFileAsPayload): Promise<SavedFileInfo> {
+    return invoke<SavedFileInfo>('save_file_as', { ...payload })
   },
 
   /**

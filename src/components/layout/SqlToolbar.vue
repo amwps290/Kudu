@@ -23,6 +23,9 @@
         <a-tooltip :title="`${$t('common.save')} (Ctrl+S)`">
           <a-button type="text" size="small" @click="$emit('action', 'handleSave')"><template #icon><SaveOutlined /></template></a-button>
         </a-tooltip>
+        <a-tooltip :title="$t('editor.save_as')">
+          <a-button type="text" size="small" @click="$emit('action', 'saveAsFile')"><template #icon><FileAddOutlined /></template></a-button>
+        </a-tooltip>
         <a-tooltip :title="$t('common.format')">
           <a-button type="text" size="small" @click="$emit('action', 'formatSql')"><template #icon><FormatPainterOutlined /></template></a-button>
         </a-tooltip>
@@ -157,7 +160,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import {
-  PlayCircleFilled, StopOutlined, SaveOutlined,
+  PlayCircleFilled, StopOutlined, SaveOutlined, FileAddOutlined,
   FormatPainterOutlined, ClearOutlined, HistoryOutlined, CodeOutlined, SyncOutlined,
   SearchOutlined, DatabaseOutlined, TableOutlined, MessageOutlined, ApartmentOutlined, PlusOutlined
 } from '@ant-design/icons-vue'

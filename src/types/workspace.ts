@@ -15,9 +15,11 @@ export interface TabState {
   connectionId?: string
   database?: string
   schema?: string
+  table?: string
   content?: string
   filePath?: string
   readOnly?: boolean
+  dirty?: boolean
 }
 
 export interface SessionState {

@@ -15,6 +15,7 @@ pub struct TabState {
     pub connection_id: Option<String>,
     pub database: Option<String>,
     pub schema: Option<String>,
+    pub table: Option<String>,
     pub content: Option<String>,
     pub file_path: Option<String>,
     pub read_only: Option<bool>,
@@ -155,8 +156,12 @@ pub async fn list_db_scripts(
         
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("sql") {
             let metadata = entry.metadata().to_cmd_result()?;
-            let last_modified = metadata.modified().to_cmd_result()?
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+            let last_modified = metadata
+                .modified()
+                .to_cmd_result()?
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             
             scripts.push(ScriptInfo {
                 name: entry.file_name().to_string_lossy().to_string(),

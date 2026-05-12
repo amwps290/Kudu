@@ -1,8 +1,14 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use tracing::info;
 use crate::utils::logger;
+
+#[derive(Debug, serde::Serialize)]
+pub struct SavedFileInfo {
+    pub path: String,
+    pub title: String,
+}
 
 /// 验证路径是否在允许的目录内（应用数据目录下的 scripts 子目录）
 fn validate_path(path: &str, app: &AppHandle) -> Result<(), String> {
@@ -54,6 +60,50 @@ pub async fn write_file(path: String, content: String, app: AppHandle) -> Result
     validate_path(&path, &app)?;
     fs::write(&path, content)
         .map_err(|e| format!("写入文件失败: {}", e))
+}
+
+#[tauri::command]
+pub async fn save_file_as(path: String, content: String, app: AppHandle) -> Result<SavedFileInfo, String> {
+    validate_or_prepare_new_path(&path, &app)?;
+    fs::write(&path, content)
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+
+    let title = Path::new(&path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("query.sql")
+        .to_string();
+
+    Ok(SavedFileInfo { path, title })
+}
+
+fn validate_or_prepare_new_path(path: &str, app: &AppHandle) -> Result<PathBuf, String> {
+    let app_dir = app.path().app_data_dir()
+        .map_err(|e| format!("无法获取应用目录: {}", e))?;
+    let scripts_dir = app_dir.join("scripts");
+    if !scripts_dir.exists() {
+        fs::create_dir_all(&scripts_dir).map_err(|e| format!("无法创建脚本目录: {}", e))?;
+    }
+
+    let target = Path::new(path);
+    let canonical = if target.exists() {
+        target.canonicalize().map_err(|e| format!("路径解析失败: {}", e))?
+    } else if let Some(parent) = target.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| format!("无法创建父目录: {}", e))?;
+        }
+        let canonical_parent = parent.canonicalize().map_err(|e| format!("父目录解析失败: {}", e))?;
+        canonical_parent.join(target.file_name().unwrap_or_default())
+    } else {
+        return Err("无效路径".to_string());
+    };
+
+    let allowed = scripts_dir.canonicalize().unwrap_or(scripts_dir);
+    if canonical.starts_with(&allowed) {
+        Ok(canonical)
+    } else {
+        Err("路径访问被拒绝: 只允许访问脚本目录".to_string())
+    }
 }
 
 #[tauri::command]

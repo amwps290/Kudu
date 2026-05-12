@@ -75,6 +75,7 @@ fn main() {
             commands::export::export_table_ddl,
             commands::utils::read_file,
             commands::utils::write_file,
+            commands::utils::save_file_as,
             commands::utils::set_log_level,
             commands::utils::log_frontend_timing,
             commands::utils::open_in_file_manager,

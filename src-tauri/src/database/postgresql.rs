@@ -126,13 +126,12 @@ impl PostgreSqlDatabase {
         }
     }
 
-    async fn drive_connection<S, T>(mut connection: tokio_postgres::Connection<S, T>, notices: Arc<StdMutex<Vec<DbMessage>>>)
+    async fn drive_connection<S, T>(connection: tokio_postgres::Connection<S, T>, notices: Arc<StdMutex<Vec<DbMessage>>>)
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
         T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     {
         use futures::future::poll_fn;
-        use std::task::Poll;
         let mut conn = Box::pin(connection);
         loop {
             match poll_fn(|cx| conn.as_mut().poll_message(cx)).await {
@@ -268,7 +267,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
     }
 
     async fn switch_database(&self, database: &str) -> DbResult<()> {
-        let mut state = self.state.lock().await;
+        let state = self.state.lock().await;
         let mut config = state.config.clone().ok_or(DbError::Other("未找到初始配置".into()))?;
         
         if config.database.as_deref() == Some(database) {
