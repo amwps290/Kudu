@@ -186,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, watch, computed, reactive, nextTick } from 'vue'
+import { defineAsyncComponent, h, ref, watch, computed, reactive, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   ReloadOutlined, PlusOutlined, DeleteOutlined, FilterOutlined,
@@ -245,6 +245,8 @@ interface SubmitPreviewPlan {
   updates: UpdatePlanItem[]
   deletes: DeletePlanItem[]
 }
+
+const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRuntime'))
 
 const { t } = useI18n()
 const props = defineProps<{ connectionId: string; database: string; table: string; schema?: string }>()

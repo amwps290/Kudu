@@ -17,7 +17,7 @@
 import { computed, watch, onMounted } from 'vue'
 import { theme as antTheme } from 'ant-design-vue'
 import { useAppStore } from '@/stores/app'
-import { VxeUI } from 'vxe-pc-ui'
+import { applyVxeTheme } from '@/utils/vxeTheme'
 
 const appStore = useAppStore()
 const isDark = computed(() => appStore.theme === 'dark')
@@ -43,7 +43,7 @@ watch(() => appStore.editorSettings.fontFamily, (fontFamily) => {
 // 在组件挂载后再开始监听 Store 变化，确保 Pinia 已完全激活
 onMounted(() => {
   watch(() => appStore.theme, (val) => {
-    VxeUI.setTheme(val === 'dark' ? 'dark' : 'light')
+    void applyVxeTheme(val === 'dark' ? 'dark' : 'light')
   }, { immediate: true })
 })
 </script>

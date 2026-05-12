@@ -218,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
@@ -238,6 +238,8 @@ import SqlSnippetsManager from './SqlSnippetsManager.vue'
 import type { VxeGridProps } from 'vxe-table'
 import { useSqlHistory } from '@/composables/useSqlHistory'
 import { useSqlExecution } from '@/composables/useSqlExecution'
+
+const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRuntime'))
 
 // ── 基础设置 ──
 const { t } = useI18n()

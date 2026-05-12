@@ -7,11 +7,6 @@ import i18n from './i18n'
 import './style.css'
 import { logStartupStage, createStartupTimer } from './utils/startupProfiler'
 
-// 引入 vxe-table 高性能表格库
-import VxeTable from 'vxe-table'
-import 'vxe-table/lib/style.css'
-import VxeUI from 'vxe-pc-ui'
-import 'vxe-pc-ui/lib/style.css'
 
 // 设置 Monaco Editor 的 Worker 配置
 (window as any).MonacoEnvironment = {
@@ -35,8 +30,6 @@ void logStartupStage('vue app created')
 app.use(pinia)
 app.use(router)
 app.use(i18n)
-app.use(VxeUI)
-app.use(VxeTable)
 
 app.mount('#app')
 void logStartupStage('app mounted')
