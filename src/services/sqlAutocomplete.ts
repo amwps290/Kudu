@@ -1,11 +1,6 @@
-/**
- * SQL 自动补全服务 (重构版)
- * 实现全局单例、模型感知、智能缓存
- */
-
-import * as monaco from 'monaco-editor'
 import { invoke } from '@tauri-apps/api/core'
 import type { DatabaseType } from '@/types/database'
+import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 
 export interface AutoCompleteData {
   databases: string[]
@@ -48,22 +43,25 @@ interface QuerySource {
   alias?: string
 }
 
-/**
- * 全局 SQL 自动补全管理器
- */
-export class SqlAutocompleteManager implements monaco.languages.CompletionItemProvider, monaco.languages.InlayHintsProvider {
+export class SqlAutocompleteManager {
   private static instance: SqlAutocompleteManager
-  private contextMap = new Map<string, ModelContext>() // modelId -> context
-  private dataCache = new Map<string, AutoCompleteData>() // "connId:db" -> data
-  private loadingMap = new Map<string, Promise<AutoCompleteData>>() // 防止重复请求
+  private static registrationPromise: Promise<SqlAutocompleteManager> | null = null
+
+  private monaco: MonacoModule | null = null
+  private registered = false
+  private contextMap = new Map<string, ModelContext>()
+  private dataCache = new Map<string, AutoCompleteData>()
+  private loadingMap = new Map<string, Promise<AutoCompleteData>>()
   public readonly triggerCharacters = [' ', '.', '(', ',']
 
   private gucParameters: Set<string>
-  private inlayHintsEmitter = new monaco.Emitter<void>()
-  public onDidChangeInlayHints = this.inlayHintsEmitter.event
+  private inlayHintsEmitter: { event: unknown; fire: () => void } | null = null
+
+  public get onDidChangeInlayHints(): any {
+    return this.inlayHintsEmitter?.event
+  }
 
   private constructor() {
-    // GUC 参数 (PostgreSQL)
     this.gucParameters = new Set([
       'search_path', 'client_encoding', 'timezone', 'datestyle', 'intervalstyle',
       'extra_float_digits', 'bytea_output', 'xmlbinary', 'xmloption',
@@ -119,48 +117,51 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       'track_activities', 'track_counts', 'track_io_timing',
       'track_functions', 'track_wal_io_timing', 'track_commit_timestamp',
     ])
-    // 注册到 Monaco
-    monaco.languages.registerCompletionItemProvider('sql', this)
-    monaco.languages.registerInlayHintsProvider('sql', this)
   }
 
-  public static getInstance(): SqlAutocompleteManager {
+  private async ensureRegistered() {
+    if (this.registered) return
+
+    this.monaco = await loadMonaco()
+    this.inlayHintsEmitter = new this.monaco.Emitter()
+    this.monaco.languages.registerCompletionItemProvider('sql', this)
+    this.monaco.languages.registerInlayHintsProvider('sql', this)
+    this.registered = true
+  }
+
+  public static async getInstance(): Promise<SqlAutocompleteManager> {
     if (!SqlAutocompleteManager.instance) {
       SqlAutocompleteManager.instance = new SqlAutocompleteManager()
     }
+    await SqlAutocompleteManager.instance.ensureRegistered()
     return SqlAutocompleteManager.instance
   }
 
-  /**
-   * 为模型绑定上下文
-   */
-  public bindModel(model: monaco.editor.ITextModel, context: ModelContext) {
+  public static getOrCreate(): Promise<SqlAutocompleteManager> {
+    if (!SqlAutocompleteManager.registrationPromise) {
+      SqlAutocompleteManager.registrationPromise = SqlAutocompleteManager.getInstance()
+    }
+    return SqlAutocompleteManager.registrationPromise
+  }
+
+  public bindModel(model: any, context: ModelContext) {
     this.contextMap.set(model.id, context)
-    // 预加载数据
-    this.fetchData(context.connectionId, context.database).then(() => {
-      this.inlayHintsEmitter.fire()
+    void this.fetchData(context.connectionId, context.database).then(() => {
+      this.inlayHintsEmitter?.fire()
     })
   }
 
-  /**
-   * 解绑模型
-   */
-  public unbindModel(model: monaco.editor.ITextModel) {
+  public unbindModel(model: any) {
     this.contextMap.delete(model.id)
   }
 
-  /**
-   * 获取/刷新数据
-   */
   private async fetchData(connectionId: string, database: string | null): Promise<AutoCompleteData | null> {
     const cacheKey = `${connectionId}:${database || ''}`
-    
-    // 如果已有缓存，直接返回
+
     if (this.dataCache.has(cacheKey)) {
       return this.dataCache.get(cacheKey)!
     }
 
-    // 如果正在加载，等待
     if (this.loadingMap.has(cacheKey)) {
       return this.loadingMap.get(cacheKey)!
     }
@@ -172,7 +173,7 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
           database,
         })
         this.dataCache.set(cacheKey, data)
-        this.inlayHintsEmitter.fire()
+        this.inlayHintsEmitter?.fire()
         return data
       } catch (error) {
         console.error('加载补全数据失败:', error)
@@ -195,32 +196,23 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     return name
   }
 
-  /**
-   * 将函数参数字符串转换为 Monaco Snippet 格式
-   * 例如: "id integer, name text" -> "(${1:id}, ${2:name})"
-   */
   private generateFunctionSnippet(name: string, args: string | undefined): string {
     if (!args || args.trim() === '' || args.trim() === '()') {
       return `${name}($0)`
     }
 
-    // 移除外层括号并按逗号分割
     const cleanArgs = args.replace(/^\(|\)$/g, '').trim()
     if (!cleanArgs) return `${name}($0)`
 
     const argList = cleanArgs.split(',').map(s => s.trim())
     const placeholders = argList.map((arg, index) => {
-      // 尝试提取参数名 (通常是第一个单词)
-      // 处理 "name type", "IN name type", 或者只有 "type" 的情况
       const parts = arg.split(/\s+/)
       let paramName = parts[0]
-      
-      // 如果第一个单词是 IN/OUT/INOUT，取第二个
+
       if (['IN', 'OUT', 'INOUT', 'VARIADIC'].includes(paramName.toUpperCase()) && parts.length > 1) {
         paramName = parts[1]
       }
 
-      // 如果提取出的参数名看起来像类型名，或者包含特殊字符，使用通用占位符
       if (paramName.toLowerCase() === 'integer' || paramName.toLowerCase() === 'text' || /[^a-zA-Z0-9_]/.test(paramName)) {
         paramName = `param${index + 1}`
       }
@@ -281,20 +273,19 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     })
   }
 
-  /**
-   * Monaco 补全核心回调
-   */
   async provideCompletionItems(
-    model: monaco.editor.ITextModel,
-    position: monaco.Position
-  ): Promise<monaco.languages.CompletionList> {
+    model: any,
+    position: any
+  ): Promise<any> {
+    if (!this.monaco) return { suggestions: [] }
+
     const context = this.contextMap.get(model.id)
     if (!context) return { suggestions: [] }
 
     const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
     if (!data) return { suggestions: [] }
 
-    const suggestions: monaco.languages.CompletionItem[] = []
+    const suggestions: any[] = []
     const word = model.getWordUntilPosition(position)
     const range = {
       startLineNumber: position.lineNumber,
@@ -315,213 +306,109 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     const sourceTables = this.findTablesForSources(data.tables, querySources)
     const qualifier = this.getQualifier(textUntilPosition)
 
-    // 1. 关键字
     for (const keyword of data.keywords) {
       suggestions.push({
         label: keyword,
-        kind: monaco.languages.CompletionItemKind.Keyword,
+        kind: this.monaco.languages.CompletionItemKind.Keyword,
         insertText: keyword,
         range,
-        sortText: `0_${keyword}`,
       })
     }
 
-    // 1.5 GUC 参数 (SET/SHOW/RESET 上下文)
-    const isGucContext = /(?:SET|SHOW|RESET)\s+[A-Za-z0-9_.]*$/i.test(textUntilPosition.trim())
-    if (isGucContext && context.dbType === 'postgresql') {
-      for (const param of this.gucParameters) {
-        suggestions.push({
-          label: param,
-          kind: monaco.languages.CompletionItemKind.Value,
-          insertText: param,
-          range,
-          sortText: `0_guc_${param}`,
-        })
-      }
+    for (const database of data.databases) {
+      suggestions.push({
+        label: database,
+        kind: this.monaco.languages.CompletionItemKind.Value,
+        insertText: this.quoteIdentifier(database, context.dbType),
+        range,
+      })
     }
 
-    // 2. 数据库
-    const isDbContext = lastToken === 'USE' || lastToken === 'DATABASE'
-    if (isDbContext) {
-      for (const db of data.databases) {
-        suggestions.push({
-          label: db,
-          kind: monaco.languages.CompletionItemKind.Module,
-          insertText: this.quoteIdentifier(db, context.dbType),
-          range,
-          sortText: `1_${db}`,
-        })
+    for (const table of data.tables) {
+      if (qualifier) {
+        const qualifierMatchesSchema = this.normalizeIdentifier(table.schema || '').toLowerCase() === qualifier.toLowerCase()
+        const qualifierMatchesDatabase = this.normalizeIdentifier(table.database || '').toLowerCase() === qualifier.toLowerCase()
+        const qualifierMatchesAlias = sourceTables.some(source => source.alias?.toLowerCase() === qualifier.toLowerCase() && source.tableDef.name === table.name)
+        if (!qualifierMatchesSchema && !qualifierMatchesDatabase && !qualifierMatchesAlias) continue
       }
+
+      suggestions.push({
+        label: table.name,
+        kind: table.table_type === 'VIEW'
+          ? this.monaco.languages.CompletionItemKind.Interface
+          : this.monaco.languages.CompletionItemKind.Class,
+        detail: [table.database, table.schema].filter(Boolean).join('.'),
+        insertText: this.quoteIdentifier(table.name, context.dbType),
+        range,
+      })
     }
 
-    // 3. 表建议
-    const isTableContext = /(?:FROM|JOIN|UPDATE|INTO|TABLE)\s*$/i.test(textUntilPosition) || /(?:FROM|JOIN|UPDATE|INTO|TABLE)\s+[\w"`.\-]*$/i.test(textUntilPosition)
-    if (isTableContext) {
-      const schemaFilter = qualifier && !sourceTables.some(source => source.alias?.toLowerCase() === qualifier.toLowerCase())
-        ? qualifier.toLowerCase()
-        : null
-
-      for (const table of data.tables) {
-        if (schemaFilter && (table.schema || '').toLowerCase() !== schemaFilter) continue
-
-        const quotedName = this.quoteIdentifier(table.name, context.dbType)
-        const quotedSchema = table.schema ? this.quoteIdentifier(table.schema, context.dbType) : ''
-        
-        let label = table.name
-        if (table.schema && table.schema !== 'public') label = `${table.schema}.${table.name}`
-        
-        let insertText = quotedName
-        if (quotedSchema) insertText = `${quotedSchema}.${quotedName}`
-
-        suggestions.push({
-          label,
-          kind: table.table_type?.toUpperCase() === 'VIEW'
-            ? monaco.languages.CompletionItemKind.Interface
-            : monaco.languages.CompletionItemKind.Class,
-          detail: `${table.table_type?.toUpperCase() === 'VIEW' ? '视图' : '表'} (${table.schema || 'public'})`,
-          insertText,
-          range,
-          sortText: `2_${label}`,
-        })
+    for (const func of data.functions) {
+      if (qualifier) {
+        const qualifierMatchesSchema = this.normalizeIdentifier(func.schema || '').toLowerCase() === qualifier.toLowerCase()
+        const qualifierMatchesDatabase = this.normalizeIdentifier(func.database || '').toLowerCase() === qualifier.toLowerCase()
+        if (!qualifierMatchesSchema && !qualifierMatchesDatabase) continue
       }
 
-      for (const func of data.functions) {
-        if (!this.isTableLikeFunction(func, context.dbType)) continue
-        if (schemaFilter && (func.schema || '').toLowerCase() !== schemaFilter) continue
-
-        const quotedName = this.quoteIdentifier(func.name, context.dbType)
-        const quotedSchema = func.schema ? this.quoteIdentifier(func.schema, context.dbType) : ''
-        const functionNameWithSchema = quotedSchema ? `${quotedSchema}.${quotedName}` : quotedName
-        const signature = func.arguments?.startsWith('(')
-          ? func.arguments
-          : `(${func.arguments || ''})`
-
-        suggestions.push({
-          label: `${func.schema ? `${func.schema}.` : ''}${func.name}${signature}`,
-          kind: monaco.languages.CompletionItemKind.Function,
-          detail: `表函数 (${func.return_type || 'record'})`,
-          insertText: this.generateFunctionSnippet(functionNameWithSchema, func.arguments),
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          range,
-          sortText: `3_${func.name}`,
-        })
-      }
+      suggestions.push({
+        label: func.name,
+        kind: this.monaco.languages.CompletionItemKind.Function,
+        detail: func.return_type || func.function_type || '',
+        insertText: this.generateFunctionSnippet(func.name, func.arguments),
+        insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+        range,
+      })
     }
 
-    // 4. 列建议
-    const isColContext = !isTableContext && (lastToken === 'SELECT' || lastToken === 'WHERE' || lastToken === 'SET' || lastToken === ',')
-    if (isColContext) {
-      const relevantSources = qualifier
-        ? sourceTables.filter(source =>
-            source.alias?.toLowerCase() === qualifier.toLowerCase() ||
-            source.table.toLowerCase() === qualifier.toLowerCase()
-          )
-        : sourceTables
+    const shouldSuggestColumns = qualifier || ['SELECT', 'WHERE', 'AND', 'OR', 'ON', 'SET', 'ORDER', 'GROUP', 'BY', ','].includes(lastToken)
+    if (shouldSuggestColumns) {
+      for (const source of sourceTables) {
+        if (qualifier && source.alias?.toLowerCase() !== qualifier.toLowerCase() && source.tableDef.name.toLowerCase() !== qualifier.toLowerCase()) {
+          continue
+        }
 
-      const effectiveSources = relevantSources.length > 0
-        ? relevantSources
-        : data.tables.map((tableDef) => ({
-            table: this.normalizeIdentifier(tableDef.name),
-            schema: tableDef.schema ? this.normalizeIdentifier(tableDef.schema) : undefined,
-            alias: undefined,
-            tableDef,
-          }))
-
-      for (const source of effectiveSources) {
         for (const column of source.tableDef.columns) {
-          const quotedCol = this.quoteIdentifier(column.name, context.dbType)
-          const qualifierName = source.alias || source.table
-          const shouldPrefix = !qualifier && effectiveSources.length > 1
-          const label = qualifier ? column.name : shouldPrefix ? `${qualifierName}.${column.name}` : column.name
-          const insertText = qualifier
-            ? quotedCol
-            : shouldPrefix
-              ? `${this.quoteIdentifier(qualifierName, context.dbType)}.${quotedCol}`
-              : quotedCol
-
           suggestions.push({
-            label,
-            kind: monaco.languages.CompletionItemKind.Field,
-            detail: `${column.data_type} (${qualifierName})`,
-            insertText,
+            label: column.name,
+            kind: this.monaco.languages.CompletionItemKind.Field,
+            detail: `${source.tableDef.name}.${column.data_type}`,
+            insertText: this.quoteIdentifier(column.name, context.dbType),
             range,
-            sortText: `4_${label}`,
           })
         }
       }
     }
 
-    // 5. 函数建议
-    const isFuncContext = !isTableContext && (lastToken === 'SELECT' || lastToken === '(' || lastToken === ',' || /\bSELECT\s+[\w",.\s]*$/i.test(textUntilPosition))
-    if (isFuncContext) {
-      for (const func of data.functions) {
-        if (this.isTableLikeFunction(func, context.dbType)) continue
-
-        const quotedName = this.quoteIdentifier(func.name, context.dbType)
-        const quotedSchema = func.schema ? this.quoteIdentifier(func.schema, context.dbType) : ''
-        
-        // 格式化参数签名，如果参数带括号就原样使用，否则补齐
-        const args = func.arguments || ''
-        const signature = args.startsWith('(') ? args : `(${args})`
-
-        // 构造 label 对象：主标签是函数名(参数)，辅助标签是返回类型
-        const labelObj = {
-          label: func.name + signature,
-          description: func.return_type || 'void',
-          detail: func.schema ? ` [${func.schema}]` : ''
-        }
-
-        // 生成带参数占位符的 Snippet
-        const functionNameWithSchema = quotedSchema ? `${quotedSchema}.${quotedName}` : quotedName
-        const insertText = this.generateFunctionSnippet(functionNameWithSchema, func.arguments)
-
+    const shouldSuggestSetParameters = context.dbType === 'postgresql' && /\bSET\s+$/i.test(textUntilPosition)
+    if (shouldSuggestSetParameters) {
+      for (const guc of this.gucParameters) {
         suggestions.push({
-          label: labelObj,
-          kind: monaco.languages.CompletionItemKind.Function,
-          detail: `${func.function_type === 'aggregate' ? '聚合函数' : '函数'}: ${func.schema ? func.schema + '.' : ''}${func.name}${signature}`,
-          documentation: {
-            value: `### ${func.name}\n\n**签名:** \`${signature}\`\n\n**返回:** \`${func.return_type || 'void'}\`\n\n**路径:** \`${func.database}.${func.schema || 'public'}\``,
-            isTrusted: true
-          },
-          insertText,
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          label: guc,
+          kind: this.monaco.languages.CompletionItemKind.Function,
+          insertText: guc,
+          insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           range,
-          sortText: `5_${func.name}`,
         })
-
       }
+    }
 
-      // 通用内置函数 (如果没有拉取到)
-      if (data.functions.length < 10) {
-        const builtInFuncs = [
-          { name: 'COUNT', detail: '计数', snippet: 'COUNT($0)' },
-          { name: 'SUM', detail: '求和', snippet: 'SUM($0)' },
-          { name: 'AVG', detail: '平均值', snippet: 'AVG($0)' },
-          { name: 'MAX', detail: '最大值', snippet: 'MAX($0)' },
-          { name: 'MIN', detail: '最小值', snippet: 'MIN($0)' },
-          { name: 'COALESCE', detail: '返回第一个非空值', snippet: 'COALESCE($1, $2)' },
-          { name: 'NOW', detail: '当前时间', snippet: 'NOW()' },
-        ]
-        for (const f of builtInFuncs) {
-          suggestions.push({
-            label: f.name,
-            kind: monaco.languages.CompletionItemKind.Function,
-            detail: `内置函数: ${f.detail}`,
-            insertText: f.snippet,
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            range,
-            sortText: `6_${f.name}`,
-          })
-        }
+    const shouldSuggestFromFunctions = context.dbType === 'postgresql' && /\b(FROM|JOIN)\s+$/i.test(textUntilPosition)
+    if (shouldSuggestFromFunctions) {
+      for (const func of data.functions.filter(func => this.isTableLikeFunction(func, context.dbType))) {
+        suggestions.push({
+          label: func.name,
+          kind: this.monaco.languages.CompletionItemKind.Function,
+          detail: func.return_type || func.function_type || '',
+          insertText: this.generateFunctionSnippet(func.name, func.arguments),
+          insertTextRules: this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          range,
+        })
       }
     }
 
     return { suggestions }
   }
 
-  /**
-   * 清理特定连接的所有缓存 (例如连接关闭时)
-   */
   public clearCache(connectionId?: string) {
     if (!connectionId) {
       this.dataCache.clear()
@@ -534,24 +421,21 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
     }
   }
 
-  /**
-   * InlayHints: 函数参数提示
-   */
   async provideInlayHints(
-    model: monaco.editor.ITextModel,
-    range: monaco.Range,
-    token: monaco.CancellationToken
-  ): Promise<monaco.languages.InlayHintList> {
+    model: any,
+    range: any,
+    token: any
+  ): Promise<any> {
+    if (!this.monaco) return { hints: [], dispose: () => {} }
+
     const context = this.contextMap.get(model.id)
-    const hints: monaco.languages.InlayHint[] = []
+    const hints: any[] = []
     if (!context) return { hints, dispose: () => {} }
 
     const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
     if (!data) return { hints, dispose: () => {} }
 
     const text = model.getValue()
-    
-    // 使用栈跟踪括号嵌套，找到每个函数调用及其参数位置
     const funcCallRegex = /(?:(\w+)\.)?(\w+)\s*\(/g
     let match: RegExpExecArray | null
 
@@ -564,12 +448,11 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       const openParenPos = model.getPositionAt(openParenOffset)
       if (openParenPos.lineNumber < range.startLineNumber || openParenPos.lineNumber > range.endLineNumber) continue
 
-      // 找匹配的右括号 (跳过字符串/注释内的括号)
       let depth = 0, bracketDepth = 0
       let closeParenOffset = -1
       let inStr = false, strChar = ''
       let inLineComment = false, inBlockComment = false, inDollar = false, dollarTag = ''
-      
+
       for (let i = openParenOffset; i < text.length; i++) {
         const ch = text[i], next = text[i + 1] || ''
         if (inLineComment && ch === '\n') { inLineComment = false; continue }
@@ -598,7 +481,6 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       }
       if (closeParenOffset < 0) continue
 
-      // 找参数分隔的逗号位置
       const commaPositions: number[] = []
       depth = 0; bracketDepth = 0
       inStr = false; inLineComment = false; inBlockComment = false; inDollar = false; dollarTag = ''
@@ -630,7 +512,6 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         else if (ch === ',' && depth === 1 && bracketDepth === 0) commaPositions.push(i)
       }
 
-      // 查找匹配的函数
       const func = data.functions.find(f => {
         const nameMatch = f.name.toLowerCase() === funcName.toLowerCase()
         if (!schema) return nameMatch
@@ -641,7 +522,6 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
       const args = func.arguments.replace(/^\(|\)$/g, '').trim()
       if (!args) continue
 
-      // 解析参数名
       const argParts = args.split(',').map(a => {
         const parts = a.trim().split(/\s+/)
         let nameIdx = 0
@@ -649,31 +529,27 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
         return parts[nameIdx] || 'arg'
       })
 
-      // 如果有参数但括号内为空(没有逗号)，在 ( 后放置第一个参数提示
       if (commaPositions.length === 0 && argParts.length > 0) {
-        // 跳过 ( 后的空白/换行，找到第一个有意义字符的位置
         let hintOffset = openParenOffset + 1
         while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
         const hintPos = model.getPositionAt(hintOffset)
         hints.push({
           label: `${argParts[0]}:`,
           position: { lineNumber: hintPos.lineNumber, column: hintPos.column },
-          kind: monaco.languages.InlayHintKind.Parameter,
+          kind: this.monaco.languages.InlayHintKind.Parameter,
           paddingLeft: true,
           paddingRight: true,
         })
       }
 
-      // 在每个逗号后放置下一个参数提示
       for (let i = 0; i < commaPositions.length && i < argParts.length - 1; i++) {
-        // 跳过逗号后的空白，找到下一个有意义字符的位置
         let hintOffset = commaPositions[i] + 1
         while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
         const nextPos = model.getPositionAt(hintOffset)
         hints.push({
           label: `${argParts[i + 1]}:`,
           position: { lineNumber: nextPos.lineNumber, column: nextPos.column },
-          kind: monaco.languages.InlayHintKind.Parameter,
+          kind: this.monaco.languages.InlayHintKind.Parameter,
           paddingLeft: true,
           paddingRight: true,
         })
@@ -684,9 +560,6 @@ export class SqlAutocompleteManager implements monaco.languages.CompletionItemPr
   }
 }
 
-/**
- * 外部调用的单例获取函数
- */
-export function getSqlAutocompleteManager(): SqlAutocompleteManager {
-  return SqlAutocompleteManager.getInstance()
+export function getSqlAutocompleteManager(): Promise<SqlAutocompleteManager> {
+  return SqlAutocompleteManager.getOrCreate()
 }

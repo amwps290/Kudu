@@ -220,8 +220,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as monaco from 'monaco-editor'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
+import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 import { message } from 'ant-design-vue'
 import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
@@ -245,7 +245,7 @@ const props = defineProps<{ connectionId?: string; initialDatabase?: string; ini
 const emit = defineEmits(['contentChange', 'fileSaved', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
 const connectionStore = useConnectionStore()
 const appStore = useAppStore()
-const autocompleteManager = getSqlAutocompleteManager()
+let autocompleteManager: Awaited<ReturnType<typeof getSqlAutocompleteManager>> | null = null
 
 const RESULT_PANEL_HEIGHT_KEY = 'sql_result_panel_height'
 const RESULT_PANEL_VISIBLE_KEY = 'sql_result_panel_visible'
@@ -263,7 +263,8 @@ const sessionConnectionId = computed(() => {
 // ── Monaco 编辑器 ──
 const sqlEditorRoot = ref<HTMLElement>()
 const editorContainer = ref<HTMLElement>()
-let editor: monaco.editor.IStandaloneCodeEditor | null = null
+let monacoInstance: MonacoModule | null = null
+let editor: any = null
 
 // ── 数据库上下文 ──
 const availableDatabases = ref<DatabaseInfo[]>([])
@@ -597,23 +598,24 @@ async function copyResultSet(index: number) {
 function getEditorSelections() { if (!editor) return []; return editor.getSelections() || (editor.getSelection() ? [editor.getSelection()!] : []) }
 function getEditorClipboardEntries() {
   const model = editor?.getModel(); if (!editor || !model) return []
-  return getEditorSelections().map(sel => {
+  return getEditorSelections().map((sel: any) => {
     if (!sel.isEmpty()) return { text: model.getValueInRange(sel), deleteRange: sel }
     const ln = sel.positionLineNumber; const mc = model.getLineMaxColumn(ln)
-    if (ln !== model.getLineCount()) return { text: `${model.getLineContent(ln)}${model.getEOL()}`, deleteRange: new monaco.Range(ln, 1, ln + 1, 1) }
-    if (ln > 1) return { text: model.getLineContent(ln), deleteRange: new monaco.Range(ln - 1, model.getLineMaxColumn(ln - 1), ln, mc) }
-    return { text: model.getLineContent(ln), deleteRange: new monaco.Range(ln, 1, ln, mc) }
+    if (!monacoInstance) return { text: model.getLineContent(ln), deleteRange: sel }
+    if (ln !== model.getLineCount()) return { text: `${model.getLineContent(ln)}${model.getEOL()}`, deleteRange: new monacoInstance.Range(ln, 1, ln + 1, 1) }
+    if (ln > 1) return { text: model.getLineContent(ln), deleteRange: new monacoInstance.Range(ln - 1, model.getLineMaxColumn(ln - 1), ln, mc) }
+    return { text: model.getLineContent(ln), deleteRange: new monacoInstance.Range(ln, 1, ln, mc) }
   })
 }
-async function copyEditorSelectionToSystemClipboard() { const e = getEditorClipboardEntries(); if (e.length) await writeClipboardText(e.map(en => en.text).join('')) }
+async function copyEditorSelectionToSystemClipboard() { const e = getEditorClipboardEntries(); if (e.length) await writeClipboardText(e.map((en: any) => en.text).join('')) }
 async function cutEditorSelectionToSystemClipboard() {
   if (!editor) return; const e = getEditorClipboardEntries(); if (!e.length) return
-  await writeClipboardText(e.map(en => en.text).join(''))
-  editor.executeEdits('system-clipboard-cut', e.map(en => ({ range: en.deleteRange, text: '' }))); editor.focus()
+  await writeClipboardText(e.map((en: any) => en.text).join(''))
+  editor.executeEdits('system-clipboard-cut', e.map((en: any) => ({ range: en.deleteRange, text: '' }))); editor.focus()
 }
 async function pasteFromSystemClipboard() {
   if (!editor) return; const text = await readClipboardText(); const sels = getEditorSelections(); if (!sels.length) return
-  editor.executeEdits('system-clipboard-paste', sels.map(r => ({ range: r, text }))); editor.focus()
+  editor.executeEdits('system-clipboard-paste', sels.map((r: any) => ({ range: r, text }))); editor.focus()
 }
 async function handleSystemClipboardAction(action: 'copy' | 'cut' | 'paste') {
   if (!editor) return
@@ -735,7 +737,7 @@ function triggerAutoSave() {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
   autoSaveTimer = window.setTimeout(() => { void handleSave(true) }, 2000)
 }
-async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
+async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid || !autocompleteManager) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
 
 // ── 历史记录（composable） ──
 const {
@@ -761,7 +763,8 @@ function handleSnippetInsert(sql: string) {
   } else {
     const position = editor.getPosition()
     if (position) {
-      editor.executeEdits('snippet-insert', [{ range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column), text: sql }])
+      if (!monacoInstance) return
+      editor.executeEdits('snippet-insert', [{ range: new monacoInstance.Range(position.lineNumber, position.column, position.lineNumber, position.column), text: sql }])
     } else {
       editor.setValue(sql)
     }
@@ -785,7 +788,7 @@ interface StatementRange {
 
 const STATEMENT_KEYWORDS = /^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|SET|WITH|EXPLAIN|GRANT|REVOKE|TRUNCATE|BEGIN|COMMIT|ROLLBACK|DECLARE|DO|CALL|COPY|LOCK|UNLOCK|REINDEX|REFRESH|VACUUM|ANALYZE|CLUSTER|COMMENT|LISTEN|NOTIFY|MOVE|FETCH|CLOSE|PREPARE|EXECUTE|DEALLOCATE|DISCARD|REASSIGN|CHECKPOINT)\b/i
 
-function findCurrentStatement(model: monaco.editor.ITextModel, position: monaco.Position): StatementRange | null {
+function findCurrentStatement(model: any, position: any): StatementRange | null {
   const fullText = model.getValue()
   if (!fullText.trim()) return null
   
@@ -972,7 +975,7 @@ function splitByKeywords(fullText: string, cursorOffset: number): { sql: string;
 }
 
 // ── 当前语句高亮 ──
-let currentStatementDecoration: monaco.editor.IEditorDecorationsCollection | null = null
+let currentStatementDecoration: any = null
 
 function updateCurrentStatementHighlight() {
   if (!editor || !currentStatementDecoration) return
@@ -988,7 +991,7 @@ function updateCurrentStatementHighlight() {
     return
   }
   currentStatementDecoration.set([{
-    range: new monaco.Range(stmt.startLine, stmt.startCol, stmt.endLine, stmt.endCol),
+    range: monacoInstance ? new monacoInstance.Range(stmt.startLine, stmt.startCol, stmt.endLine, stmt.endCol) : null,
     options: {
       isWholeLine: false,
       className: 'current-statement-highlight',
@@ -1076,7 +1079,7 @@ function handleToolbarDbChange(db: string) { void handleDatabaseChange(db) }
 // ── 数据库上下文 ──
 function updateAutocompleteContext() {
   const model = editor?.getModel(); const bid = props.connectionId || connectionStore.activeConnectionId
-  if (model && bid && connectionStore.connections.length > 0) {
+  if (model && bid && connectionStore.connections.length > 0 && autocompleteManager) {
     const conn = connectionStore.connections.find(c => c.id === bid)
     const fb = selectedDatabase.value || props.initialDatabase || conn?.database || (conn?.db_type === 'sqlite' ? 'main' : null)
     autocompleteManager.bindModel(model, { connectionId: bid, database: fb || null, dbType: conn?.db_type || null })
@@ -1101,10 +1104,12 @@ function handleDatabaseChange(dbName: string) {
 async function setSelectedDatabase(db: string) { if (availableDatabases.value.length === 0) await loadAvailableDatabases(); selectedDatabase.value = db; updateAutocompleteContext(); emit('databaseChange', db) }
 
 // ── 生命周期 ──
-onMounted(() => {
+onMounted(async () => {
   if (!editorContainer.value) return
+  monacoInstance = await loadMonaco()
+  autocompleteManager = await getSqlAutocompleteManager()
   resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, resultPanelHeight.value))
-  editor = monaco.editor.create(editorContainer.value, {
+  editor = monacoInstance.editor.create(editorContainer.value, {
     value: props.initialValue || '', language: 'sql',
     theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true,
     readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
@@ -1116,9 +1121,9 @@ onMounted(() => {
   })
   updateAutocompleteContext()
   editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || ''); triggerAutoSave() })
-    editor.onKeyUp(e => { if (e.keyCode === monaco.KeyCode.Space || e.keyCode === monaco.KeyCode.Period) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
-  editor.addCommand(monaco.KeyCode.F5, () => executeQuery())
-  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave())
+    editor.onKeyUp((e: any) => { if (monacoInstance && (e.keyCode === monacoInstance.KeyCode.Space || e.keyCode === monacoInstance.KeyCode.Period)) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
+  editor.addCommand(monacoInstance.KeyCode.F5, () => executeQuery())
+  editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => handleSave())
   currentStatementDecoration = editor.createDecorationsCollection()
   editor.onDidChangeCursorPosition(() => updateCurrentStatementHighlight())
   editor.onDidChangeModelContent(() => updateCurrentStatementHighlight())
@@ -1129,12 +1134,12 @@ onMounted(() => {
   requestAnimationFrame(() => focusEditor())
 })
 onActivated(() => { requestAnimationFrame(() => focusEditor()); loadAvailableDatabases(); loadSearchPath() })
-onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m) autocompleteManager.unbindModel(m); editor?.dispose() })
+onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m && autocompleteManager) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
 watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], ([theme]) => {
   if (!editor) return
-  monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
+  monacoInstance?.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
   editor.updateOptions({ readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, lineNumbers: appStore.editorSettings.lineNumbers })
 }, { immediate: true })
 watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })

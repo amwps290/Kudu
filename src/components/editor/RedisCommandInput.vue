@@ -6,9 +6,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import * as monaco from 'monaco-editor'
 import { registerRedisCompletionProvider } from '@/services/redisAutocomplete'
 import { useAppStore } from '@/stores/app'
+import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 
 const props = defineProps<{
   initialValue?: string
@@ -21,10 +21,14 @@ const emit = defineEmits<{
 
 const appStore = useAppStore()
 const editorContainer = ref<HTMLElement>()
-let editor: monaco.editor.IStandaloneCodeEditor | null = null
+let editor: any = null
+let monacoInstance: MonacoModule | null = null
 
-onMounted(() => {
+onMounted(async () => {
   if (!editorContainer.value) return
+
+  const monaco = await loadMonaco()
+  monacoInstance = monaco
 
   editor = monaco.editor.create(editorContainer.value, {
     value: props.initialValue || '# 在此输入 Redis 命令\n# PING - 测试连接是否正常\n# INFO - 查看服务器信息\n# GET key - 获取键值\n# SET key value - 设置键值\n\nPING',
@@ -50,9 +54,9 @@ onMounted(() => {
     tabCompletion: 'on',
   })
 
-  registerRedisCompletionProvider()
+  await registerRedisCompletionProvider()
 
-  editor.onDidChangeCursorPosition((e) => {
+  editor.onDidChangeCursorPosition((e: any) => {
     emit('cursorChange', e.position.lineNumber, e.position.column)
   })
 
@@ -68,8 +72,8 @@ onUnmounted(() => {
 watch(
   () => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily],
   ([theme]) => {
-    if (editor) {
-      monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
+    if (editor && monacoInstance) {
+      monacoInstance.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs')
       editor.updateOptions({
         readOnly: false,
         domReadOnly: false,

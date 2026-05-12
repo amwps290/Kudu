@@ -46,12 +46,22 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          'ant-design': ['ant-design-vue', '@ant-design/icons-vue'],
-          'monaco-editor': ['monaco-editor'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+
+          if (id.includes('monaco-editor')) return 'monaco-editor'
+          if (id.includes('ant-design-vue') || id.includes('@ant-design/icons-vue')) return 'ant-design'
+          if (id.includes('vxe-table') || id.includes('vxe-pc-ui') || id.includes('xe-utils')) return 'vxe'
+          if (id.includes('@tauri-apps')) return 'tauri'
+          if (id.includes('@iconify')) return 'iconify'
+          if (id.includes('vue-virtual-scroller')) return 'virtual-scroller'
+          if (id.includes('vue-i18n')) return 'vue-i18n'
+          if (id.includes('vue-router')) return 'vue-router'
+          if (id.includes('pinia')) return 'pinia'
+          if (id.includes('/node_modules/vue/')) return 'vue-core'
         },
       },
     },

@@ -1,6 +1,6 @@
 import { onBeforeUnmount, watch, type Ref, shallowRef, nextTick } from 'vue'
-import * as monaco from 'monaco-editor'
 import { useAppStore } from '@/stores/app'
+import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 
 export interface MonacoEditorOptions {
   language?: string
@@ -17,7 +17,8 @@ export function useMonacoEditor(
   containerRef: Ref<HTMLElement | undefined | null>,
   options: MonacoEditorOptions = {}
 ) {
-  const editor = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const editor = shallowRef<any>(null)
+  const monacoRef = shallowRef<MonacoModule | null>(null)
   const appStore = useAppStore()
 
   const getTheme = () => {
@@ -36,6 +37,9 @@ export function useMonacoEditor(
     if (editor.value) return
     await nextTick()
     if (!containerRef.value) return
+
+    const monaco = await loadMonaco()
+    monacoRef.value = monaco
 
     const editorOptions = getEditorOptionValues()
 
@@ -69,10 +73,9 @@ export function useMonacoEditor(
     }
   }
 
-  // 监听主题变化
   watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], () => {
-    if (editor.value) {
-      monaco.editor.setTheme(getTheme())
+    if (editor.value && monacoRef.value) {
+      monacoRef.value.editor.setTheme(getTheme())
       const editorOptions = getEditorOptionValues()
       editor.value.updateOptions({
         readOnly: options.readOnly ?? false,
@@ -87,5 +90,5 @@ export function useMonacoEditor(
 
   onBeforeUnmount(() => dispose())
 
-  return { editor, getValue, setValue, createEditor, dispose }
+  return { editor, monacoRef, getValue, setValue, createEditor, dispose }
 }

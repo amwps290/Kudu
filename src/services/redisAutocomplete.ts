@@ -1,8 +1,5 @@
-import * as monaco from 'monaco-editor'
+import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 
-/**
- * Redis 命令补全提供器
- */
 export class RedisCompletionProvider {
   private commands: RedisCommand[] = []
 
@@ -11,9 +8,7 @@ export class RedisCompletionProvider {
   }
 
   private initializeCommands() {
-    // Redis 常用命令列表
     this.commands = [
-      // 字符串命令
       { command: 'GET', args: ['key'], description: '获取指定键的值', category: 'String' },
       { command: 'SET', args: ['key', 'value'], description: '设置指定键的值', category: 'String' },
       { command: 'SETNX', args: ['key', 'value'], description: '只在键不存在时设置值', category: 'String' },
@@ -29,8 +24,6 @@ export class RedisCompletionProvider {
       { command: 'DECRBY', args: ['key', 'decrement'], description: '将键的整数值减少指定数量', category: 'String' },
       { command: 'GETRANGE', args: ['key', 'start', 'end'], description: '获取字符串的子串', category: 'String' },
       { command: 'SETRANGE', args: ['key', 'offset', 'value'], description: '覆盖字符串的部分内容', category: 'String' },
-
-      // 哈希命令
       { command: 'HGET', args: ['key', 'field'], description: '获取哈希表中字段的值', category: 'Hash' },
       { command: 'HSET', args: ['key', 'field', 'value'], description: '设置哈希表字段的值', category: 'Hash' },
       { command: 'HSETNX', args: ['key', 'field', 'value'], description: '只在字段不存在时设置值', category: 'Hash' },
@@ -43,8 +36,6 @@ export class RedisCompletionProvider {
       { command: 'HDEL', args: ['key', 'field1', 'field2', '...'], description: '删除哈希表字段', category: 'Hash' },
       { command: 'HEXISTS', args: ['key', 'field'], description: '检查字段是否存在', category: 'Hash' },
       { command: 'HINCRBY', args: ['key', 'field', 'increment'], description: '为字段值加上增量', category: 'Hash' },
-
-      // 列表命令
       { command: 'LPUSH', args: ['key', 'value1', 'value2', '...'], description: '从列表左侧插入元素', category: 'List' },
       { command: 'RPUSH', args: ['key', 'value1', 'value2', '...'], description: '从列表右侧插入元素', category: 'List' },
       { command: 'LPOP', args: ['key'], description: '移除并返回列表左侧第一个元素', category: 'List' },
@@ -55,8 +46,6 @@ export class RedisCompletionProvider {
       { command: 'LSET', args: ['key', 'index', 'value'], description: '通过索引设置列表元素的值', category: 'List' },
       { command: 'LREM', args: ['key', 'count', 'value'], description: '移除列表中与参数值相等的元素', category: 'List' },
       { command: 'LTRIM', args: ['key', 'start', 'stop'], description: '保留列表指定范围的元素', category: 'List' },
-
-      // 集合命令
       { command: 'SADD', args: ['key', 'member1', 'member2', '...'], description: '向集合添加成员', category: 'Set' },
       { command: 'SREM', args: ['key', 'member1', 'member2', '...'], description: '移除集合成员', category: 'Set' },
       { command: 'SMEMBERS', args: ['key'], description: '返回集合所有成员', category: 'Set' },
@@ -67,8 +56,6 @@ export class RedisCompletionProvider {
       { command: 'SUNION', args: ['key1', 'key2', '...'], description: '返回多个集合的并集', category: 'Set' },
       { command: 'SINTER', args: ['key1', 'key2', '...'], description: '返回多个集合的交集', category: 'Set' },
       { command: 'SDIFF', args: ['key1', 'key2', '...'], description: '返回多个集合的差集', category: 'Set' },
-
-      // 有序集合命令
       { command: 'ZADD', args: ['key', 'score1', 'member1', 'score2', 'member2', '...'], description: '向有序集合添加成员', category: 'Sorted Set' },
       { command: 'ZREM', args: ['key', 'member1', 'member2', '...'], description: '移除有序集合成员', category: 'Sorted Set' },
       { command: 'ZSCORE', args: ['key', 'member'], description: '获取成员的分数', category: 'Sorted Set' },
@@ -79,8 +66,6 @@ export class RedisCompletionProvider {
       { command: 'ZCARD', args: ['key'], description: '获取有序集合成员数量', category: 'Sorted Set' },
       { command: 'ZCOUNT', args: ['key', 'min', 'max'], description: '计算指定分数范围的成员数量', category: 'Sorted Set' },
       { command: 'ZINCRBY', args: ['key', 'increment', 'member'], description: '为成员的分数加上增量', category: 'Sorted Set' },
-
-      // 键命令
       { command: 'DEL', args: ['key1', 'key2', '...'], description: '删除指定键', category: 'Key' },
       { command: 'EXISTS', args: ['key'], description: '检查键是否存在', category: 'Key' },
       { command: 'EXPIRE', args: ['key', 'seconds'], description: '设置键的过期时间（秒）', category: 'Key' },
@@ -96,8 +81,6 @@ export class RedisCompletionProvider {
       { command: 'TYPE', args: ['key'], description: '返回键的数据类型', category: 'Key' },
       { command: 'DUMP', args: ['key'], description: '序列化给定键', category: 'Key' },
       { command: 'RESTORE', args: ['key', 'ttl', 'serialized-value'], description: '反序列化并创建键', category: 'Key' },
-
-      // 服务器命令
       { command: 'PING', args: ['[message]'], description: '测试服务器是否运行', category: 'Server' },
       { command: 'ECHO', args: ['message'], description: '打印字符串', category: 'Server' },
       { command: 'SELECT', args: ['index'], description: '切换到指定数据库', category: 'Server' },
@@ -117,22 +100,16 @@ export class RedisCompletionProvider {
       { command: 'CLIENT SETNAME', args: ['connection-name'], description: '设置当前连接名称', category: 'Server' },
       { command: 'CLIENT GETNAME', args: [], description: '获取当前连接名称', category: 'Server' },
       { command: 'MONITOR', args: [], description: '实时监控服务器接收的命令', category: 'Server' },
-
-      // 发布订阅命令
       { command: 'PUBLISH', args: ['channel', 'message'], description: '发送消息到指定频道', category: 'Pub/Sub' },
       { command: 'SUBSCRIBE', args: ['channel1', 'channel2', '...'], description: '订阅频道', category: 'Pub/Sub' },
       { command: 'UNSUBSCRIBE', args: ['[channel1]', '[channel2]', '...'], description: '退订频道', category: 'Pub/Sub' },
       { command: 'PSUBSCRIBE', args: ['pattern1', 'pattern2', '...'], description: '订阅匹配模式的频道', category: 'Pub/Sub' },
       { command: 'PUNSUBSCRIBE', args: ['[pattern1]', '[pattern2]', '...'], description: '退订匹配模式的频道', category: 'Pub/Sub' },
-
-      // 事务命令
       { command: 'MULTI', args: [], description: '开始事务', category: 'Transaction' },
       { command: 'EXEC', args: [], description: '执行事务', category: 'Transaction' },
       { command: 'DISCARD', args: [], description: '取消事务', category: 'Transaction' },
       { command: 'WATCH', args: ['key1', 'key2', '...'], description: '监视键', category: 'Transaction' },
       { command: 'UNWATCH', args: [], description: '取消监视所有键', category: 'Transaction' },
-
-      // Lua 脚本命令
       { command: 'EVAL', args: ['script', 'numkeys', 'key1', '...', 'arg1', '...'], description: '执行 Lua 脚本', category: 'Script' },
       { command: 'EVALSHA', args: ['sha1', 'numkeys', 'key1', '...', 'arg1', '...'], description: '执行缓存的 Lua 脚本', category: 'Script' },
       { command: 'SCRIPT LOAD', args: ['script'], description: '加载脚本到缓存', category: 'Script' },
@@ -142,13 +119,11 @@ export class RedisCompletionProvider {
     ]
   }
 
-  /**
-   * 提供补全建议
-   */
   provideCompletionItems(
-    model: monaco.editor.ITextModel,
-    position: monaco.Position
-  ): monaco.languages.CompletionList {
+    monaco: MonacoModule,
+    model: any,
+    position: any
+  ): any {
     const textUntilPosition = model.getValueInRange({
       startLineNumber: position.lineNumber,
       startColumn: 1,
@@ -156,20 +131,15 @@ export class RedisCompletionProvider {
       endColumn: position.column,
     })
 
-    // 获取当前行的文本
     const line = textUntilPosition.trim()
-    
-    // 如果是注释行，不提供补全
     if (line.startsWith('#')) {
       return { suggestions: [] }
     }
 
     const words = line.split(/\s+/)
     const currentWord = words[words.length - 1]?.toUpperCase() || ''
+    const suggestions: any[] = []
 
-    const suggestions: monaco.languages.CompletionItem[] = []
-
-    // 如果是第一个单词或当前单词是空的，提供命令补全
     if (words.length <= 1 || !line.includes(' ')) {
       this.commands.forEach((cmd) => {
         if (cmd.command.startsWith(currentWord)) {
@@ -191,10 +161,9 @@ export class RedisCompletionProvider {
         }
       })
     } else {
-      // 提供参数提示
       const command = words[0].toUpperCase()
       const cmdInfo = this.commands.find((c) => c.command === command)
-      
+
       if (cmdInfo && cmdInfo.args.length > 0) {
         const argIndex = words.length - 2
         if (argIndex < cmdInfo.args.length) {
@@ -226,18 +195,18 @@ interface RedisCommand {
   category: string
 }
 
-/**
- * 注册 Redis 补全提供器
- */
-export function registerRedisCompletionProvider(): RedisCompletionProvider {
-  const provider = new RedisCompletionProvider()
+let redisProviderRegistration: Promise<RedisCompletionProvider> | null = null
 
-  monaco.languages.registerCompletionItemProvider('shell', {
-    provideCompletionItems: (model, position) => {
-      return provider.provideCompletionItems(model, position)
-    },
-  })
+export function registerRedisCompletionProvider(): Promise<RedisCompletionProvider> {
+  if (!redisProviderRegistration) {
+    redisProviderRegistration = loadMonaco().then((monaco) => {
+      const provider = new RedisCompletionProvider()
+      monaco.languages.registerCompletionItemProvider('shell', {
+        provideCompletionItems: (model: any, position: any) => provider.provideCompletionItems(monaco, model, position),
+      })
+      return provider
+    })
+  }
 
-  return provider
+  return redisProviderRegistration
 }
-
