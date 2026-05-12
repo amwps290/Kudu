@@ -41,7 +41,7 @@
           <a-select
             v-model:value="record.data_type"
             size="small"
-            style="width: 100%"
+            class="column-full-width"
             @change="record._modified = true"
           >
             <a-select-option v-for="type in dataTypes" :key="type" :value="type">
@@ -56,7 +56,7 @@
             v-model:value="record.length"
             size="small"
             :min="1"
-            style="width: 100%"
+            class="column-full-width"
             @change="record._modified = true"
           />
         </template>
@@ -185,3 +185,9 @@ function handlePrimaryKeyChange(record: any) {
   if (record.is_primary_key) record.nullable = false
 }
 </script>
+
+<style scoped>
+.column-full-width {
+  width: 100%;
+}
+</style>

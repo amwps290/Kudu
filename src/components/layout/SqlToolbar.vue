@@ -84,7 +84,7 @@
             :value="selectedDatabase"
             :placeholder="$t('common.database')"
             size="small"
-            style="width: 130px"
+            class="database-select"
             @change="(val: unknown) => $emit('databaseChange', String(val ?? ''))"
           >
             <a-select-option value="">{{ $t('editor.default_database') }}</a-select-option>
@@ -117,7 +117,7 @@
                     ref="searchPathInputRef"
                     v-model:value="searchPathNewItem"
                     size="small"
-                    style="width: 100px"
+                    class="search-path-input"
                     placeholder="schema"
                     @pressEnter="confirmAddSearchPathItem"
                     @blur="confirmAddSearchPathItem"
@@ -129,7 +129,7 @@
                 <div class="search-path-sql-preview" v-if="searchPathSql">
                   <code>{{ searchPathSql }}</code>
                 </div>
-                <a-space :size="8" style="margin-top: 8px; justify-content: flex-end; width: 100%;">
+                <a-space :size="8" class="search-path-actions">
                   <a-button size="small" @click="cancelSearchPathEdit">{{ $t('common.cancel') }}</a-button>
                   <a-button size="small" type="primary" @click="applySearchPath">{{ $t('common.ok') }}</a-button>
                 </a-space>
@@ -253,14 +253,10 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
   align-items: center;
   padding: 0 10px;
   height: 32px;
-  background: #fafbfc;
-  border-bottom: 1px solid #e8e8e8;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
   gap: 0;
-}
-.dark-mode .global-sql-toolbar {
-  background: #1a1a1a;
-  border-bottom-color: #2c2c2c;
 }
 .global-sql-toolbar.vertical {
   width: 32px;
@@ -269,20 +265,16 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
   justify-content: flex-start;
   gap: 0;
   padding: 0;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--border-color);
   border-bottom: 0;
-  background: #ffffff;
-}
-.dark-mode .global-sql-toolbar.vertical {
-  background: #1f1f1f;
-  border-right-color: #303030;
+  background: var(--surface);
 }
 .toolbar-left { display: flex; align-items: center; gap: 0; }
 .toolbar-left.vertical { flex-direction: column; width: 100%; }
 .toolbar-group { display: flex; align-items: center; gap: 1px; }
 .toolbar-group.vertical { width: 100%; flex-direction: column; gap: 0; }
 .toolbar-left :deep(.ant-btn-text),
-.toolbar-right :deep(.ant-btn-text) { width: 26px; min-width: 26px; padding: 0; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: #8c8c8c; font-size: 13px; transition: color 0.15s, background 0.15s; }
+.toolbar-right :deep(.ant-btn-text) { width: 26px; min-width: 26px; padding: 0; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--app-text-subtle); font-size: 13px; transition: color 0.15s, background 0.15s; }
 .toolbar-left.vertical :deep(.ant-btn-text),
 .toolbar-right.vertical :deep(.ant-btn-text) {
   width: 100%;
@@ -292,51 +284,47 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
   border-radius: 0;
   font-size: 12px;
 }
-.dark-mode .toolbar-left :deep(.ant-btn-text),
-.dark-mode .toolbar-right :deep(.ant-btn-text) { color: #999; }
 .toolbar-left :deep(.ant-btn-text:hover),
-.toolbar-right :deep(.ant-btn-text:hover) { background: rgba(0,0,0,0.05); color: #262626; }
-.dark-mode .toolbar-left :deep(.ant-btn-text:hover),
-.dark-mode .toolbar-right :deep(.ant-btn-text:hover) { background: rgba(255, 255, 255, 0.06); color: #e0e0e0; }
+.toolbar-right :deep(.ant-btn-text:hover) { background: var(--surface-hover); color: var(--app-text); }
 
 .toolbar-right { display: flex; align-items: center; gap: 0; margin-left: auto; }
 .toolbar-right.vertical { width: 100%; flex-direction: column; gap: 0; margin-top: auto; margin-left: 0; }
 
 .toolbar-right-section { display: flex; align-items: center; gap: 5px; }
-.toolbar-label { font-size: 10px; color: #b0b0b0; white-space: nowrap; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
-.dark-mode .toolbar-label { color: #888; }
+.toolbar-label { font-size: 10px; color: var(--app-text-subtle); white-space: nowrap; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
 
-.global-sql-toolbar :deep(.ant-divider-vertical) { height: 16px; margin: 0 6px; border-color: #e8e8e8; }
-.dark-mode .global-sql-toolbar :deep(.ant-divider-vertical) { border-color: #333; }
+.global-sql-toolbar :deep(.ant-divider-vertical) { height: 16px; margin: 0 6px; border-color: var(--border-color); }
 
 .global-sql-toolbar.vertical :deep(.ant-divider-horizontal) {
   margin: 0;
   min-width: 100%;
-  border-block-start-color: #eef2f7;
-}
-.dark-mode .global-sql-toolbar.vertical :deep(.ant-divider-horizontal) {
-  border-block-start-color: #2a2a2a;
+  border-block-start-color: var(--border-color-muted);
 }
 
-.btn-run { color: #52c41a !important; }
-.btn-run:hover { background: rgba(82, 196, 26, 0.10) !important; }
+.btn-run { color: var(--color-success) !important; }
+.btn-run:hover { background: var(--color-success-soft-bg) !important; }
 .btn-run.running { opacity: 0.5; }
-.btn-stop { color: #ff4d4f !important; }
-.btn-stop.active { background: rgba(255, 77, 79, 0.08); }
-.btn-stop:hover { background: rgba(255, 77, 79, 0.10) !important; }
+.btn-stop { color: var(--color-danger) !important; }
+.btn-stop.active { background: var(--color-danger-soft-bg); }
+.btn-stop:hover { background: var(--color-danger-soft-bg) !important; }
 
 .result-toggle-btn.active {
-  color: #1677ff !important;
-  background: rgba(22, 119, 255, 0.07);
-}
-.dark-mode .result-toggle-btn.active {
-  background: rgba(22, 119, 255, 0.14);
+  color: var(--color-primary) !important;
+  background: var(--color-primary-hover-bg);
 }
 
-.db-label { font-size: 10px; color: #b0b0b0; margin-right: 6px; }
+.db-label { font-size: 10px; color: var(--app-text-subtle); margin-right: 6px; }
 .db-trigger { width: 100%; }
+.database-select { width: 130px; }
+.search-path-input { width: 100px; }
 
 /* search_path */
+.search-path-actions {
+  margin-top: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
 .search-path-trigger {
   display: inline-flex !important;
   align-items: center;
@@ -353,14 +341,11 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #8c8c8c;
+  color: var(--app-text-subtle);
   max-width: 130px;
 }
-.dark-mode .search-path-text { color: #a0a0a0; }
 .search-path-editor { min-width: 260px; max-width: 340px; }
 .search-path-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; align-items: center; }
-.search-path-sql-preview { margin-top: 6px; padding: 6px 8px; background: #f5f5f5; border-radius: 4px; }
-.dark-mode .search-path-sql-preview { background: #262626; }
-.search-path-sql-preview code { font-size: 11px; font-family: monospace; color: #595959; }
-.dark-mode .search-path-sql-preview code { color: #d9d9d9; }
+.search-path-sql-preview { margin-top: 6px; padding: 6px 8px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.search-path-sql-preview code { font-size: 11px; font-family: monospace; color: var(--app-text-muted); }
 </style>

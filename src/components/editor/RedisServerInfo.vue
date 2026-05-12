@@ -76,15 +76,11 @@ watch(() => props.open, async (val) => {
 
 <style scoped>
 .server-info-detail {
-  background: #f5f5f5;
+  background: var(--surface-muted);
   padding: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   max-height: 400px;
   overflow: auto;
-}
-
-.dark-mode .server-info-detail {
-  background: #1a1a1a;
 }
 </style>

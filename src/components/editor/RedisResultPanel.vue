@@ -1,6 +1,6 @@
 <template>
   <div class="result-tabs">
-    <a-tabs style="margin-left: 12px;" v-model:activeKey="activeKey">
+    <a-tabs class="result-tabs-nav" v-model:activeKey="activeKey">
       <a-tab-pane key="result" :tab="$t('editor.result')">
         <div class="result-content">
           <div v-if="results.length > 0" class="result-info">
@@ -109,6 +109,10 @@ defineExpose({ setActiveKey })
   overflow: hidden;
 }
 
+.result-tabs-nav {
+  margin-left: 12px;
+}
+
 .result-tabs :deep(.ant-tabs-content) {
   height: calc(100% - 46px);
 }
@@ -125,13 +129,9 @@ defineExpose({ setActiveKey })
 }
 
 .result-display {
-  background: #f5f5f5;
+  background: var(--surface-muted);
   padding: 12px;
-  border-radius: 4px;
-}
-
-.dark-mode .result-display {
-  background: #1a1a1a;
+  border-radius: var(--radius-sm);
 }
 
 .result-content-wrapper {
@@ -150,15 +150,11 @@ defineExpose({ setActiveKey })
 }
 
 .result-text {
-  color: #2c3e50;
-}
-
-.dark-mode .result-text {
-  color: #e0e0e0;
+  color: var(--app-text);
 }
 
 .message-time {
-  color: #8c8c8c;
+  color: var(--app-text-subtle);
   margin-right: 8px;
 }
 

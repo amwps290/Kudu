@@ -13,7 +13,7 @@
       </a-form-item>
 
       <a-form-item :label="$t('dialog.create_view.sql_query')" required>
-        <div ref="editorContainer" style="height: 300px; border: 1px solid #d9d9d9; border-radius: 4px;"></div>
+        <div ref="editorContainer" class="view-editor-container"></div>
       </a-form-item>
 
       <a-form-item :label="$t('dialog.create_view.view_comment')">
@@ -26,7 +26,7 @@
       :description="$t('dialog.create_view.tip_message')"
       type="info"
       show-icon
-      style="margin-top: 12px"
+      class="view-tip-alert"
     />
   </a-modal>
 </template>
@@ -112,6 +112,18 @@ function handleCancel() {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.view-editor-container {
+  height: 300px;
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius-sm);
+}
+
+.view-tip-alert {
+  margin-top: 12px;
+}
+</style>
 
 <style scoped>
 :deep(.ant-form-item-control-input-content) {

@@ -33,7 +33,7 @@
 
       <a-divider>{{ $t('dialog.create_table.column_definition') }}</a-divider>
 
-      <a-button type="dashed" block @click="addColumn" style="margin-bottom: 12px">
+      <a-button type="dashed" block @click="addColumn" class="add-column-btn">
         <PlusOutlined />
         {{ $t('dialog.create_table.add_column') }}
       </a-button>
@@ -50,7 +50,7 @@
             <a-input v-model:value="record.name" :placeholder="$t('dialog.create_table.column_name_placeholder')" size="small" />
           </template>
           <template v-else-if="column.key === 'type'">
-            <a-select v-model:value="record.type" size="small" style="width: 100%">
+            <a-select v-model:value="record.type" size="small" class="column-type-select">
               <a-select-option value="INT">INT</a-select-option>
               <a-select-option value="BIGINT">BIGINT</a-select-option>
               <a-select-option value="VARCHAR">VARCHAR</a-select-option>
@@ -262,6 +262,14 @@ watch(visible, (newVal) => {
 </script>
 
 <style scoped>
+.add-column-btn {
+  margin-bottom: 12px;
+}
+
+.column-type-select {
+  width: 100%;
+}
+
 :deep(.ant-table) {
   font-size: 12px;
 }

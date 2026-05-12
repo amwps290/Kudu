@@ -22,7 +22,7 @@
           allow-clear
           class="compact-search"
         >
-          <template #prefix><SearchOutlined style="color: #bfbfbf" /></template>
+          <template #prefix><SearchOutlined class="search-prefix-icon" /></template>
         </a-input>
         <div v-if="searchText" class="search-options">
           <a-checkbox v-model:checked="searchCaseSensitive" class="search-option-item">{{ $t('search.case_sensitive') }}</a-checkbox>
@@ -60,7 +60,7 @@
                 v-else-if="getConnectionStatus(conn.id) === 'connected'" 
                 class="expand-icon"
               />
-              <span v-else style="width: 12px; display: inline-block;"></span>
+              <span v-else class="connection-indent-placeholder"></span>
             </div>
             
             <!-- 专业品牌图标 -->
@@ -87,7 +87,7 @@
           <div 
             v-if="getConnectionStatus(conn.id) === 'connected' && expandedConnections.has(conn.id)" 
             class="database-tree-wrapper"
-            :style="{ '--connection-accent': conn.color || '#e8e8e8' }"
+            :style="{ '--connection-accent': conn.color || 'var(--border-color)' }"
           >
             <div class="root-tree-line"></div>
             
@@ -113,7 +113,7 @@
         v-if="filteredConnections.length === 0"
         :description="$t('connection.no_connections')"
         :image="Empty.PRESENTED_IMAGE_SIMPLE"
-        style="margin-top: 40px"
+        class="empty-connections"
       />
     </div>
 
@@ -348,39 +348,35 @@ onUnmounted(() => {
 
 <style scoped>
 .connection-panel { display: flex; flex-direction: column; height: 100%; background: transparent; }
-.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
-.dark-mode .panel-header { border-bottom-color: #303030; }
-.panel-title { font-size: 12px; font-weight: 600; color: #8c8c8c; text-transform: uppercase; }
-.search-wrapper { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color-muted); }
+.panel-title { font-size: 12px; font-weight: 600; color: var(--app-text-subtle); text-transform: uppercase; }
+.search-wrapper { padding: 4px 8px; border-bottom: 1px solid var(--border-color-muted); }
 .search-options { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; }
 .search-option-item { font-size: 12px; }
-.search-match-count { margin-left: auto; color: #8c8c8c; font-size: 11px; white-space: nowrap; }
-.dark-mode .search-match-count { color: #a6a6a6; }
-.dark-mode .search-wrapper { border-bottom-color: #303030; }
+.search-match-count { margin-left: auto; color: var(--app-text-subtle); font-size: 11px; white-space: nowrap; }
 .compact-search { background: transparent; }
+.search-prefix-icon { color: var(--app-text-subtle); }
 .panel-content { flex: 1; overflow: auto; padding: 4px 0; }
 .connection-group { position: relative; }
 .connection-item { display: flex; align-items: center; padding: 0 8px; height: 28px; cursor: pointer; transition: background-color 0.1s; user-select: none; position: relative; }
 .connection-item::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 0 999px 999px 0; background-color: var(--connection-accent, transparent); opacity: 0.95; }
-.connection-item:hover { background-color: rgba(0, 0, 0, 0.04); }
-.dark-mode .connection-item:hover { background-color: rgba(255, 255, 255, 0.05); }
-.connection-item.active { background-color: #e6f7ff; color: #1890ff; }
-.dark-mode .connection-item.active { background-color: #111b26; color: #177ddc; }
-.connection-expand-icon { display: flex; align-items: center; justify-content: center; width: 16px; font-size: 10px; color: #bfbfbf; margin-right: 2px; }
+.connection-item:hover { background-color: var(--surface-hover); }
+.connection-item.active { background-color: var(--surface-active); color: var(--color-primary); }
+.connection-indent-placeholder { width: 12px; display: inline-block; }
+.connection-expand-icon { display: flex; align-items: center; justify-content: center; width: 16px; font-size: 10px; color: var(--app-text-subtle); margin-right: 2px; }
 .connection-icon { display: flex; align-items: center; justify-content: center; width: 20px; margin-right: 8px; flex-shrink: 0; }
 .brand-icon { font-size: 16px; }
-.connection-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #434343; }
-.dark-mode .connection-name { color: #d9d9d9; }
+.connection-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--app-text-muted); }
 .active .connection-name { color: inherit; }
 .connection-actions { display: flex; align-items: center; gap: 6px; opacity: 0.6; }
 .connection-item:hover .connection-actions { opacity: 1; }
-.disconnect-btn { font-size: 12px; color: #ff4d4f; cursor: pointer; }
-.disconnect-btn:hover { color: #ff7875; }
+.disconnect-btn { font-size: 12px; color: var(--color-danger); cursor: pointer; }
+.disconnect-btn:hover { color: var(--color-danger-hover); }
 .database-tree-wrapper { position: relative; }
 .database-tree-wrapper :deep(.database-tree) { padding-left: 10px; box-sizing: border-box; }
-.root-tree-line { position: absolute; left: 16px; top: 0; bottom: 0; width: 1px; background-color: var(--connection-accent, #e8e8e8); z-index: 1; pointer-events: none; opacity: 0.55; }
+.root-tree-line { position: absolute; left: 16px; top: 0; bottom: 0; width: 1px; background-color: var(--connection-accent, var(--border-color)); z-index: 1; pointer-events: none; opacity: 0.55; }
 .dark-mode .root-tree-line { opacity: 0.4; }
+.empty-connections { margin-top: 40px; }
 .context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: #fff; border-radius: 4px; border: 1px solid #d9d9d9; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 10000; min-width: 120px; }
-.dark-mode .context-menu { background: #1f1f1f; border-color: #303030; }
+.context-menu { position: absolute; background: var(--overlay-bg); border-radius: var(--radius-sm); border: 1px solid var(--overlay-border); box-shadow: var(--shadow-overlay); z-index: 10000; min-width: 120px; }
 </style>

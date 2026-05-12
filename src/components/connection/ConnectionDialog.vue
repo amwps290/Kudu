@@ -41,7 +41,7 @@
           <a-button size="small" @click="formData.color = ''">{{ $t('common.clear') }}</a-button>
         </div>
         <div class="color-preview">
-          <span class="preview-dot" :style="{ backgroundColor: formData.color || '#d9d9d9' }"></span>
+          <span class="preview-dot" :style="{ backgroundColor: formData.color || 'var(--border-color-strong)' }"></span>
           <span>{{ formData.color || $t('connection.form.color_none') }}</span>
         </div>
       </a-form-item>
@@ -57,7 +57,7 @@
             v-model:value="formData.port"
             :min="1"
             :max="65535"
-            style="width: 100%"
+            class="full-width-input"
           />
         </a-form-item>
 
@@ -82,7 +82,7 @@
           <a-input
             v-model:value="formData.host"
             :placeholder="$t('connection.form.placeholders.sqlite_file')"
-            style="width: calc(100% - 160px)"
+            class="sqlite-path-input"
           />
           <a-button @click="handleSelectFile">{{ $t('connection.select_file') }}</a-button>
           <a-button @click="handleCreateFile" type="dashed">{{ $t('connection.create_file') }}</a-button>
@@ -111,7 +111,7 @@
           v-model:value="formData.connection_timeout"
           :min="1"
           :max="300"
-          style="width: 100%"
+          class="full-width-input"
         />
       </a-form-item>
 
@@ -408,12 +408,16 @@ function resetForm() {
 }
 
 .color-swatch.active {
-  border-color: #111827;
+  border-color: var(--app-text);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
-.dark-mode .color-swatch.active {
-  border-color: #f8fafc;
+.full-width-input {
+  width: 100%;
+}
+
+.sqlite-path-input {
+  width: calc(100% - 160px);
 }
 
 .color-preview {
@@ -421,7 +425,7 @@ function resetForm() {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
-  color: #64748b;
+  color: var(--app-text-subtle);
   font-size: 12px;
 }
 
@@ -443,9 +447,9 @@ function resetForm() {
   justify-content: space-between;
   gap: 16px;
   padding: 12px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fafafa;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
 }
 
 .protection-copy {
@@ -455,13 +459,13 @@ function resetForm() {
 }
 
 .protection-title {
-  color: #111827;
+  color: var(--app-text);
   font-size: 13px;
   font-weight: 600;
 }
 
 .protection-description {
-  color: #64748b;
+  color: var(--app-text-subtle);
   font-size: 12px;
   line-height: 1.5;
 }

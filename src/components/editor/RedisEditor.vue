@@ -29,7 +29,7 @@
         <a-select
           :value="selectedDatabase"
           :placeholder="$t('redis.select_database')"
-          style="width: 150px"
+          class="database-selector"
           :disabled="!hasActiveConnection"
           @change="handleDatabaseChange"
         >
@@ -552,13 +552,8 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid #e8e8e8;
-  background: #fafafa;
-}
-
-.dark-mode .editor-toolbar {
-  background: #1f1f1f;
-  border-bottom-color: #303030;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-muted);
 }
 
 .editor-info {
@@ -567,9 +562,13 @@ defineExpose({
   align-items: center;
 }
 
+.database-selector {
+  width: 150px;
+}
+
 .cursor-position {
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--app-text-subtle);
 }
 
 .key-search {
@@ -590,16 +589,11 @@ defineExpose({
 
 .redis-key-panel {
   width: 380px;
-  border-left: 1px solid #e8e8e8;
-  background: #fff;
+  border-left: 1px solid var(--border-color);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   min-width: 320px;
-}
-
-.dark-mode .redis-key-panel {
-  background: #1f1f1f;
-  border-left-color: #303030;
 }
 
 .key-panel-header {
@@ -608,11 +602,7 @@ defineExpose({
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.dark-mode .key-panel-header {
-  border-bottom-color: #303030;
+  border-bottom: 1px solid var(--border-color-muted);
 }
 
 .key-panel-title {
@@ -640,11 +630,7 @@ defineExpose({
     min-width: 0;
     min-height: 280px;
     border-left: none;
-    border-top: 1px solid #e8e8e8;
-  }
-
-  .dark-mode .redis-key-panel {
-    border-top-color: #303030;
+    border-top: 1px solid var(--border-color);
   }
 }
 </style>

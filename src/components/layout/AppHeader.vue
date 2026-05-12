@@ -166,8 +166,8 @@ onMounted(() => {
 <style scoped>
 .header {
   height: 32px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
   flex-shrink: 0;
   z-index: 100;
   padding: 0;
@@ -176,13 +176,12 @@ onMounted(() => {
   user-select: none;
   -webkit-user-select: none;
 }
-.dark-mode .header { background: #1f1f1f; border-bottom-color: #303030; }
 
 .header-drag-handle { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
 
 .header-content { display: flex; align-items: center; height: 100%; width: 100%; position: relative; z-index: 2; pointer-events: none; }
 
-.logo { display: flex; align-items: center; font-size: 14px; font-weight: bold; color: #1890ff; padding: 0 12px; height: 100%; pointer-events: auto; position: relative; z-index: 3; }
+.logo { display: flex; align-items: center; font-size: 14px; font-weight: bold; color: var(--color-primary); padding: 0 12px; height: 100%; pointer-events: auto; position: relative; z-index: 3; }
 .brand-mark { width: 18px; height: 18px; margin-right: 6px; display: block; flex-shrink: 0; }
 .header-menu { height: 100%; display: flex; align-items: center; pointer-events: auto; flex: 0 0 auto; min-width: max-content; margin-left: 6px; position: relative; z-index: 3; }
 .top-menu { border-bottom: none; background: transparent; height: 100%; line-height: 32px; min-width: max-content; font-size: 13px; display: flex; align-items: center; }
@@ -197,10 +196,7 @@ onMounted(() => {
 .settings-btn { margin-right: 4px; }
 .theme-btn {
   margin-right: 4px;
-  color: #262626;
-}
-.dark-mode .theme-btn {
-  color: #d4d4d8;
+  color: var(--app-text);
 }
 .theme-btn :deep(.iconify) {
   font-size: 18px;
@@ -216,9 +212,7 @@ onMounted(() => {
   padding: 0;
 }
 .window-controls { display: flex; align-items: center; gap: 0; height: 100%; padding: 0 2px 0 0; }
-.win-btn { display: inline-flex; justify-content: center; align-items: center; width: 28px; height: 28px; border-radius: 0; cursor: pointer; transition: background-color 0.2s; font-size: 13px; color: #595959; }
-.dark-mode .win-btn { color: #aaa; }
-.win-btn:hover { background-color: rgba(0, 0, 0, 0.05); }
-.dark-mode .win-btn:hover { background-color: rgba(255, 255, 255, 0.1); }
+.win-btn { display: inline-flex; justify-content: center; align-items: center; width: 28px; height: 28px; border-radius: 0; cursor: pointer; transition: background-color 0.2s; font-size: 13px; color: var(--app-text-subtle); }
+.win-btn:hover { background-color: var(--surface-hover); }
 .win-btn.close:hover { background-color: #e81123 !important; color: #fff !important; }
 </style>

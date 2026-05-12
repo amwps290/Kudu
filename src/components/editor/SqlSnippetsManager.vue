@@ -15,13 +15,13 @@
           <a-select
             v-model:value="categoryFilter"
             size="small"
-            style="width: 160px"
+            class="category-filter-select"
             :options="categoryFilterOptions"
           />
           <a-input-search
             v-model:value="searchText"
             :placeholder="$t('dialog.snippets.search_placeholder')"
-            style="width: 200px"
+            class="snippet-search-input"
           />
         </a-space>
       </div>
@@ -416,11 +416,15 @@ watch(() => props.visible, (visible) => {
 
 .snippets-toolbar {
   padding: 12px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.dark-mode .snippets-toolbar {
-  border-bottom-color: #303030;
+.category-filter-select {
+  width: 160px;
+}
+
+.snippet-search-input {
+  width: 200px;
 }
 
 .snippets-content {
@@ -433,13 +437,10 @@ watch(() => props.visible, (visible) => {
 
 .snippets-list {
   width: 300px;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   overflow-y: auto;
-}
-
-.dark-mode .snippets-list {
-  border-color: #303030;
+  background: var(--surface);
 }
 
 .snippet-item {
@@ -449,19 +450,11 @@ watch(() => props.visible, (visible) => {
 }
 
 .snippet-item:hover {
-  background-color: #f5f5f5;
-}
-
-.dark-mode .snippet-item:hover {
-  background-color: #262626;
+  background-color: var(--surface-muted);
 }
 
 .snippet-item.active {
-  background-color: #e6f7ff;
-}
-
-.dark-mode .snippet-item.active {
-  background-color: #111b26;
+  background-color: var(--surface-active);
 }
 
 .snippet-title {
@@ -477,7 +470,7 @@ watch(() => props.visible, (visible) => {
 
 .snippet-meta {
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--app-text-subtle);
 }
 
 .snippet-editor {
@@ -495,14 +488,6 @@ watch(() => props.visible, (visible) => {
 
 .snippet-actions {
   padding-top: 12px;
-  border-top: 1px solid #e8e8e8;
-}
-
-.dark-mode .snippet-actions {
-  border-top-color: #303030;
-}
-
-.dark-mode .snippet-meta {
-  color: #a6a6a6;
+  border-top: 1px solid var(--border-color);
 }
 </style>

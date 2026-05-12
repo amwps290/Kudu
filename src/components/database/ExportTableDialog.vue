@@ -32,7 +32,7 @@
           @click="selectSavePath"
         >
           <template #suffix>
-            <FolderOpenOutlined style="cursor: pointer" @click="selectSavePath" />
+            <FolderOpenOutlined class="save-path-icon" @click="selectSavePath" />
           </template>
         </a-input>
       </a-form-item>
@@ -42,7 +42,7 @@
           v-model:value="limit"
           :min="0"
           :placeholder="$t('dialog.export_table.row_limit_placeholder')"
-          style="width: 100%"
+          class="row-limit-input"
         />
       </a-form-item>
     </a-form>
@@ -146,3 +146,13 @@ function handleCancel() {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.save-path-icon {
+  cursor: pointer;
+}
+
+.row-limit-input {
+  width: 100%;
+}
+</style>

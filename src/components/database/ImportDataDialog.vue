@@ -24,7 +24,7 @@
           @click="selectFile"
         >
           <template #suffix>
-            <FileOutlined style="cursor: pointer" @click="selectFile" />
+            <FileOutlined class="file-input-icon" @click="selectFile" />
           </template>
         </a-input>
       </a-form-item>
@@ -52,7 +52,7 @@
       :description="$t('dialog.import_data.truncate_warning')"
       type="warning"
       show-icon
-      style="margin-top: 12px"
+      class="truncate-warning"
     />
   </a-modal>
 </template>
@@ -235,3 +235,13 @@ function handleCancel() {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.file-input-icon {
+  cursor: pointer;
+}
+
+.truncate-warning {
+  margin-top: 12px;
+}
+</style>

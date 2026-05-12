@@ -30,7 +30,7 @@
 
       <a-form-item :label="$t('dialog.restore_database.skip_errors')">
         <a-switch v-model:checked="skipErrors" />
-        <span style="margin-left: 8px; color: #999; font-size: 12px;">
+        <span class="skip-errors-tip">
           {{ $t('dialog.restore_database.skip_errors_tip') }}
         </span>
       </a-form-item>
@@ -42,7 +42,7 @@
       :description="$t('dialog.restore_database.replace_warning')"
       type="warning"
       show-icon
-      style="margin-top: 12px"
+      class="replace-warning"
     />
   </a-modal>
 </template>
@@ -215,3 +215,15 @@ function handleCancel() {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.skip-errors-tip {
+  margin-left: 8px;
+  color: var(--app-text-subtle);
+  font-size: 12px;
+}
+
+.replace-warning {
+  margin-top: 12px;
+}
+</style>

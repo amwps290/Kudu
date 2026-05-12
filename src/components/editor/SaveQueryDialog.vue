@@ -23,8 +23,8 @@
           <template #dropdownRender="{ menuNode }">
             <div>
               <div>{{ menuNode }}</div>
-              <a-divider style="margin: 4px 0" />
-              <div style="padding: 4px 8px; cursor: pointer" @click="showAddCategory = true">
+              <a-divider class="category-divider" />
+              <div class="category-action" @click="showAddCategory = true">
                 <PlusOutlined /> {{ $t('dialog.save_query.add_category') }}
               </div>
             </div>
@@ -187,11 +187,20 @@ watch(visible, (newVal) => {
 </script>
 
 <style scoped>
+.category-divider {
+  margin: 4px 0;
+}
+
+.category-action {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
 .sql-preview {
   padding: 8px;
-  background: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius-sm);
   font-family: monospace;
   font-size: 12px;
   max-height: 150px;

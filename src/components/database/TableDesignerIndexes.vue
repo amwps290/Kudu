@@ -1,6 +1,6 @@
 <template>
-  <div style="padding: 16px;">
-    <a-space v-if="!readOnly" style="margin-bottom: 16px;">
+  <div class="designer-section">
+    <a-space v-if="!readOnly" class="designer-actions">
       <a-button :icon="h(PlusOutlined)" @click="$emit('add')" type="primary">
         {{ $t('designer.add_index') }}
       </a-button>
@@ -59,3 +59,13 @@ const displayColumns = computed(() => [
   { title: t('common.delete'), dataIndex: 'operation', width: 100 },
 ])
 </script>
+
+<style scoped>
+.designer-section {
+  padding: 16px;
+}
+
+.designer-actions {
+  margin-bottom: 16px;
+}
+</style>

@@ -146,33 +146,26 @@ function getIconConfig(node: TreeNode) {
 
 <style scoped>
 .tree-node { width: 100%; position: relative; }
-.tree-node-content { display: flex; align-items: center; padding: 2px 4px; cursor: pointer; user-select: none; border-radius: 2px; height: 26px; position: relative; }
-.tree-node-content:hover { background-color: rgba(0, 0, 0, 0.04); }
-.dark-mode .tree-node-content:hover { background-color: rgba(255, 255, 255, 0.05); }
-.tree-node-content.selected { background-color: #e6f7ff; color: #1890ff; }
-.dark-mode .tree-node-content.selected { background-color: #111b26; color: #177ddc; }
+.tree-node-content { display: flex; align-items: center; padding: 2px 4px; cursor: pointer; user-select: none; border-radius: var(--radius-sm); height: 26px; position: relative; }
+.tree-node-content:hover { background-color: var(--surface-hover); }
+.tree-node-content.selected { background-color: var(--surface-active); color: var(--color-primary); }
 
-.tree-line { position: absolute; top: 0; bottom: 0; width: 1px; background-color: #f0f0f0; pointer-events: none; }
+.tree-line { position: absolute; top: 0; bottom: 0; width: 1px; background-color: var(--border-color-muted); pointer-events: none; }
 .tree-line.is-current { top: 13px; }
-.dark-mode .tree-line { background-color: #303030; }
 
-.tree-node-expand { display: inline-flex; align-items: center; justify-content: center; width: 16px; margin-right: 4px; z-index: 2; color: #8c8c8c; transition: all 0.2s; }
-.dark-mode .tree-node-expand { color: #bfbfbf; }
-.tree-node-expand:hover { color: #1890ff; transform: scale(1.2); }
+.tree-node-expand { display: inline-flex; align-items: center; justify-content: center; width: 16px; margin-right: 4px; z-index: 2; color: var(--app-text-subtle); transition: all 0.2s; }
+.tree-node-expand:hover { color: var(--color-primary); transform: scale(1.2); }
 
 .arrow-icon { font-size: 11px; }
 
 .tree-node-icon { display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; z-index: 2; }
-.loading-icon { color: #1890ff; font-size: 16px; }
+.loading-icon { color: var(--color-primary); font-size: 16px; }
 .brand-icon { font-size: 16px; }
 .type-icon { transition: transform 0.2s; }
 
-.tree-node-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: #595959; }
-.dark-mode .tree-node-title { color: #d9d9d9; }
-.tree-node-title.bold { font-weight: 600; color: #262626; }
-.dark-mode .tree-node-title.bold { color: #ffffff; }
+.tree-node-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--app-text-muted); }
+.tree-node-title.bold { font-weight: 600; color: var(--app-text); }
 .selected .tree-node-title { color: inherit; }
 
-.tree-node-title.search-highlight { background-color: #fff3cd; color: #856404; border-radius: 2px; padding: 0 2px; }
-.dark-mode .tree-node-title.search-highlight { background-color: #664d00; color: #ffd700; }
+.tree-node-title.search-highlight { background-color: rgba(250, 173, 20, 0.22); color: var(--app-text); border-radius: 2px; padding: 0 2px; }
 </style>

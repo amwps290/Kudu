@@ -26,7 +26,7 @@
             :rows="10"
             :disabled="!editing"
           />
-          <a-space style="margin-top: 12px">
+          <a-space class="key-editor-actions">
             <a-button v-if="!editing" @click="editing = true">{{ $t('common.edit') }}</a-button>
             <template v-else>
               <a-button type="primary" @click="handleSave">{{ $t('common.save') }}</a-button>
@@ -282,5 +282,9 @@ watch(() => props.keyName, () => {
   padding: 16px;
   height: 100%;
   overflow: auto;
+}
+
+.key-editor-actions {
+  margin-top: 12px;
 }
 </style>

@@ -101,10 +101,6 @@ defineExpose({ getValue, setValue })
 .editor-wrapper {
   flex: 1;
   min-height: 300px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.dark-mode .editor-wrapper {
-  border-bottom-color: #303030;
+  border-bottom: 1px solid var(--border-color);
 }
 </style>

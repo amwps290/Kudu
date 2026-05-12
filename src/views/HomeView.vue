@@ -93,7 +93,7 @@
           <a-menu-item key="close-saved" :disabled="!hasClosableSavedTabs">
             {{ $t('common.close_saved') }}
           </a-menu-item>
-          <a-divider style="margin: 4px 0" />
+          <a-divider class="tab-menu-divider" />
           <a-menu-item key="open-file-location" :disabled="!currentContextTabFilePath">
             {{ $t('editor.open_file_location') }}
           </a-menu-item>
@@ -298,26 +298,19 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
 .main-layout { height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; }
 
 .content-container { flex: 1; display: flex; flex-direction: row; overflow: hidden; position: relative; }
-.sidebar-wrapper { background: #fafafa; border-right: 1px solid #e8e8e8; height: 100%; overflow: hidden; flex-shrink: 0; }
-.dark-mode .sidebar-wrapper { background: #141414; border-right-color: #303030; }
+.sidebar-wrapper { background: var(--sidebar-bg); border-right: 1px solid var(--border-color); height: 100%; overflow: hidden; flex-shrink: 0; }
 .sidebar-inner { height: 100%; overflow: auto; padding: 0 8px; }
-.sidebar-resizer { width: 1px; cursor: col-resize; background: #e5e7eb; transition: background-color 0.2s; z-index: 10; flex-shrink: 0; position: relative; overflow: visible; }
+.sidebar-resizer { width: 1px; cursor: col-resize; background: var(--border-color); transition: background-color 0.2s; z-index: 10; flex-shrink: 0; position: relative; overflow: visible; }
 .sidebar-resizer::before { content: ''; position: absolute; top: 0; bottom: 0; left: -4px; right: -4px; cursor: col-resize; }
-.dark-mode .sidebar-resizer { background: #303030; }
-.sidebar-resizer:hover { background: #1677ff; }
-.main-workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; min-width: 0; }
-.dark-mode .main-workspace { background: #1f1f1f; }
+.sidebar-resizer:hover { background: var(--color-primary); }
+.main-workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); min-width: 0; }
 .workspace-tabs { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .workspace-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 0;
   padding: 0;
-  background: #f8f9fb;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--tabbar-bg);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-nav) {
-  background: #181818;
-  border-bottom-color: #303030;
 }
 .workspace-tabs :deep(.ant-tabs-nav::before) { display: none; }
 .workspace-tabs :deep(.ant-tabs-nav-wrap) { padding: 0; }
@@ -329,31 +322,20 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
   display: inline-flex;
   align-items: center;
   border: 0 !important;
-  border-right: 1px solid #e5e7eb !important;
+  border-right: 1px solid var(--border-color) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  color: #595959;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-tab) {
-  border-right-color: #303030 !important;
-  color: #a6a6a6;
+  color: var(--app-text-subtle);
 }
 .workspace-tabs :deep(.ant-tabs-tab:hover) {
-  background: #f3f4f6 !important;
-  color: #262626;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-tab:hover) {
-  background: #202020 !important;
-  color: #f5f5f5;
+  background: var(--surface-hover) !important;
+  color: var(--app-text);
 }
 .workspace-tabs :deep(.ant-tabs-tab-active) {
-  background: #ffffff !important;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-tab-active) {
-  background: #1f1f1f !important;
+  background: var(--tab-active-bg) !important;
 }
 .workspace-tabs :deep(.ant-tabs-tab-active .ant-tabs-tab-btn) {
-  color: #1677ff;
+  color: var(--color-primary);
 }
 .workspace-tabs :deep(.ant-tabs-tab-btn) {
   display: inline-flex;
@@ -378,46 +360,33 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
   height: 32px;
   margin: 0 !important;
   border: 0 !important;
-  border-left: 1px solid #e5e7eb !important;
+  border-left: 1px solid var(--border-color) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  color: #595959;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-nav-add) {
-  border-left-color: #303030 !important;
-  color: #a6a6a6;
+  color: var(--app-text-subtle);
 }
 .workspace-tabs :deep(.ant-tabs-nav-add:hover) {
-  background: #f3f4f6 !important;
-  color: #262626;
-}
-.dark-mode .workspace-tabs :deep(.ant-tabs-nav-add:hover) {
-  background: #202020 !important;
-  color: #f5f5f5;
+  background: var(--surface-hover) !important;
+  color: var(--app-text);
 }
 .workspace-tabs :deep(.ant-tabs-content) { flex: 1; height: 100%; overflow: hidden; }
 .workspace-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
 .tab-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .tab-connection-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08); }
 .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tab-dirty-indicator { color: #faad14; font-weight: 700; }
+.tab-dirty-indicator { color: var(--color-warning); font-weight: 700; }
 .tab-content-wrapper { flex: 1; height: 100%; overflow: hidden; position: relative; }
 .empty-workspace { flex: 1; display: flex; align-items: center; justify-content: center; }
 .context-menu-overlay { position: fixed; inset: 0; z-index: 9999; }
 .context-menu {
   position: absolute;
   min-width: 140px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+  background: var(--overlay-bg);
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-overlay), var(--shadow-soft);
   overflow: hidden;
   padding: 2px;
-}
-.dark-mode .context-menu {
-  background: #252525;
-  border-color: #383838;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 .context-menu :deep(.ant-menu) {
   background: transparent;
@@ -430,22 +399,16 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
   height: 28px !important;
   line-height: 28px !important;
   border-radius: 3px;
-  color: #333;
+  color: var(--app-text-muted);
 }
-.dark-mode .context-menu :deep(.ant-menu-item) { color: #ccc; }
 .context-menu :deep(.ant-menu-item:hover) {
-  background: rgba(0, 0, 0, 0.05) !important;
-}
-.dark-mode .context-menu :deep(.ant-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.07) !important;
+  background: var(--surface-hover) !important;
 }
 .context-menu :deep(.ant-menu-item-disabled) {
-  color: #bbb !important;
-}
-.dark-mode .context-menu :deep(.ant-menu-item-disabled) {
-  color: #555 !important;
+  color: var(--app-text-subtle) !important;
 }
 .context-menu :deep(.ant-divider) {
   margin: 2px 0 !important;
 }
+.tab-menu-divider { margin: 4px 0; }
 </style>

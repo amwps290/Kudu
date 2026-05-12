@@ -25,11 +25,11 @@
           </template>
         </a-input-search>
 
-        <div class="search-filters" style="margin-top: 12px;">
+        <div class="search-filters search-filters-spaced">
           <a-space>
             <a-select
               v-model:value="searchScope"
-              style="width: 150px"
+              class="search-filter-select"
               :placeholder="$t('search.scope')"
             >
               <a-select-option value="all">{{ $t('search.scope_all') }}</a-select-option>
@@ -42,7 +42,7 @@
 
             <a-select
               v-model:value="selectedDatabase"
-              style="width: 150px"
+              class="search-filter-select"
               :placeholder="$t('search.select_database')"
               allow-clear
             >
@@ -82,7 +82,7 @@
                 <a-list-item>
                   <a-list-item-meta>
                     <template #avatar>
-                      <component :is="getIcon(item.type)" style="font-size: 20px; color: #1890ff;" />
+                      <component :is="getIcon(item.type)" class="result-icon" />
                     </template>
                     <template #title>
                       <a @click="handleResultClick(item)">
@@ -92,7 +92,7 @@
                         v-if="item.database"
                         color="blue"
                         size="small"
-                        style="margin-left: 8px;"
+                        class="result-tag result-tag-database"
                       >
                         {{ item.database }}
                       </a-tag>
@@ -100,7 +100,7 @@
                         v-if="item.table"
                         color="green"
                         size="small"
-                        style="margin-left: 4px;"
+                        class="result-tag result-tag-table"
                       >
                         {{ item.table }}
                       </a-tag>
@@ -247,7 +247,7 @@ function highlightMatch(text: string): string {
     caseSensitive.value ? 'g' : 'gi'
   )
 
-  return text.replace(regex, '<span style="background-color: #ffc069; font-weight: bold;">$1</span>')
+  return text.replace(regex, '<span class="global-search-highlight">$1</span>')
 }
 
 // 加载数据库列表
@@ -471,9 +471,17 @@ watch(() => props.visible, (visible) => {
   gap: 12px;
 }
 
+.search-filters-spaced {
+  margin-top: 12px;
+}
+
+.search-filter-select {
+  width: 150px;
+}
+
 .results-summary {
   padding: 12px 0;
-  color: #666;
+  color: var(--app-text-subtle);
   font-size: 14px;
 }
 
@@ -481,11 +489,30 @@ watch(() => props.visible, (visible) => {
   margin-top: 16px;
 }
 
+.result-icon {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+.result-tag-database {
+  margin-left: 8px;
+}
+
+.result-tag-table {
+  margin-left: 4px;
+}
+
+:deep(.global-search-highlight) {
+  background-color: var(--color-warning-soft-bg);
+  color: var(--app-text);
+  font-weight: 700;
+}
+
 :deep(.ant-list-item-meta-title) a {
   color: inherit;
 }
 
 :deep(.ant-list-item-meta-title) a:hover {
-  color: #1890ff;
+  color: var(--color-primary);
 }
 </style>

@@ -74,7 +74,7 @@
         </a-col>
       </a-row>
 
-      <div class="compare-options" style="margin-top: 16px;">
+      <div class="compare-options">
         <a-space>
           <a-button type="primary" @click="handleCompare" :loading="comparing">
             <RetweetOutlined />
@@ -90,7 +90,7 @@
       </div>
     </div>
 
-    <div v-if="comparisonResult" class="compare-result" style="margin-top: 24px;">
+    <div v-if="comparisonResult" class="compare-result">
       <a-tabs>
         <a-tab-pane key="summary" :tab="$t('tools.data_compare.summary')">
           <a-descriptions bordered size="small">
@@ -405,7 +405,15 @@ watch([sourceTable, targetTable], () => {
 
 .compare-header p {
   margin: 0;
-  color: #666;
+  color: var(--app-text-subtle);
   font-size: 14px;
+}
+
+.compare-options {
+  margin-top: 16px;
+}
+
+.compare-result {
+  margin-top: 24px;
 }
 </style>

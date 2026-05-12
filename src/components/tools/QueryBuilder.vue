@@ -42,20 +42,20 @@
       <!-- SELECT 子句 -->
       <div class="query-section">
         <h4>{{ $t('tools.query_builder.select_columns') }}</h4>
-        <a-checkbox-group v-model:value="selectedColumns" style="width: 100%;">
+        <a-checkbox-group v-model:value="selectedColumns" class="columns-group">
           <a-row>
-            <a-col :span="8" v-for="col in columns" :key="col.name" style="margin-bottom: 8px;">
+            <a-col :span="8" v-for="col in columns" :key="col.name" class="column-option">
               <a-checkbox :value="col.name">
                 {{ col.name }}
-                <a-tag size="small" color="blue">{{ col.data_type }}</a-tag>
+                <a-tag size="small" class="column-type-tag">{{ col.data_type }}</a-tag>
               </a-checkbox>
             </a-col>
           </a-row>
         </a-checkbox-group>
-        <a-button size="small" @click="selectAllColumns" style="margin-top: 8px;">
+        <a-button size="small" @click="selectAllColumns" class="select-columns-btn">
           {{ $t('common.select_all') }}
         </a-button>
-        <a-button size="small" @click="clearAllColumns" style="margin-left: 8px;">
+        <a-button size="small" @click="clearAllColumns" class="clear-columns-btn">
           {{ $t('common.clear') }}
         </a-button>
       </div>
@@ -145,7 +145,7 @@
       <!-- LIMIT 子句 -->
       <div class="query-section">
         <h4>{{ $t('tools.query_builder.limit_rows') }}</h4>
-        <a-input-number v-model:value="limitRows" :min="1" :max="10000" style="width: 200px;" />
+        <a-input-number v-model:value="limitRows" :min="1" :max="10000" class="limit-input" />
       </div>
     </div>
 
@@ -443,19 +443,41 @@ watch(() => props.connectionId, (id) => {
 
 .builder-header p {
   margin: 0;
-  color: #666;
+  color: var(--app-text-subtle);
   font-size: 14px;
+}
+
+.columns-group {
+  width: 100%;
+}
+
+.column-option {
+  margin-bottom: 8px;
+}
+
+.select-columns-btn {
+  margin-top: 8px;
+}
+
+.clear-columns-btn {
+  margin-left: 8px;
+}
+
+.limit-input {
+  width: 200px;
+}
+
+.column-type-tag {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-soft-bg);
 }
 
 .query-section {
   margin-bottom: 24px;
   padding: 16px;
-  background: #fafafa;
-  border-radius: 6px;
-}
-
-.dark-mode .query-section {
-  background: #1a1a1a;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
 }
 
 .query-section h4 {
@@ -528,15 +550,10 @@ watch(() => props.connectionId, (id) => {
 
 .sql-preview {
   position: relative;
-  background: #f5f5f5;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   padding: 16px;
-}
-
-.dark-mode .sql-preview {
-  background: #262626;
-  border-color: #303030;
 }
 
 .sql-preview pre {
@@ -551,11 +568,7 @@ watch(() => props.connectionId, (id) => {
 .sql-actions {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e8e8e8;
-}
-
-.dark-mode .sql-actions {
-  border-top-color: #303030;
+  border-top: 1px solid var(--border-color);
 }
 
 @media (max-width: 960px) {

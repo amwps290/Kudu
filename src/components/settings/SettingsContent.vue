@@ -361,33 +361,20 @@ const mysqlInitSqlModel = computed({
   display: flex;
   height: 100%;
   min-height: 0;
-  background: #ffffff;
-  color: #262626;
-}
-
-.dark-mode .settings-editor {
-  background: #1e1e1e;
-  color: #e5e7eb;
+  background: var(--surface);
+  color: var(--app-text);
 }
 
 .settings-editor.embedded {
-  border-top: 1px solid #e5e7eb;
-}
-
-.dark-mode .settings-editor.embedded {
-  border-top-color: #303030;
+  border-top: 1px solid var(--border-color);
 }
 
 .settings-nav {
   width: 188px;
   flex-shrink: 0;
   padding: 8px 8px;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--border-color);
   background: transparent;
-}
-
-.dark-mode .settings-nav {
-  border-right-color: #303030;
 }
 
 .settings-nav-title {
@@ -395,22 +382,18 @@ const mysqlInitSqlModel = computed({
   padding: 0 6px;
   font-size: 12px;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--app-text-subtle);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.dark-mode .settings-nav-title {
-  color: #9ca3af;
 }
 
 .settings-nav-item {
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #374151;
+  color: var(--app-text-muted);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -421,25 +404,12 @@ const mysqlInitSqlModel = computed({
 }
 
 .settings-nav-item:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--color-primary-hover-bg);
 }
 
 .settings-nav-item.active {
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-}
-
-.dark-mode .settings-nav-item {
-  color: #d1d5db;
-}
-
-.dark-mode .settings-nav-item:hover {
-  background: rgba(96, 165, 250, 0.12);
-}
-
-.dark-mode .settings-nav-item.active {
-  background: rgba(96, 165, 250, 0.14);
-  color: #93c5fd;
+  background: var(--color-primary-active-bg);
+  color: var(--color-primary);
 }
 
 .settings-main {
@@ -453,11 +423,7 @@ const mysqlInitSqlModel = computed({
 .settings-header {
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #ececec;
-}
-
-.dark-mode .settings-header {
-  border-bottom-color: #2c2c2c;
+  border-bottom: 1px solid var(--border-color-muted);
 }
 
 .settings-heading h1 {
@@ -468,18 +434,14 @@ const mysqlInitSqlModel = computed({
 
 .settings-heading p {
   margin: 4px 0 0;
-  color: #6b7280;
+  color: var(--app-text-subtle);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.dark-mode .settings-heading p {
-  color: #9ca3af;
-}
-
 .settings-subtle {
   margin-top: 6px;
-  color: #2563eb;
+  color: var(--color-primary);
   font-size: 11px;
 }
 
@@ -497,18 +459,13 @@ const mysqlInitSqlModel = computed({
 
 .settings-group-title {
   padding: 4px 0 6px;
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid var(--border-color-muted);
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--app-text-subtle);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.dark-mode .settings-group-title {
-  border-bottom-color: #2c2c2c;
-  color: #9ca3af;
 }
 
 .setting-row {
@@ -517,15 +474,11 @@ const mysqlInitSqlModel = computed({
   justify-content: space-between;
   gap: 20px;
   padding: 10px 0;
-  border-bottom: 1px solid #f2f2f2;
+  border-bottom: 1px solid var(--border-color-muted);
 }
 
 .setting-row:last-child {
   border-bottom: none;
-}
-
-.dark-mode .setting-row {
-  border-bottom-color: #2a2a2a;
 }
 
 .setting-meta {
@@ -540,13 +493,9 @@ const mysqlInitSqlModel = computed({
 }
 
 .setting-help {
-  color: #6b7280;
+  color: var(--app-text-subtle);
   font-size: 11px;
   line-height: 1.4;
-}
-
-.dark-mode .setting-help {
-  color: #9ca3af;
 }
 
 .setting-select {
@@ -574,11 +523,7 @@ const mysqlInitSqlModel = computed({
   .settings-nav {
     width: 100%;
     border-right: 0;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .dark-mode .settings-nav {
-    border-bottom-color: #303030;
+    border-bottom: 1px solid var(--border-color);
   }
 
   .settings-header,

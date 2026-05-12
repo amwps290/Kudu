@@ -322,7 +322,7 @@ watch(visible, (newVal) => {
 .insert-field-comment {
   margin-top: 4px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--app-text-subtle);
 }
 
 .insert-field-meta {
