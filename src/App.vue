@@ -74,4 +74,78 @@ onMounted(() => {
   opacity: 0;
   transform: translateY(-8px);
 }
+
+.workspace-unsaved-confirm .ant-modal-content {
+  border-radius: 10px;
+}
+
+.workspace-unsaved-confirm .ant-modal-body {
+  padding: 20px 24px 16px;
+}
+
+.workspace-unsaved-confirm .ant-modal-confirm-body {
+  display: block;
+}
+
+.workspace-unsaved-confirm .ant-modal-confirm-title {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(0, 0, 0, 0.88);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.workspace-unsaved-confirm .ant-modal-confirm-content {
+  max-width: none;
+  margin-top: 0;
+  margin-inline-start: 0;
+}
+
+.workspace-unsaved-confirm__content {
+  color: rgba(0, 0, 0, 0.72);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.workspace-unsaved-confirm__message {
+  margin: 0;
+}
+
+.workspace-unsaved-confirm__hint {
+  margin-top: 6px;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.workspace-unsaved-confirm__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.workspace-unsaved-confirm__button {
+  min-width: 72px;
+  height: 30px;
+}
+
+.dark-mode .workspace-unsaved-confirm .ant-modal-content {
+  background: #1f1f1f;
+}
+
+.dark-mode .workspace-unsaved-confirm .ant-modal-confirm-title {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.dark-mode .workspace-unsaved-confirm__content {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dark-mode .workspace-unsaved-confirm__hint {
+  color: rgba(255, 255, 255, 0.45);
+}
 </style>

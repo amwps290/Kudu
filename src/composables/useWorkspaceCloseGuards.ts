@@ -50,25 +50,39 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
       }
 
       modal = Modal.confirm({
-        title: options.t('common.warning'),
-        content: options.t('editor.unsaved_close_confirm', { title: tab.title }),
+        title: options.t('editor.unsaved_close_title'),
+        content: h('div', {
+          class: 'workspace-unsaved-confirm__content',
+        }, [
+          h('div', {
+            class: 'workspace-unsaved-confirm__message',
+          }, options.t('editor.unsaved_close_confirm', { title: tab.title })),
+          h('div', {
+            class: 'workspace-unsaved-confirm__hint',
+          }, options.t('editor.unsaved_close_hint')),
+        ]),
         closable: false,
         maskClosable: false,
         keyboard: false,
+        centered: true,
+        width: 430,
+        wrapClassName: 'workspace-unsaved-confirm',
         icon: () => null,
-        footer: () => [
+        footer: () => h('div', {
+          class: 'workspace-unsaved-confirm__footer',
+        }, [
           h('button', {
-            class: 'ant-btn ant-btn-default',
+            class: 'ant-btn ant-btn-default workspace-unsaved-confirm__button',
             type: 'button',
             onClick: () => finish(false),
           }, options.t('common.cancel')),
           h('button', {
-            class: 'ant-btn ant-btn-default',
+            class: 'ant-btn ant-btn-default workspace-unsaved-confirm__button',
             type: 'button',
             onClick: () => finish(true),
           }, options.t('editor.discard_changes')),
           h('button', {
-            class: 'ant-btn ant-btn-primary',
+            class: 'ant-btn ant-btn-primary workspace-unsaved-confirm__button',
             type: 'button',
             onClick: async () => {
               try {
@@ -81,7 +95,7 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
               }
             },
           }, options.t('common.save')),
-        ],
+        ]),
       })
     })
   }
