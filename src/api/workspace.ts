@@ -2,18 +2,21 @@ import { invoke } from '@tauri-apps/api/core'
 import type { ScriptInfo } from '@/types/database'
 
 /** 后端 session 的原始格式（snake_case 字段） */
-interface RawSessionState {
-  open_tabs: Array<{
-    key: string
-    title: string
-    type: string
-    connection_id?: string
-    database?: string
-    schema?: string
-    content?: string
-    file_path?: string
-    read_only?: boolean
-  }>
+export interface RawSessionTabState {
+  key: string
+  title: string
+  type: string
+  connection_id?: string
+  database?: string
+  schema?: string
+  table?: string
+  content?: string
+  file_path?: string
+  read_only?: boolean
+}
+
+export interface RawSessionState {
+  open_tabs: RawSessionTabState[]
   active_tab_key: string
 }
 
