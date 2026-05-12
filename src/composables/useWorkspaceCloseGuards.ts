@@ -1,4 +1,4 @@
-import { h, type Ref } from 'vue'
+import { h, nextTick, type Ref } from 'vue'
 import { Modal } from '@/ui/antd'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { TabType } from '@/types/workspace'
@@ -17,6 +17,7 @@ interface ConfirmCloseOptions {
 export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
   const appWindow = getCurrentWindow()
   let unlistenCloseRequested: (() => void) | null = null
+  let forceClosingWindow = false
 
   function getDirtyQueryTab(tabKey: string) {
     const tab = options.findTabByKey(tabKey)
@@ -99,6 +100,7 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
 
     for (const tab of dirtyTabs) {
       options.mainTabKey.value = tab.key
+      await nextTick()
       const canClose = await confirmCloseDirtyQueryTab(tab.key)
       if (!canClose) {
         return false
@@ -115,6 +117,7 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
 
     for (const tab of dirtyTabs) {
       options.mainTabKey.value = tab.key
+      await nextTick()
       const canClose = await confirmCloseDirtyQueryTab(tab.key)
       if (!canClose) {
         return false
@@ -126,10 +129,27 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
 
   async function setupWindowCloseGuard() {
     unlistenCloseRequested = await appWindow.onCloseRequested(async (event) => {
+      if (forceClosingWindow) {
+        console.info('[WindowCloseGuard] force close request passthrough')
+        return
+      }
+
+      event.preventDefault()
+      console.info('[WindowCloseGuard] intercepted close request')
       const canClose = await handleWindowCloseRequested()
       if (!canClose) {
-        event.preventDefault()
+        console.info('[WindowCloseGuard] close cancelled by guard')
+        return
       }
+
+      forceClosingWindow = true
+      console.info('[WindowCloseGuard] close approved, destroying window directly')
+      window.setTimeout(() => {
+        void appWindow.destroy().catch((error) => {
+          console.error('[WindowCloseGuard] failed to destroy window after approval', error)
+          forceClosingWindow = false
+        })
+      }, 0)
     })
   }
 
@@ -138,6 +158,7 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
       unlistenCloseRequested()
       unlistenCloseRequested = null
     }
+    forceClosingWindow = false
   }
 
   return {
