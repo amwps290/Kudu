@@ -267,8 +267,8 @@ const { handleTabMenuClick } = useWorkspaceTabMenuActions({
   closeTabsWithConfirm,
   hideContextMenu,
   openFileLocation: async (path: string) => {
-    const { utilsApi } = await import('@/api/utils')
-    await utilsApi.openInFileManager(path).catch(() => {})
+    const { openInFileManager } = await import('@/api/fileManager')
+    await openInFileManager(path).catch(() => {})
   },
 })
 
