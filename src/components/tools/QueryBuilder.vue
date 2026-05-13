@@ -1,6 +1,6 @@
 <template>
   <div class="query-builder">
-    <div class="builder-header">
+    <div class="section-header builder-header">
       <h3>{{ $t('tools.query_builder.title') }}</h3>
       <p>{{ $t('tools.query_builder.subtitle') }}</p>
     </div>
@@ -40,7 +40,7 @@
       <a-divider>{{ $t('tools.query_builder.query_config') }}</a-divider>
 
       <!-- SELECT 子句 -->
-      <div class="query-section">
+      <div class="info-panel query-section">
         <h4>{{ $t('tools.query_builder.select_columns') }}</h4>
         <a-checkbox-group v-model:value="selectedColumns" class="columns-group">
           <a-row>
@@ -61,7 +61,7 @@
       </div>
 
       <!-- WHERE 子句 -->
-      <div class="query-section">
+      <div class="info-panel query-section">
         <h4>
           {{ $t('tools.query_builder.where_conditions') }}
           <a-button size="small" type="link" @click="addCondition">
@@ -119,7 +119,7 @@
       </div>
 
       <!-- ORDER BY 子句 -->
-      <div class="query-section">
+      <div class="info-panel query-section">
         <h4>{{ $t('tools.query_builder.order_by') }}</h4>
         <div class="order-grid">
           <div class="order-field order-column">
@@ -143,7 +143,7 @@
       </div>
 
       <!-- LIMIT 子句 -->
-      <div class="query-section">
+      <div class="info-panel query-section">
         <h4>{{ $t('tools.query_builder.limit_rows') }}</h4>
         <a-input-number v-model:value="limitRows" :min="1" :max="10000" class="limit-input" />
       </div>
@@ -152,7 +152,7 @@
     <!-- 生成的SQL -->
     <div class="generated-sql">
       <a-divider>{{ $t('tools.query_builder.generated_sql') }}</a-divider>
-      <div class="sql-preview">
+      <div class="code-preview-panel sql-preview">
         <pre>{{ generatedSql }}</pre>
         <div class="sql-actions">
           <a-space>
@@ -435,18 +435,6 @@ watch(() => props.connectionId, (id) => {
   margin-bottom: 24px;
 }
 
-.builder-header h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.builder-header p {
-  margin: 0;
-  color: var(--app-text-subtle);
-  font-size: 14px;
-}
-
 .columns-group {
   width: 100%;
 }
@@ -475,9 +463,6 @@ watch(() => props.connectionId, (id) => {
 
 .query-section {
   margin-bottom: 24px;
-  padding: 16px;
-  background: var(--surface-muted);
-  border-radius: var(--radius-sm);
 }
 
 .query-section h4 {
@@ -546,14 +531,6 @@ watch(() => props.connectionId, (id) => {
 
 .generated-sql {
   margin-top: 24px;
-}
-
-.sql-preview {
-  position: relative;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 16px;
 }
 
 .sql-preview pre {

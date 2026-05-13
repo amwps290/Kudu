@@ -13,7 +13,7 @@
               </a-tag>
             </a-space>
           </div>
-          <div v-if="lastResult" class="result-display">
+          <div v-if="lastResult" class="code-preview-panel result-display">
             <a-alert
               v-if="lastResult.error"
               type="error"
@@ -126,12 +126,6 @@ defineExpose({ setActiveKey })
 
 .result-info {
   margin-bottom: 12px;
-}
-
-.result-display {
-  background: var(--surface-muted);
-  padding: 12px;
-  border-radius: var(--radius-sm);
 }
 
 .result-content-wrapper {

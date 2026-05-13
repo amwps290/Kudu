@@ -7,7 +7,7 @@
     :footer="null"
   >
     <div class="global-search">
-      <div class="search-header">
+      <div class="section-header search-header">
         <a-input-search
           v-model:value="searchText"
           :placeholder="$t('search.placeholder')"
@@ -64,7 +64,7 @@
       </div>
 
       <div class="search-results" v-if="searchResults.length > 0">
-        <div class="results-summary">
+        <div class="text-subtle results-summary">
           {{ $t('search.results_found') }} <strong>{{ searchResults.length }}</strong> {{ $t('search.results_count') }}
         </div>
 
@@ -481,7 +481,6 @@ watch(() => props.visible, (visible) => {
 
 .results-summary {
   padding: 12px 0;
-  color: var(--app-text-subtle);
   font-size: 14px;
 }
 

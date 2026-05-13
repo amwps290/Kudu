@@ -16,7 +16,7 @@
           @click="selectFile"
         >
           <template #suffix>
-            <FileOutlined style="cursor: pointer" @click="selectFile" />
+            <FileOutlined class="file-input-icon" @click="selectFile" />
           </template>
         </a-input>
       </a-form-item>
@@ -30,7 +30,7 @@
 
       <a-form-item :label="$t('dialog.restore_database.skip_errors')">
         <a-switch v-model:checked="skipErrors" />
-        <span class="skip-errors-tip">
+        <span class="text-caption skip-errors-tip">
           {{ $t('dialog.restore_database.skip_errors_tip') }}
         </span>
       </a-form-item>
@@ -42,7 +42,7 @@
       :description="$t('dialog.restore_database.replace_warning')"
       type="warning"
       show-icon
-      class="replace-warning"
+      class="preview-hint replace-warning"
     />
   </a-modal>
 </template>
@@ -217,13 +217,11 @@ function handleCancel() {
 </script>
 
 <style scoped>
-.skip-errors-tip {
-  margin-left: 8px;
-  color: var(--app-text-subtle);
-  font-size: 12px;
+.file-input-icon {
+  cursor: pointer;
 }
 
-.replace-warning {
-  margin-top: 12px;
+.skip-errors-tip {
+  margin-left: 8px;
 }
 </style>

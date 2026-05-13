@@ -1,7 +1,7 @@
 <template>
   <div class="connection-panel">
-    <div class="panel-header">
-      <span class="panel-title">{{ $t('connection.manager') }}</span>
+    <div class="panel-toolbar panel-toolbar--muted-border panel-header">
+      <span class="panel-toolbar__title panel-title">{{ $t('connection.manager') }}</span>
       <a-button
         type="text"
         size="small"
@@ -120,11 +120,11 @@
     <!-- 右键菜单 -->
     <div
       v-if="contextMenuVisible"
-      class="context-menu-overlay"
+      class="app-context-menu-overlay context-menu-overlay"
       @click="hideContextMenu()"
     >
       <div
-        class="context-menu"
+        class="app-context-menu context-menu"
         :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
         @click.stop
       >
@@ -348,8 +348,6 @@ onUnmounted(() => {
 
 <style scoped>
 .connection-panel { display: flex; flex-direction: column; height: 100%; background: transparent; }
-.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color-muted); }
-.panel-title { font-size: 12px; font-weight: 600; color: var(--app-text-subtle); text-transform: uppercase; }
 .search-wrapper { padding: 4px 8px; border-bottom: 1px solid var(--border-color-muted); }
 .search-options { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; }
 .search-option-item { font-size: 12px; }
@@ -377,6 +375,4 @@ onUnmounted(() => {
 .root-tree-line { position: absolute; left: 16px; top: 0; bottom: 0; width: 1px; background-color: var(--connection-accent, var(--border-color)); z-index: 1; pointer-events: none; opacity: 0.55; }
 .dark-mode .root-tree-line { opacity: 0.4; }
 .empty-connections { margin-top: 40px; }
-.context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: var(--overlay-bg); border-radius: var(--radius-sm); border: 1px solid var(--overlay-border); box-shadow: var(--shadow-overlay); z-index: 10000; min-width: 120px; }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="tree-node" :class="{ 'is-connection': node.type === 'connection' }">
     <div
-      :class="['tree-node-content', { selected: isSelected }]"
+      :class="['interactive-row', 'tree-node-content', { selected: isSelected }]"
       :style="{ paddingLeft: (level * 15 + 8) + 'px' }"
       @click="handleClick($event)"
       @dblclick="handleDblClick"
@@ -20,7 +20,7 @@
       <span class="tree-node-expand" @click="handleToggle">
         <Icon v-if="hasChildren && isExpanded" icon="fluent:chevron-down-12-filled" class="arrow-icon" />
         <Icon v-else-if="hasChildren" icon="fluent:chevron-right-12-filled" class="arrow-icon" />
-        <span v-else style="display: inline-block; width: 16px;"></span>
+        <span v-else class="tree-node-expand-placeholder"></span>
       </span>
       
       <!-- 动态图标 -->
@@ -87,67 +87,66 @@ function getIconConfig(node: TreeNode) {
     if (dbType.includes('redis')) return { icon: 'logos:redis', class: 'brand-icon' }
     if (dbType.includes('sqlite')) return { icon: 'logos:sqlite', class: 'brand-icon' }
     if (dbType.includes('mongo')) return { icon: 'logos:mongodb-icon', class: 'brand-icon' }
-    return { icon: 'ph:database-duotone', color: '#1890ff' }
+    return { icon: 'ph:database-duotone', color: 'var(--icon-color-blue)' }
   }
 
   if (type === 'column') {
-    if (metadata.is_primary_key) return { icon: 'ph:key-duotone', color: '#faad14' }
+    if (metadata.is_primary_key) return { icon: 'ph:key-duotone', color: 'var(--icon-color-yellow)' }
     const dataType = (metadata.data_type || '').toLowerCase()
-    if (dataType.includes('int') || dataType.includes('num') || dataType.includes('float') || dataType.includes('double') || dataType.includes('decimal') || dataType.includes('serial')) return { icon: 'ph:hash-bold', color: '#1890ff' }
-    if (dataType.includes('date') || dataType.includes('time') || dataType.includes('interval')) return { icon: 'ph:calendar-blank-duotone', color: '#722ed1' }
-    if (dataType.includes('bool')) return { icon: 'ph:toggle-left-duotone', color: '#52c41a' }
-    if (dataType.includes('json') || dataType.includes('xml')) return { icon: 'ph:brackets-curly-bold', color: '#fa8c16' }
-    if (dataType.includes('uuid') || dataType.includes('guid')) return { icon: 'ph:id-badge-duotone', color: '#607d8b' }
-    if (dataType.includes('geometry') || dataType.includes('geography') || dataType.includes('point')) return { icon: 'ph:map-trifold-duotone', color: '#43a047' }
-    if (dataType.includes('blob') || dataType.includes('binary') || dataType.includes('bytea')) return { icon: 'ph:file-zip-duotone', color: '#795548' }
-    if (dataType.includes('[]') || dataType.includes('array')) return { icon: 'ph:list-dashes-bold', color: '#00bcd4' }
-    return { icon: 'ph:text-t-bold', color: '#8c8c8c' }
+    if (dataType.includes('int') || dataType.includes('num') || dataType.includes('float') || dataType.includes('double') || dataType.includes('decimal') || dataType.includes('serial')) return { icon: 'ph:hash-bold', color: 'var(--icon-color-blue)' }
+    if (dataType.includes('date') || dataType.includes('time') || dataType.includes('interval')) return { icon: 'ph:calendar-blank-duotone', color: 'var(--icon-color-purple)' }
+    if (dataType.includes('bool')) return { icon: 'ph:toggle-left-duotone', color: 'var(--icon-color-green)' }
+    if (dataType.includes('json') || dataType.includes('xml')) return { icon: 'ph:brackets-curly-bold', color: 'var(--icon-color-orange)' }
+    if (dataType.includes('uuid') || dataType.includes('guid')) return { icon: 'ph:id-badge-duotone', color: 'var(--icon-color-slate)' }
+    if (dataType.includes('geometry') || dataType.includes('geography') || dataType.includes('point')) return { icon: 'ph:map-trifold-duotone', color: 'var(--icon-color-emerald)' }
+    if (dataType.includes('blob') || dataType.includes('binary') || dataType.includes('bytea')) return { icon: 'ph:file-zip-duotone', color: 'var(--icon-color-brown)' }
+    if (dataType.includes('[]') || dataType.includes('array')) return { icon: 'ph:list-dashes-bold', color: 'var(--icon-color-cyan)' }
+    return { icon: 'ph:text-t-bold', color: 'var(--icon-color-gray)' }
   }
 
   const configMap: Record<string, any> = {
-    database: { icon: 'ph:database-duotone', color: '#fa8c16' },
-    schemas: { icon: 'ph:folders-duotone', color: '#8c8c8c' },
-    schema: { icon: 'ph:tree-structure-duotone', color: '#722ed1' },
-    'schema-tables': { icon: 'ph:table-duotone', color: '#52c41a' },
-    tables: { icon: 'ph:table-duotone', color: '#52c41a' },
-    table: { icon: 'ph:table-duotone', color: '#52c41a' },
-    'schema-views': { icon: 'ph:eye-duotone', color: '#13c2c2' },
-    views: { icon: 'ph:eye-duotone', color: '#13c2c2' },
-    view: { icon: 'ph:eye-duotone', color: '#13c2c2' },
-    'schema-functions': { icon: 'ph:function-duotone', color: '#eb2f96' },
-    functions: { icon: 'ph:function-duotone', color: '#eb2f96' },
-    function: { icon: 'ph:function-duotone', color: '#eb2f96' },
-    'schema-procedures': { icon: 'ph:terminal-window-duotone', color: '#13c2c2' },
-    procedures: { icon: 'ph:terminal-window-duotone', color: '#13c2c2' },
-    procedure: { icon: 'ph:terminal-window-duotone', color: '#13c2c2' },
-    'schema-aggregates': { icon: 'ph:function-duotone', color: '#722ed1' },
-    aggregates: { icon: 'ph:function-duotone', color: '#722ed1' },
-    'schema-indexes': { icon: 'ph:list-numbers-duotone', color: '#fa8c16' },
-    index: { icon: 'ph:list-numbers-duotone', color: '#fa8c16' },
-    'database-extensions': { icon: 'ph:puzzle-piece-duotone', color: '#1890ff' },
-    extension: { icon: 'ph:puzzle-piece-duotone', color: '#1890ff' },
-    'empty': { icon: 'ph:info-duotone', color: '#bfbfbf' },
-    'leaf': { icon: 'ph:file-text-duotone', color: '#8c8c8c' }
+    database: { icon: 'ph:database-duotone', color: 'var(--icon-color-orange)' },
+    schemas: { icon: 'ph:folders-duotone', color: 'var(--icon-color-gray)' },
+    schema: { icon: 'ph:tree-structure-duotone', color: 'var(--icon-color-purple)' },
+    'schema-tables': { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
+    tables: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
+    table: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
+    'schema-views': { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
+    views: { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
+    view: { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
+    'schema-functions': { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
+    functions: { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
+    function: { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
+    'schema-procedures': { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' },
+    procedures: { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' },
+    procedure: { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' },
+    'schema-aggregates': { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
+    aggregates: { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
+    'schema-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
+    index: { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
+    'database-extensions': { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
+    extension: { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
+    'empty': { icon: 'ph:info-duotone', color: 'var(--icon-color-muted)' },
+    'leaf': { icon: 'ph:file-text-duotone', color: 'var(--icon-color-gray)' }
   }
 
   // 针对 leaf 类型的特殊处理（索引、函数、聚合函数、扩展）
   if (type === 'leaf') {
     const key = node.key.toLowerCase()
-    if (key.includes('-indexes') || key.includes('-index')) return { icon: 'ph:list-numbers-duotone', color: '#fa8c16' }
-    if (key.includes('-aggregates')) return { icon: 'ph:function-duotone', color: '#722ed1' }
-    if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: '#13c2c2' }
-    if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: '#eb2f96' }
-    if (key.includes('-extensions') || key.includes('-extension')) return { icon: 'ph:puzzle-piece-duotone', color: '#1890ff' }
+    if (key.includes('-indexes') || key.includes('-index')) return { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' }
+    if (key.includes('-aggregates')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' }
+    if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' }
+    if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' }
+    if (key.includes('-extensions') || key.includes('-extension')) return { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' }
   }
 
-  return configMap[type] || { icon: 'ph:file-text-duotone', color: '#8c8c8c' }
+  return configMap[type] || { icon: 'ph:file-text-duotone', color: 'var(--icon-color-gray)' }
 }
 </script>
 
 <style scoped>
 .tree-node { width: 100%; position: relative; }
-.tree-node-content { display: flex; align-items: center; padding: 2px 4px; cursor: pointer; user-select: none; border-radius: var(--radius-sm); height: 26px; position: relative; }
-.tree-node-content:hover { background-color: var(--surface-hover); }
+.tree-node-content { display: flex; align-items: center; padding: 2px 4px; user-select: none; border-radius: var(--radius-sm); height: 26px; position: relative; }
 .tree-node-content.selected { background-color: var(--surface-active); color: var(--color-primary); }
 
 .tree-line { position: absolute; top: 0; bottom: 0; width: 1px; background-color: var(--border-color-muted); pointer-events: none; }
@@ -155,6 +154,7 @@ function getIconConfig(node: TreeNode) {
 
 .tree-node-expand { display: inline-flex; align-items: center; justify-content: center; width: 16px; margin-right: 4px; z-index: 2; color: var(--app-text-subtle); transition: all 0.2s; }
 .tree-node-expand:hover { color: var(--color-primary); transform: scale(1.2); }
+.tree-node-expand-placeholder { display: inline-block; width: 16px; }
 
 .arrow-icon { font-size: 11px; }
 
@@ -167,5 +167,5 @@ function getIconConfig(node: TreeNode) {
 .tree-node-title.bold { font-weight: 600; color: var(--app-text); }
 .selected .tree-node-title { color: inherit; }
 
-.tree-node-title.search-highlight { background-color: rgba(250, 173, 20, 0.22); color: var(--app-text); border-radius: 2px; padding: 0 2px; }
+.tree-node-title.search-highlight { background-color: var(--color-warning-soft-bg); color: var(--app-text); border-radius: 2px; padding: 0 2px; }
 </style>

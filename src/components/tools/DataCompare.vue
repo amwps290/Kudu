@@ -1,6 +1,6 @@
 <template>
   <div class="data-compare">
-    <div class="compare-header">
+    <div class="section-header compare-header">
       <h3>{{ $t('tools.data_compare.title') }}</h3>
       <p>{{ $t('tools.data_compare.subtitle') }}</p>
     </div>
@@ -395,18 +395,6 @@ watch([sourceTable, targetTable], () => {
 
 .compare-header {
   margin-bottom: 24px;
-}
-
-.compare-header h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.compare-header p {
-  margin: 0;
-  color: var(--app-text-subtle);
-  font-size: 14px;
 }
 
 .compare-options {

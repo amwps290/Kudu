@@ -7,7 +7,7 @@
     :footer="null"
   >
     <div class="snippets-manager">
-      <div class="snippets-toolbar">
+      <div class="panel-toolbar snippets-toolbar">
         <a-space>
           <a-button :icon="h(PlusOutlined)" @click="handleAddSnippet" type="primary">
             {{ $t('dialog.snippets.new_snippet') }}
@@ -37,7 +37,7 @@
                 :class="{ active: selectedSnippet?.id === item.id }"
                 @click="selectSnippet(item)"
                 @dblclick="copySnippet(item)"
-                class="snippet-item"
+                class="interactive-row interactive-row--soft snippet-item"
               >
                 <a-list-item-meta>
                   <template #title>
@@ -53,7 +53,7 @@
                   </template>
                   <template #description>
                     <div class="snippet-description">{{ item.description || $t('dialog.snippets.no_description') }}</div>
-                    <div class="snippet-meta">{{ formatSnippetMeta(item) }}</div>
+                    <div class="text-caption snippet-meta">{{ formatSnippetMeta(item) }}</div>
                   </template>
                 </a-list-item-meta>
                 <template #actions>
@@ -414,11 +414,6 @@ watch(() => props.visible, (visible) => {
   flex-direction: column;
 }
 
-.snippets-toolbar {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-color);
-}
-
 .category-filter-select {
   width: 160px;
 }
@@ -444,13 +439,7 @@ watch(() => props.visible, (visible) => {
 }
 
 .snippet-item {
-  cursor: pointer;
-  transition: background-color 0.2s;
   padding: 12px !important;
-}
-
-.snippet-item:hover {
-  background-color: var(--surface-muted);
 }
 
 .snippet-item.active {
@@ -466,11 +455,6 @@ watch(() => props.visible, (visible) => {
 
 .snippet-description {
   margin-bottom: 4px;
-}
-
-.snippet-meta {
-  font-size: 12px;
-  color: var(--app-text-subtle);
 }
 
 .snippet-editor {

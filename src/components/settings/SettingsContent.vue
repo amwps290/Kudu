@@ -1,34 +1,34 @@
 <template>
   <div class="settings-editor" :class="{ embedded }">
     <aside class="settings-nav">
-      <div class="settings-nav-title">{{ $t('common.settings') }}</div>
-      <button type="button" class="settings-nav-item" :class="{ active: currentSection === 'interface' }" @click="selectedKeys = ['interface']">
+      <div class="app-section-title settings-nav-title">{{ $t('common.settings') }}</div>
+      <button type="button" class="interactive-row settings-nav-item" :class="{ active: currentSection === 'interface' }" @click="selectedKeys = ['interface']">
         {{ $t('settings_page.interface_title') }}
       </button>
-      <button type="button" class="settings-nav-item" :class="{ active: currentSection === 'editor' }" @click="selectedKeys = ['editor']">
+      <button type="button" class="interactive-row settings-nav-item" :class="{ active: currentSection === 'editor' }" @click="selectedKeys = ['editor']">
         {{ $t('settings_page.editor_title') }}
       </button>
-      <button type="button" class="settings-nav-item" :class="{ active: currentSection === 'database' }" @click="selectedKeys = ['database']">
+      <button type="button" class="interactive-row settings-nav-item" :class="{ active: currentSection === 'database' }" @click="selectedKeys = ['database']">
         {{ $t('settings_page.database_title') }}
       </button>
     </aside>
 
     <main class="settings-main">
-      <div class="settings-header">
+      <div class="section-header settings-header">
         <div class="settings-heading">
           <h1>{{ currentSectionTitle }}</h1>
           <p>{{ currentSectionDescription }}</p>
-          <div class="settings-subtle">{{ $t('settings_page.instant_save_hint') }}</div>
+          <div class="app-subtle-note settings-subtle">{{ $t('settings_page.instant_save_hint') }}</div>
         </div>
       </div>
 
       <template v-if="currentSection === 'interface'">
         <section class="settings-group">
-          <div class="settings-group-title">{{ $t('settings_page.appearance_group') }}</div>
+          <div class="setting-group-title settings-group-title">{{ $t('settings_page.appearance_group') }}</div>
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('common.theme') }}</div>
-              <div class="setting-help">{{ $t('settings_page.theme_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.theme_help') }}</div>
             </div>
             <a-select v-model:value="themeModeModel" class="setting-select compact">
               <a-select-option value="light">{{ $t('settings_page.theme_light') }}</a-select-option>
@@ -40,7 +40,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.current_theme') }}</div>
-              <div class="setting-help">{{ $t('settings_page.current_theme_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.current_theme_help') }}</div>
             </div>
             <a-input :value="appStore.theme === 'dark' ? $t('settings_page.theme_dark') : $t('settings_page.theme_light')" class="setting-select compact" readonly />
           </div>
@@ -48,7 +48,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.interface_font') }}</div>
-              <div class="setting-help">{{ $t('settings_page.interface_font_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.interface_font_help') }}</div>
             </div>
             <a-select
               v-model:value="interfaceFontModel"
@@ -63,7 +63,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('common.language') }}</div>
-              <div class="setting-help">{{ $t('settings_page.language_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.language_help') }}</div>
             </div>
             <a-select v-model:value="languageModel" class="setting-select compact">
               <a-select-option value="zh-CN">中文</a-select-option>
@@ -74,7 +74,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.log_level') }}</div>
-              <div class="setting-help">{{ $t('settings_page.log_level_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.log_level_help') }}</div>
             </div>
             <a-select v-model:value="logLevelModel" class="setting-select compact" :options="logLevelOptions" />
           </div>
@@ -83,11 +83,11 @@
 
       <template v-else-if="currentSection === 'editor'">
         <section class="settings-group">
-          <div class="settings-group-title">{{ $t('settings_page.editor_typography_group') }}</div>
+          <div class="setting-group-title settings-group-title">{{ $t('settings_page.editor_typography_group') }}</div>
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.editor_font') }}</div>
-              <div class="setting-help">{{ $t('settings_page.editor_font_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.editor_font_help') }}</div>
             </div>
             <a-select
               v-model:value="editorFontModel"
@@ -102,7 +102,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.font_size') }}</div>
-              <div class="setting-help">{{ $t('settings_page.font_size_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.font_size_help') }}</div>
             </div>
             <a-input-number v-model:value="fontSizeModel" :min="12" :max="24" class="setting-select compact" />
           </div>
@@ -110,7 +110,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.line_numbers') }}</div>
-              <div class="setting-help">{{ $t('settings_page.line_numbers_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.line_numbers_help') }}</div>
             </div>
             <a-select v-model:value="lineNumbersModel" class="setting-select compact">
               <a-select-option value="on">{{ $t('settings_page.option_on') }}</a-select-option>
@@ -121,7 +121,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.minimap') }}</div>
-              <div class="setting-help">{{ $t('settings_page.minimap_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.minimap_help') }}</div>
             </div>
             <a-select v-model:value="minimapModeModel" class="setting-select compact">
               <a-select-option value="on">{{ $t('settings_page.option_on') }}</a-select-option>
@@ -133,7 +133,7 @@
 
       <template v-else>
         <section class="settings-group">
-          <div class="settings-group-title">{{ $t('settings_page.database_connection_group') }}</div>
+          <div class="setting-group-title settings-group-title">{{ $t('settings_page.database_connection_group') }}</div>
           <a-alert
             type="info"
             show-icon
@@ -144,7 +144,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.mysql_charset') }}</div>
-              <div class="setting-help">{{ $t('settings_page.mysql_charset_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.mysql_charset_help') }}</div>
             </div>
             <a-select v-model:value="mysqlCharsetModel" class="setting-select compact">
               <a-select-option value="utf8mb4">utf8mb4</a-select-option>
@@ -157,7 +157,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <div class="setting-label">{{ $t('settings_page.mysql_init_sql') }}</div>
-              <div class="setting-help">{{ $t('settings_page.mysql_init_sql_help') }}</div>
+              <div class="help-text setting-help">{{ $t('settings_page.mysql_init_sql_help') }}</div>
             </div>
             <a-textarea
               v-model:value="mysqlInitSqlModel"
@@ -377,16 +377,6 @@ const mysqlInitSqlModel = computed({
   background: transparent;
 }
 
-.settings-nav-title {
-  margin-bottom: 8px;
-  padding: 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--app-text-subtle);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .settings-nav-item {
   width: 100%;
   padding: 6px 8px;
@@ -396,15 +386,10 @@ const mysqlInitSqlModel = computed({
   color: var(--app-text-muted);
   font-size: 13px;
   text-align: left;
-  cursor: pointer;
 }
 
 .settings-nav-item + .settings-nav-item {
   margin-top: 2px;
-}
-
-.settings-nav-item:hover {
-  background: var(--color-primary-hover-bg);
 }
 
 .settings-nav-item.active {
@@ -426,23 +411,11 @@ const mysqlInitSqlModel = computed({
   border-bottom: 1px solid var(--border-color-muted);
 }
 
-.settings-heading h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .settings-heading p {
   margin: 4px 0 0;
   color: var(--app-text-subtle);
   font-size: 12px;
   line-height: 1.5;
-}
-
-.settings-subtle {
-  margin-top: 6px;
-  color: var(--color-primary);
-  font-size: 11px;
 }
 
 .settings-group {
@@ -455,17 +428,6 @@ const mysqlInitSqlModel = computed({
 
 .dark-mode .settings-group {
   background: transparent;
-}
-
-.settings-group-title {
-  padding: 4px 0 6px;
-  border-bottom: 1px solid var(--border-color-muted);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--app-text-subtle);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .setting-row {
@@ -490,12 +452,6 @@ const mysqlInitSqlModel = computed({
   margin-bottom: 2px;
   font-size: 13px;
   font-weight: 500;
-}
-
-.setting-help {
-  color: var(--app-text-subtle);
-  font-size: 11px;
-  line-height: 1.4;
 }
 
 .setting-select {

@@ -126,7 +126,7 @@
                 <a-button type="dashed" size="small" block @click="startAddSearchPathItem" v-if="!searchPathAdding">
                   <template #icon><PlusOutlined /></template>{{ $t('editor.search_path_add') }}
                 </a-button>
-                <div class="search-path-sql-preview" v-if="searchPathSql">
+                <div class="code-block-compact search-path-sql-preview" v-if="searchPathSql">
                   <code>{{ searchPathSql }}</code>
                 </div>
                 <a-space :size="8" class="search-path-actions">
@@ -346,6 +346,6 @@ function handleDatabaseMenuClick({ key }: { key: string | number }) {
 }
 .search-path-editor { min-width: 260px; max-width: 340px; }
 .search-path-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; align-items: center; }
-.search-path-sql-preview { margin-top: 6px; padding: 6px 8px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.search-path-sql-preview { margin-top: 6px; padding: 6px 8px; }
 .search-path-sql-preview code { font-size: 11px; font-family: monospace; color: var(--app-text-muted); }
 </style>

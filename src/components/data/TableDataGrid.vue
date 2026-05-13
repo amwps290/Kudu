@@ -1,6 +1,6 @@
 <template>
   <div class="table-data-grid">
-    <div class="grid-toolbar">
+    <div class="panel-toolbar panel-toolbar--strong-border grid-toolbar">
       <a-space>
         <a-button-group>
           <a-button :icon="h(ReloadOutlined)" @click="refresh" :loading="loading">
@@ -67,12 +67,12 @@
         <a-tag v-if="deletedRows.length > 0" color="red">
           {{ $t('data.pending_delete_count', { n: deletedRows.length }) }}
         </a-tag>
-        <div class="data-info">
+        <div class="text-caption data-info">
           {{ $t('editor.loaded_rows', { n: gridOptions.data?.length || 0 }) }}
           <span v-if="loading" class="loading-text">
             <a-spin size="small" class="loading-spinner" /> {{ $t('common.loading') }}
           </span>
-          <span v-else-if="!hasMore" class="end-text"> {{ $t('data.loaded_all') }}</span>
+          <span v-else-if="!hasMore" class="text-subtle end-text"> {{ $t('data.loaded_all') }}</span>
         </div>
       </div>
     </div>
@@ -986,14 +986,10 @@ watch(
 
 <style scoped>
 .table-data-grid { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.grid-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border-color-strong); background: var(--surface-muted); flex-shrink: 0; }
 .grid-wrapper { flex: 1; min-height: 0; padding: 4px; background: var(--surface); }
 .toolbar-right { display: flex; align-items: center; }
-.data-info { font-size: 12px; color: var(--app-text-subtle); }
 .loading-text { color: var(--color-primary); font-weight: 500; }
 .loading-spinner { margin-left: 8px; }
-.end-text { color: var(--app-text-subtle); }
-.null-text { color: var(--app-text-subtle); font-style: italic; }
 
 :deep(.cell-modified) { background-color: var(--color-warning-soft-bg) !important; position: relative; }
 :deep(.cell-modified)::after { content: ""; position: absolute; top: 0; left: 0; border: 4px solid transparent; border-left-color: var(--color-warning); border-top-color: var(--color-warning); }
@@ -1003,7 +999,5 @@ watch(
 .viewer-container { padding: 12px; height: 100%; display: flex; flex-direction: column; background: var(--surface); color: var(--app-text); }
 .viewer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .viewer-textarea { flex: 1; font-family: monospace; }
-.preview-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.preview-hint { margin-bottom: 12px; color: var(--app-text-subtle); font-size: 12px; }
 .preview-sql :deep(textarea) { font-family: monospace; }
 </style>

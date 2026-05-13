@@ -37,7 +37,7 @@
       </a-form-item>
 
       <a-form-item :label="$t('dialog.save_query.sql_preview')">
-        <div class="sql-preview">
+        <div class="code-block-compact sql-preview">
           {{ sqlPreview }}
         </div>
       </a-form-item>
@@ -197,15 +197,7 @@ watch(visible, (newVal) => {
 }
 
 .sql-preview {
-  padding: 8px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-color-strong);
-  border-radius: var(--radius-sm);
-  font-family: monospace;
-  font-size: 12px;
   max-height: 150px;
   overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 </style>

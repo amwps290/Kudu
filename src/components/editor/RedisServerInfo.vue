@@ -34,7 +34,7 @@
       </a-descriptions>
 
       <a-divider orientation="left">所有信息</a-divider>
-      <pre class="server-info-detail">{{ JSON.stringify(info, null, 2) }}</pre>
+      <pre class="code-block-compact server-info-detail">{{ JSON.stringify(info, null, 2) }}</pre>
     </a-spin>
   </a-modal>
 </template>
@@ -76,10 +76,7 @@ watch(() => props.open, async (val) => {
 
 <style scoped>
 .server-info-detail {
-  background: var(--surface-muted);
   padding: 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
   max-height: 400px;
   overflow: auto;
 }

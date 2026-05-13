@@ -1,6 +1,6 @@
 <template>
   <div class="table-designer">
-    <div class="designer-toolbar">
+    <div class="panel-toolbar designer-toolbar">
       <a-space>
         <template v-if="!effectiveReadOnly">
           <a-button :icon="h(SaveOutlined)" @click="saveChanges" type="primary" :loading="saving">
@@ -766,13 +766,10 @@ watch(() => [props.connectionId, props.database, props.schema, props.table], () 
 
 <style scoped>
 .table-designer { height: 100%; display: flex; flex-direction: column; }
-.designer-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); background: var(--surface-muted); }
 .designer-content { flex: 1; overflow: hidden; }
 .designer-content :deep(.ant-tabs) { height: 100%; }
 .designer-content :deep(.ant-tabs-content) { height: 100%; }
 .ddl-container { height: calc(100vh - 300px); border: 1px solid var(--border-color); margin: 16px; position: relative; }
 .ddl-actions { margin: 0 16px 16px 16px; }
-.preview-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.preview-hint { margin-bottom: 12px; color: var(--app-text-subtle); font-size: 12px; }
 .preview-sql :deep(textarea) { font-family: monospace; }
 </style>

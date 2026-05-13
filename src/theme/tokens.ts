@@ -39,6 +39,32 @@ export interface AppThemeTokens {
   scrollbarThumbHover: string
   shadowOverlay: string
   shadowSoft: string
+  swatchRing: string
+  focusRingPrimary: string
+  windowCloseHoverBg: string
+  colorOnDanger: string
+  connectionColor1: string
+  connectionColor2: string
+  connectionColor3: string
+  connectionColor4: string
+  connectionColor5: string
+  connectionColor6: string
+  connectionColor7: string
+  connectionColor8: string
+  iconColorBlue: string
+  iconColorOrange: string
+  iconColorYellow: string
+  iconColorGreen: string
+  iconColorTeal: string
+  iconColorPurple: string
+  iconColorPink: string
+  iconColorSlate: string
+  iconColorEmerald: string
+  iconColorBrown: string
+  iconColorCyan: string
+  iconColorGray: string
+  iconColorMuted: string
+  indicatorRingSoft: string
   radiusSm: string
   radiusMd: string
 }
@@ -84,6 +110,32 @@ export const lightThemeTokens: AppThemeTokens = {
   scrollbarThumbHover: '#b8c0cc',
   shadowOverlay: '0 4px 14px rgba(15, 23, 42, 0.10)',
   shadowSoft: '0 1px 2px rgba(15, 23, 42, 0.06)',
+  swatchRing: '0 0 0 1px rgba(15, 23, 42, 0.12)',
+  focusRingPrimary: '0 0 0 3px rgba(59, 130, 246, 0.18)',
+  windowCloseHoverBg: '#e81123',
+  colorOnDanger: '#ffffff',
+  connectionColor1: '#ef4444',
+  connectionColor2: '#f97316',
+  connectionColor3: '#eab308',
+  connectionColor4: '#22c55e',
+  connectionColor5: '#14b8a6',
+  connectionColor6: '#3b82f6',
+  connectionColor7: '#8b5cf6',
+  connectionColor8: '#ec4899',
+  iconColorBlue: '#1890ff',
+  iconColorOrange: '#fa8c16',
+  iconColorYellow: '#faad14',
+  iconColorGreen: '#52c41a',
+  iconColorTeal: '#13c2c2',
+  iconColorPurple: '#722ed1',
+  iconColorPink: '#eb2f96',
+  iconColorSlate: '#607d8b',
+  iconColorEmerald: '#43a047',
+  iconColorBrown: '#795548',
+  iconColorCyan: '#00bcd4',
+  iconColorGray: '#8c8c8c',
+  iconColorMuted: '#bfbfbf',
+  indicatorRingSoft: '0 0 0 1px rgba(15, 23, 42, 0.08)',
   radiusSm: '6px',
   radiusMd: '10px',
 }
@@ -129,6 +181,32 @@ export const darkThemeTokens: AppThemeTokens = {
   scrollbarThumbHover: '#555555',
   shadowOverlay: '0 8px 24px rgba(0, 0, 0, 0.35)',
   shadowSoft: '0 1px 2px rgba(0, 0, 0, 0.24)',
+  swatchRing: '0 0 0 1px rgba(255, 255, 255, 0.16)',
+  focusRingPrimary: '0 0 0 3px rgba(23, 125, 220, 0.28)',
+  windowCloseHoverBg: '#c42b1c',
+  colorOnDanger: '#ffffff',
+  connectionColor1: '#ff7875',
+  connectionColor2: '#ff9c6e',
+  connectionColor3: '#ffd666',
+  connectionColor4: '#95de64',
+  connectionColor5: '#5cdbd3',
+  connectionColor6: '#69b1ff',
+  connectionColor7: '#b37feb',
+  connectionColor8: '#ff85c0',
+  iconColorBlue: '#69b1ff',
+  iconColorOrange: '#ff9c6e',
+  iconColorYellow: '#ffd666',
+  iconColorGreen: '#95de64',
+  iconColorTeal: '#5cdbd3',
+  iconColorPurple: '#b37feb',
+  iconColorPink: '#ff85c0',
+  iconColorSlate: '#8c8c8c',
+  iconColorEmerald: '#73d13d',
+  iconColorBrown: '#d6b08c',
+  iconColorCyan: '#36cfc9',
+  iconColorGray: '#bfbfbf',
+  iconColorMuted: '#8c8c8c',
+  indicatorRingSoft: '0 0 0 1px rgba(255, 255, 255, 0.14)',
   radiusSm: '6px',
   radiusMd: '10px',
 }

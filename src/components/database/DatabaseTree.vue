@@ -20,8 +20,8 @@
     </a-spin>
 
     <!-- 右键菜单 -->
-    <div v-if="contextMenuVisible" class="context-menu-overlay" @click="hideContextMenu()">
-      <div ref="contextMenuRef" class="context-menu" :style="contextMenuStyle" @click.stop>
+    <div v-if="contextMenuVisible" class="app-context-menu-overlay context-menu-overlay" @click="hideContextMenu()">
+      <div ref="contextMenuRef" class="app-context-menu app-context-menu--scrollable context-menu" :style="contextMenuStyle" @click.stop>
         <a-menu @click="handleMenuClick" size="small" mode="inline" :inline-indent="8">
           <!-- 数据库节点 -->
           <template v-if="selectedNode?.type === 'database'">
@@ -104,7 +104,7 @@
     <a-modal v-model:open="showScriptsModal" :title="$t('tree.open_scripts')" :footer="null" width="500px">
       <a-list :data-source="savedScripts" :loading="loadingScripts" size="small">
         <template #renderItem="{ item }">
-          <a-list-item @click="openSavedScript(item)" class="script-item">
+          <a-list-item @click="openSavedScript(item)" class="interactive-row interactive-row--soft script-item">>
             <a-list-item-meta :title="item.name">
               <template #description>{{ new Date(item.last_modified * 1000).toLocaleString() }}</template>
             </a-list-item-meta>
@@ -914,65 +914,6 @@ defineExpose({ refresh: loadDatabases })
 <style scoped>
 .database-tree { height: 100%; overflow: visible; padding: 0; user-select: none; }
 .custom-tree { width: 100%; }
-.context-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; }
-.context-menu { position: absolute; background: var(--overlay-bg); border-radius: var(--radius-sm); border: 1px solid var(--overlay-border); box-shadow: var(--shadow-overlay), var(--shadow-soft); z-index: 10000; min-width: 180px; max-width: min(320px, calc(100vw - 16px)); overflow-y: auto; overflow-x: hidden; padding: 2px; }
-.context-menu :deep(.ant-menu) { background: transparent; border-inline-end: none; font-size: 12px; }
-.context-menu :deep(.ant-menu-item),
-.context-menu :deep(.ant-menu-submenu),
-.context-menu :deep(.ant-menu-submenu-title) { margin: 0 !important; }
-.context-menu :deep(.ant-menu-item),
-.context-menu :deep(.ant-menu-submenu-title) {
-  height: 28px;
-  line-height: 28px;
-  padding-inline: 8px !important;
-  border-radius: 3px;
-  color: var(--app-text-muted);
-}
-.context-menu :deep(.ant-menu-item .ant-menu-title-content),
-.context-menu :deep(.ant-menu-submenu-title .ant-menu-title-content) {
-  display: flex;
-  align-items: center;
-}
-.context-menu :deep(.ant-menu-item .anticon),
-.context-menu :deep(.ant-menu-submenu-title .anticon) {
-  font-size: 12px;
-  margin-inline-end: 6px;
-}
-.context-menu :deep(.ant-menu-submenu-arrow) {
-  inset-inline-end: 8px;
-}
-.context-menu :deep(.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title) {
-  font-weight: 500;
-}
-.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline) {
-  background: var(--surface-hover);
-  margin: 2px 0 4px 14px;
-  padding: 2px 0;
-  border-left: 1px solid var(--border-color);
-}
-.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item) {
-  height: 26px;
-  line-height: 26px;
-  padding-inline-start: 14px !important;
-  padding-inline-end: 8px !important;
-  border-radius: 0;
-}
-.context-menu :deep(.ant-menu-item-selected) {
-  background: var(--color-primary-hover-bg);
-}
-.context-menu :deep(.ant-menu-item:hover),
-.context-menu :deep(.ant-menu-submenu-title:hover) {
-  background: var(--surface-hover);
-}
-.context-menu :deep(.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover) {
-  background: var(--surface-hover);
-}
-.context-menu :deep(.ant-menu-item-divider) {
-  margin: 3px 0;
-}
-.context-menu::-webkit-scrollbar { width: 8px; }
-.context-menu::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; }
-.script-item { cursor: pointer; transition: background 0.2s; }
-.script-item:hover { background: var(--surface-muted); }
+.script-item { }
 .ddl-preview-editor { height: 500px; border: 1px solid var(--border-color-strong); border-radius: var(--radius-sm); }
 </style>

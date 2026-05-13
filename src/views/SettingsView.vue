@@ -35,6 +35,6 @@ function noop() {}
 }
 
 .settings-page-content {
-  height: calc(100vh - 40px);
+  height: calc(100vh - var(--header-height));
 }
 </style>

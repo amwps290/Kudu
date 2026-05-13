@@ -1,7 +1,7 @@
 <template>
   <div class="redis-editor-container">
     <!-- 工具栏 -->
-    <div class="editor-toolbar">
+    <div class="panel-toolbar editor-toolbar">
       <a-space>
         <a-button
           type="primary"
@@ -69,7 +69,7 @@
         <a-tag v-if="selectedDatabase" color="orange">
           {{ selectedDatabase }}
         </a-tag>
-        <span class="cursor-position">{{ $t('redis.line_col', { line: cursorLine, col: cursorColumn }) }}</span>
+        <span class="text-caption cursor-position">{{ $t('redis.line_col', { line: cursorLine, col: cursorColumn }) }}</span>
       </div>
     </div>
 
@@ -547,15 +547,6 @@ defineExpose({
   overflow: hidden;
 }
 
-.editor-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--surface-muted);
-}
-
 .editor-info {
   display: flex;
   gap: 12px;
@@ -566,10 +557,6 @@ defineExpose({
   width: 150px;
 }
 
-.cursor-position {
-  font-size: 12px;
-  color: var(--app-text-subtle);
-}
 
 .key-search {
   width: 240px;

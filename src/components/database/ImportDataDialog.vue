@@ -52,7 +52,7 @@
       :description="$t('dialog.import_data.truncate_warning')"
       type="warning"
       show-icon
-      class="truncate-warning"
+      class="preview-hint truncate-warning"
     />
   </a-modal>
 </template>
@@ -241,7 +241,4 @@ function handleCancel() {
   cursor: pointer;
 }
 
-.truncate-warning {
-  margin-top: 12px;
-}
 </style>

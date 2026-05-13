@@ -190,7 +190,7 @@
         </div>
         <a-list v-if="filteredHistory.length > 0" :data-source="filteredHistory" size="small" class="history-list">
           <template #renderItem="{ item }">
-            <a-list-item class="history-item" @click="useHistorySql(item.sql)">
+            <a-list-item class="interactive-row interactive-row--soft history-item" @click="useHistorySql(item.sql)">
               <div class="history-entry">
                 <code class="history-sql">{{ getHistoryPreview(item.sql) }}</code>
                 <div class="history-meta">{{ formatHistoryMeta(item) }}</div>
@@ -202,8 +202,8 @@
       </div>
     </a-drawer>
 
-    <div v-if="resultContextMenuVisible" class="result-context-menu-overlay" @click="hideResultContextMenu()">
-      <div class="result-context-menu" :style="{ left: resultContextMenuX + 'px', top: resultContextMenuY + 'px' }" @click.stop>
+    <div v-if="resultContextMenuVisible" class="app-context-menu-overlay result-context-menu-overlay" @click="hideResultContextMenu()">
+      <div class="app-context-menu result-context-menu" :style="{ left: resultContextMenuX + 'px', top: resultContextMenuY + 'px' }" @click.stop>
         <a-menu @click="handleResultMenuClick" size="small">
           <a-menu-item key="close-current" :disabled="resultContextIndex < 0">{{ $t('common.close') }}</a-menu-item>
           <a-menu-item key="close-left" :disabled="!hasResultTabsOnLeft">{{ $t('common.close_left') }}</a-menu-item>
@@ -1232,8 +1232,7 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .history-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .history-count { flex-shrink: 0; min-width: 24px; font-size: 12px; color: var(--app-text-subtle); text-align: right; }
 .history-list { flex: 1; min-height: 0; overflow-y: auto; }
-.history-item { cursor: pointer; transition: background 0.2s; }
-.history-item:hover { background: var(--surface-muted); }
+.history-item { }
 .history-entry { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; }
 .history-sql { display: block; font-family: monospace; background: transparent; padding: 0; white-space: pre-wrap; word-break: break-word; color: inherit; }
 .history-meta { font-size: 12px; color: var(--app-text-subtle); line-height: 1.4; }
@@ -1241,38 +1240,7 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-tab-close { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--app-text-subtle); font-size: 12px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: background-color 0.2s, color 0.2s; }
 .result-tab-close:hover { background: var(--surface-hover); color: var(--app-text); }
-.result-context-menu-overlay { position: fixed; inset: 0; z-index: 9999; }
-.result-context-menu {
-  position: absolute;
-  min-width: 140px;
-  background: var(--overlay-bg);
-  border: 1px solid var(--overlay-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-overlay), var(--shadow-soft);
-  overflow: hidden;
-  padding: 2px;
-}
-.result-context-menu :deep(.ant-menu) {
-  background: transparent;
-  border-inline-end: none !important;
-  font-size: 12px;
-}
-.result-context-menu :deep(.ant-menu-item) {
-  margin: 0 !important;
-  padding: 0 8px !important;
-  height: 28px !important;
-  line-height: 28px !important;
-  border-radius: 3px;
-  color: var(--app-text-muted);
-}
-.result-context-menu :deep(.ant-menu-item:hover) {
-  background: var(--surface-hover) !important;
-}
-.result-context-menu :deep(.ant-menu-item-disabled) {
-  color: var(--app-text-subtle) !important;
-}
 .result-cell-text, .messages-content, :deep(.table-wrapper .vxe-cell), :deep(.table-wrapper .vxe-cell--label), :deep(.table-wrapper .vxe-body--row .vxe-cell) { user-select: text !important; -webkit-user-select: text !important; }
-.null-text { color: var(--app-text-subtle); font-style: italic; }
 :deep(.danger-confirm-content) { display: flex; flex-direction: column; gap: 12px; }
 :deep(.danger-confirm-intro) { margin: 0; color: var(--app-text-muted); }
 :deep(.danger-confirm-list) { margin: 0; padding-left: 18px; color: var(--app-text); }

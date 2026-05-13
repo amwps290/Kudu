@@ -26,7 +26,7 @@
       :description="$t('dialog.create_view.tip_message')"
       type="info"
       show-icon
-      class="view-tip-alert"
+      class="preview-hint view-tip-alert"
     />
   </a-modal>
 </template>
@@ -120,9 +120,6 @@ function handleCancel() {
   border-radius: var(--radius-sm);
 }
 
-.view-tip-alert {
-  margin-top: 12px;
-}
 </style>
 
 <style scoped>

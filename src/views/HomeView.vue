@@ -69,11 +69,11 @@
 
     <div
       v-if="contextMenuVisible"
-      class="context-menu-overlay"
+      class="app-context-menu-overlay context-menu-overlay"
       @click="hideContextMenu()"
     >
       <div
-        class="context-menu"
+        class="app-context-menu context-menu"
         :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
         @click.stop
       >
@@ -372,43 +372,10 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
 .workspace-tabs :deep(.ant-tabs-content) { flex: 1; height: 100%; overflow: hidden; }
 .workspace-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
 .tab-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.tab-connection-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08); }
+.tab-connection-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; box-shadow: var(--indicator-ring-soft); }
 .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab-dirty-indicator { color: var(--color-warning); font-weight: 700; }
 .tab-content-wrapper { flex: 1; height: 100%; overflow: hidden; position: relative; }
 .empty-workspace { flex: 1; display: flex; align-items: center; justify-content: center; }
-.context-menu-overlay { position: fixed; inset: 0; z-index: 9999; }
-.context-menu {
-  position: absolute;
-  min-width: 140px;
-  background: var(--overlay-bg);
-  border: 1px solid var(--overlay-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-overlay), var(--shadow-soft);
-  overflow: hidden;
-  padding: 2px;
-}
-.context-menu :deep(.ant-menu) {
-  background: transparent;
-  border-inline-end: none !important;
-  font-size: 12px;
-}
-.context-menu :deep(.ant-menu-item) {
-  margin: 0 !important;
-  padding: 0 8px !important;
-  height: 28px !important;
-  line-height: 28px !important;
-  border-radius: 3px;
-  color: var(--app-text-muted);
-}
-.context-menu :deep(.ant-menu-item:hover) {
-  background: var(--surface-hover) !important;
-}
-.context-menu :deep(.ant-menu-item-disabled) {
-  color: var(--app-text-subtle) !important;
-}
-.context-menu :deep(.ant-divider) {
-  margin: 2px 0 !important;
-}
 .tab-menu-divider { margin: 4px 0; }
 </style>

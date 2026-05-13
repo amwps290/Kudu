@@ -28,7 +28,7 @@
           @click="selectSavePath"
         >
           <template #suffix>
-            <FolderOpenOutlined style="cursor: pointer" @click="selectSavePath" />
+            <FolderOpenOutlined class="save-path-icon" @click="selectSavePath" />
           </template>
         </a-input>
       </a-form-item>
@@ -258,3 +258,9 @@ function handleCancel() {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.save-path-icon {
+  cursor: pointer;
+}
+</style>

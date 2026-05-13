@@ -40,7 +40,7 @@
           ></button>
           <a-button size="small" @click="formData.color = ''">{{ $t('common.clear') }}</a-button>
         </div>
-        <div class="color-preview">
+        <div class="text-caption color-preview">
           <span class="preview-dot" :style="{ backgroundColor: formData.color || 'var(--border-color-strong)' }"></span>
           <span>{{ formData.color || $t('connection.form.color_none') }}</span>
         </div>
@@ -117,10 +117,10 @@
 
       <a-form-item :label="$t('connection.form.protection')">
         <div class="protection-settings">
-          <div class="protection-item">
+          <div class="info-panel protection-item">
             <div class="protection-copy">
               <div class="protection-title">{{ $t('connection.form.read_only') }}</div>
-              <div class="protection-description">{{ $t('connection.form.read_only_help') }}</div>
+              <div class="help-text protection-description">{{ $t('connection.form.read_only_help') }}</div>
             </div>
             <a-switch v-model:checked="formData.read_only" />
           </div>
@@ -163,7 +163,16 @@ const connectionStore = useConnectionStore()
 const formRef = ref()
 const testing = ref(false)
 const submitting = ref(false)
-const connectionColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
+const connectionColors = [
+  'var(--connection-color-1)',
+  'var(--connection-color-2)',
+  'var(--connection-color-3)',
+  'var(--connection-color-4)',
+  'var(--connection-color-5)',
+  'var(--connection-color-6)',
+  'var(--connection-color-7)',
+  'var(--connection-color-8)',
+]
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -399,7 +408,7 @@ function resetForm() {
   border: 2px solid transparent;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--swatch-ring);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -409,7 +418,7 @@ function resetForm() {
 
 .color-swatch.active {
   border-color: var(--app-text);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  box-shadow: var(--focus-ring-primary);
 }
 
 .full-width-input {
@@ -418,15 +427,6 @@ function resetForm() {
 
 .sqlite-path-input {
   width: calc(100% - 160px);
-}
-
-.color-preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  color: var(--app-text-subtle);
-  font-size: 12px;
 }
 
 .preview-dot {
@@ -446,10 +446,8 @@ function resetForm() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 14px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: var(--surface-muted);
 }
 
 .protection-copy {
@@ -462,11 +460,5 @@ function resetForm() {
   color: var(--app-text);
   font-size: 13px;
   font-weight: 600;
-}
-
-.protection-description {
-  color: var(--app-text-subtle);
-  font-size: 12px;
-  line-height: 1.5;
 }
 </style>
