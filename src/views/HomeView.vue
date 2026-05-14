@@ -192,6 +192,7 @@ const {
   addTab,
   handleFileSaved,
   callActiveEditor,
+  t,
 })
 
 const tabActions = useWorkspaceTabActions({

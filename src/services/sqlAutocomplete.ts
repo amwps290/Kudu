@@ -43,6 +43,14 @@ interface QuerySource {
   alias?: string
 }
 
+const FALLBACK_SQL_KEYWORDS = [
+  'SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE',
+  'CREATE', 'ALTER', 'DROP', 'TABLE', 'VIEW', 'INDEX', 'DATABASE', 'SCHEMA',
+  'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'GROUP', 'BY', 'ORDER', 'HAVING',
+  'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'AS', 'AND', 'OR', 'NOT', 'NULL',
+  'IS', 'IN', 'EXISTS', 'LIKE', 'BETWEEN', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+]
+
 export class SqlAutocompleteManager {
   private static instance: SqlAutocompleteManager
   private static registrationPromise: Promise<SqlAutocompleteManager> | null = null
@@ -55,11 +63,6 @@ export class SqlAutocompleteManager {
   public readonly triggerCharacters = [' ', '.', '(', ',']
 
   private gucParameters: Set<string>
-  private inlayHintsEmitter: { event: unknown; fire: () => void } | null = null
-
-  public get onDidChangeInlayHints(): any {
-    return this.inlayHintsEmitter?.event
-  }
 
   private constructor() {
     this.gucParameters = new Set([
@@ -123,9 +126,7 @@ export class SqlAutocompleteManager {
     if (this.registered) return
 
     this.monaco = await loadMonaco()
-    this.inlayHintsEmitter = new this.monaco.Emitter()
     this.monaco.languages.registerCompletionItemProvider('sql', this)
-    this.monaco.languages.registerInlayHintsProvider('sql', this)
     this.registered = true
   }
 
@@ -146,9 +147,7 @@ export class SqlAutocompleteManager {
 
   public bindModel(model: any, context: ModelContext) {
     this.contextMap.set(model.id, context)
-    void this.fetchData(context.connectionId, context.database).then(() => {
-      this.inlayHintsEmitter?.fire()
-    })
+    void this.fetchData(context.connectionId, context.database)
   }
 
   public unbindModel(model: any) {
@@ -173,7 +172,6 @@ export class SqlAutocompleteManager {
           database,
         })
         this.dataCache.set(cacheKey, data)
-        this.inlayHintsEmitter?.fire()
         return data
       } catch (error) {
         console.error('加载补全数据失败:', error)
@@ -273,6 +271,25 @@ export class SqlAutocompleteManager {
     })
   }
 
+  private buildKeywordSuggestions(position: any, model: any, keywords: string[]) {
+    if (!this.monaco) return []
+
+    const word = model.getWordUntilPosition(position)
+    const range = {
+      startLineNumber: position.lineNumber,
+      endLineNumber: position.lineNumber,
+      startColumn: word.startColumn,
+      endColumn: word.endColumn,
+    }
+
+    return keywords.map((keyword) => ({
+      label: keyword,
+      kind: this.monaco!.languages.CompletionItemKind.Keyword,
+      insertText: keyword,
+      range,
+    }))
+  }
+
   async provideCompletionItems(
     model: any,
     position: any
@@ -280,10 +297,14 @@ export class SqlAutocompleteManager {
     if (!this.monaco) return { suggestions: [] }
 
     const context = this.contextMap.get(model.id)
-    if (!context) return { suggestions: [] }
+    if (!context) {
+      return { suggestions: this.buildKeywordSuggestions(position, model, FALLBACK_SQL_KEYWORDS) }
+    }
 
     const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
-    if (!data) return { suggestions: [] }
+    if (!data) {
+      return { suggestions: this.buildKeywordSuggestions(position, model, FALLBACK_SQL_KEYWORDS) }
+    }
 
     const suggestions: any[] = []
     const word = model.getWordUntilPosition(position)
@@ -421,143 +442,6 @@ export class SqlAutocompleteManager {
     }
   }
 
-  async provideInlayHints(
-    model: any,
-    range: any,
-    token: any
-  ): Promise<any> {
-    if (!this.monaco) return { hints: [], dispose: () => {} }
-
-    const context = this.contextMap.get(model.id)
-    const hints: any[] = []
-    if (!context) return { hints, dispose: () => {} }
-
-    const data = await this.fetchData(context.connectionId, context.database).catch(() => null)
-    if (!data) return { hints, dispose: () => {} }
-
-    const text = model.getValue()
-    const funcCallRegex = /(?:(\w+)\.)?(\w+)\s*\(/g
-    let match: RegExpExecArray | null
-
-    while ((match = funcCallRegex.exec(text)) !== null) {
-      if (token.isCancellationRequested) break
-
-      const schema = match[1] || undefined
-      const funcName = match[2]
-      const openParenOffset = match.index + match[0].length - 1
-      const openParenPos = model.getPositionAt(openParenOffset)
-      if (openParenPos.lineNumber < range.startLineNumber || openParenPos.lineNumber > range.endLineNumber) continue
-
-      let depth = 0, bracketDepth = 0
-      let closeParenOffset = -1
-      let inStr = false, strChar = ''
-      let inLineComment = false, inBlockComment = false, inDollar = false, dollarTag = ''
-
-      for (let i = openParenOffset; i < text.length; i++) {
-        const ch = text[i], next = text[i + 1] || ''
-        if (inLineComment && ch === '\n') { inLineComment = false; continue }
-        if (inLineComment) continue
-        if (inBlockComment && ch === '*' && next === '/') { inBlockComment = false; i++; continue }
-        if (inBlockComment) continue
-        if (!inStr && !inLineComment && !inBlockComment && ch === '-' && next === '-') { inLineComment = true; i++; continue }
-        if (!inStr && !inLineComment && !inBlockComment && ch === '/' && next === '*') { inBlockComment = true; i++; continue }
-        if (inDollar) {
-          if (text.substring(i - dollarTag.length + 1, i + 1) === dollarTag) inDollar = false
-          continue
-        }
-        if (!inStr && !inLineComment && !inBlockComment && ch === '$') {
-          const dm = text.substring(i).match(/^(\$[a-zA-Z_\x80-\xff]?[a-zA-Z0-9_\x80-\xff]*\$)/)
-          if (dm) { inDollar = true; dollarTag = dm[1]; i += dm[1].length - 1; continue }
-        }
-        if (!inDollar && !inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
-          if (!inStr) { inStr = true; strChar = ch }
-          else if (ch === strChar) inStr = false
-        }
-        if (inStr || inDollar || inLineComment || inBlockComment) continue
-        if (ch === '(') depth++
-        else if (ch === ')') { depth--; if (depth === 0 && bracketDepth === 0) { closeParenOffset = i; break } }
-        else if (ch === '[') bracketDepth++
-        else if (ch === ']') bracketDepth--
-      }
-      if (closeParenOffset < 0) continue
-
-      const commaPositions: number[] = []
-      depth = 0; bracketDepth = 0
-      inStr = false; inLineComment = false; inBlockComment = false; inDollar = false; dollarTag = ''
-      for (let i = openParenOffset; i < closeParenOffset; i++) {
-        const ch = text[i], next = text[i + 1] || ''
-        if (inLineComment && ch === '\n') { inLineComment = false; continue }
-        if (inLineComment) continue
-        if (inBlockComment && ch === '*' && next === '/') { inBlockComment = false; i++; continue }
-        if (inBlockComment) continue
-        if (!inStr && !inLineComment && !inBlockComment && ch === '-' && next === '-') { inLineComment = true; i++; continue }
-        if (!inStr && !inLineComment && !inBlockComment && ch === '/' && next === '*') { inBlockComment = true; i++; continue }
-        if (inDollar) {
-          if (text.substring(i - dollarTag.length + 1, i + 1) === dollarTag) inDollar = false
-          continue
-        }
-        if (!inStr && !inLineComment && !inBlockComment && ch === '$') {
-          const dm = text.substring(i).match(/^(\$[a-zA-Z_\x80-\xff]?[a-zA-Z0-9_\x80-\xff]*\$)/)
-          if (dm) { inDollar = true; dollarTag = dm[1]; i += dm[1].length - 1; continue }
-        }
-        if (!inDollar && !inLineComment && !inBlockComment && (ch === "'" || ch === '"')) {
-          if (!inStr) { inStr = true; strChar = ch }
-          else if (ch === strChar) inStr = false
-        }
-        if (inStr || inDollar || inLineComment || inBlockComment) continue
-        if (ch === '(') depth++
-        else if (ch === ')') depth--
-        else if (ch === '[') bracketDepth++
-        else if (ch === ']') bracketDepth--
-        else if (ch === ',' && depth === 1 && bracketDepth === 0) commaPositions.push(i)
-      }
-
-      const func = data.functions.find(f => {
-        const nameMatch = f.name.toLowerCase() === funcName.toLowerCase()
-        if (!schema) return nameMatch
-        return nameMatch && (f.schema || '').toLowerCase() === schema.toLowerCase()
-      })
-
-      if (!func || !func.arguments) continue
-      const args = func.arguments.replace(/^\(|\)$/g, '').trim()
-      if (!args) continue
-
-      const argParts = args.split(',').map(a => {
-        const parts = a.trim().split(/\s+/)
-        let nameIdx = 0
-        if (['IN', 'OUT', 'INOUT', 'VARIADIC'].includes(parts[0]?.toUpperCase())) nameIdx = 1
-        return parts[nameIdx] || 'arg'
-      })
-
-      if (commaPositions.length === 0 && argParts.length > 0) {
-        let hintOffset = openParenOffset + 1
-        while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
-        const hintPos = model.getPositionAt(hintOffset)
-        hints.push({
-          label: `${argParts[0]}:`,
-          position: { lineNumber: hintPos.lineNumber, column: hintPos.column },
-          kind: this.monaco.languages.InlayHintKind.Parameter,
-          paddingLeft: true,
-          paddingRight: true,
-        })
-      }
-
-      for (let i = 0; i < commaPositions.length && i < argParts.length - 1; i++) {
-        let hintOffset = commaPositions[i] + 1
-        while (hintOffset < closeParenOffset && /[\s]/.test(text[hintOffset])) hintOffset++
-        const nextPos = model.getPositionAt(hintOffset)
-        hints.push({
-          label: `${argParts[i + 1]}:`,
-          position: { lineNumber: nextPos.lineNumber, column: nextPos.column },
-          kind: this.monaco.languages.InlayHintKind.Parameter,
-          paddingLeft: true,
-          paddingRight: true,
-        })
-      }
-    }
-
-    return { hints, dispose: () => {} }
-  }
 }
 
 export function getSqlAutocompleteManager(): Promise<SqlAutocompleteManager> {

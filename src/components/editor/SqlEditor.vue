@@ -1045,14 +1045,54 @@ onMounted(async () => {
     theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs', automaticLayout: true,
     readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
     fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap },
-    scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers, inlayHints: { enabled: 'on' },
+    scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers,
     renderLineHighlight: 'all', quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true, acceptSuggestionOnCommitCharacter: true,
     acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false,
   })
   updateAutocompleteContext()
-  editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || '') })
-    editor.onKeyUp((e: any) => { if (monacoInstance && (e.keyCode === monacoInstance.KeyCode.Space || e.keyCode === monacoInstance.KeyCode.Period)) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
+  editor.onDidChangeModelContent(() => {
+    emit('contentChange', editor?.getValue() || '')
+  })
+  editor.onDidFocusEditorText(() => {
+    updateAutocompleteContext()
+  })
+  editor.onKeyUp((e: any) => {
+    if (!monacoInstance) return
+    const shouldTrigger = [
+      monacoInstance.KeyCode.Space,
+      monacoInstance.KeyCode.Period,
+      monacoInstance.KeyCode.KeyA,
+      monacoInstance.KeyCode.KeyB,
+      monacoInstance.KeyCode.KeyC,
+      monacoInstance.KeyCode.KeyD,
+      monacoInstance.KeyCode.KeyE,
+      monacoInstance.KeyCode.KeyF,
+      monacoInstance.KeyCode.KeyG,
+      monacoInstance.KeyCode.KeyH,
+      monacoInstance.KeyCode.KeyI,
+      monacoInstance.KeyCode.KeyJ,
+      monacoInstance.KeyCode.KeyK,
+      monacoInstance.KeyCode.KeyL,
+      monacoInstance.KeyCode.KeyM,
+      monacoInstance.KeyCode.KeyN,
+      monacoInstance.KeyCode.KeyO,
+      monacoInstance.KeyCode.KeyP,
+      monacoInstance.KeyCode.KeyQ,
+      monacoInstance.KeyCode.KeyR,
+      monacoInstance.KeyCode.KeyS,
+      monacoInstance.KeyCode.KeyT,
+      monacoInstance.KeyCode.KeyU,
+      monacoInstance.KeyCode.KeyV,
+      monacoInstance.KeyCode.KeyW,
+      monacoInstance.KeyCode.KeyX,
+      monacoInstance.KeyCode.KeyY,
+      monacoInstance.KeyCode.KeyZ,
+    ].includes(e.keyCode)
+    if (shouldTrigger) {
+      Promise.resolve(editor?.getAction?.('editor.action.triggerSuggest')?.run?.()).catch(() => {})
+    }
+  })
   editor.addCommand(monacoInstance.KeyCode.F5, () => executeQuery())
   editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => emit('requestSave'))
   currentStatementDecoration = editor.createDecorationsCollection()
@@ -1064,7 +1104,7 @@ onMounted(async () => {
   loadSearchPath()
   requestAnimationFrame(() => focusEditor())
 })
-onActivated(() => { requestAnimationFrame(() => focusEditor()); loadAvailableDatabases(); loadSearchPath() })
+onActivated(() => { requestAnimationFrame(() => focusEditor()); updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
 onUnmounted(() => { execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m && autocompleteManager) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
@@ -1074,11 +1114,18 @@ watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSe
   editor.updateOptions({ readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize, fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap }, lineNumbers: appStore.editorSettings.lineNumbers })
 }, { immediate: true })
 watch(() => props.connectionId || connectionStore.activeConnectionId, () => { updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
+watch(() => connectionStore.connections.length, () => {
+  updateAutocompleteContext()
+})
 watch(() => {
   const bid = props.connectionId || connectionStore.activeConnectionId
   return bid ? connectionStore.getConnectionStatus(bid) : null
 }, (status) => {
-  if (status === 'connected') loadAvailableDatabases()
+  if (status === 'connected') {
+    updateAutocompleteContext()
+    loadAvailableDatabases()
+    loadSearchPath()
+  }
 })
 watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))

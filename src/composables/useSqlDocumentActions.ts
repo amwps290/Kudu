@@ -1,9 +1,11 @@
 import { nextTick, type ComputedRef, type Ref } from 'vue'
 import { open, save } from '@tauri-apps/plugin-dialog'
+import { message } from '@/ui/antd'
 import { utilsApi, SQL_FILE_FILTERS } from '@/api'
 import { TabType } from '@/types/workspace'
 import type { DataTab } from '@/composables/useTabManager'
 import type { ReturnTypeUseConnectionStore } from '@/types/internal'
+import { getErrorMessage } from '@/utils/errorHandler'
 
 export interface SqlDocumentInput {
   connectionId?: string
@@ -22,6 +24,7 @@ interface SqlDocumentActionsOptions {
   addTab: (tab: DataTab) => void
   handleFileSaved: (key: string, path: string, title: string) => void
   callActiveEditor: (method: string, ...args: unknown[]) => unknown
+  t: (key: string, options?: Record<string, unknown>) => string
 }
 
 export function useSqlDocumentActions(options: SqlDocumentActionsOptions) {
@@ -108,12 +111,17 @@ export function useSqlDocumentActions(options: SqlDocumentActionsOptions) {
 
     if (!selected || Array.isArray(selected)) return false
 
-    const content = await utilsApi.readFile(selected)
-    return openOrCreateQueryTab({
-      filePath: selected,
-      content,
-      title: selected.split(/[\\/]/).pop() || selected,
-    })
+    try {
+      const content = await utilsApi.readFile(selected)
+      return openOrCreateQueryTab({
+        filePath: selected,
+        content,
+        title: selected.split(/[\\/]/).pop() || selected,
+      })
+    } catch (error: unknown) {
+      message.error(`${options.t('common.fail')}: ${getErrorMessage(error)}`)
+      return false
+    }
   }
 
   function getDocumentContent(tab: DataTab) {
