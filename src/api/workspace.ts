@@ -13,6 +13,7 @@ export interface RawSessionTabState {
   content?: string
   file_path?: string
   read_only?: boolean
+  is_untitled?: boolean
 }
 
 export interface RawSessionState {

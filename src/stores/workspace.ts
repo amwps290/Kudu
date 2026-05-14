@@ -34,6 +34,7 @@ function toRawSessionState(tabs: TabState[], activeKey: string): RawSessionState
       content: tab.content,
       file_path: tab.filePath,
       read_only: tab.readOnly,
+      is_untitled: tab.isUntitled,
     })),
     active_tab_key: fallbackActiveKey,
   }
@@ -52,6 +53,7 @@ function fromRawSessionState(session: RawSessionState): { open_tabs: TabState[],
     filePath: tab.file_path,
     readOnly: tab.read_only,
     dirty: false,
+    isUntitled: tab.is_untitled,
   }))
 
   return {

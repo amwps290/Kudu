@@ -2,6 +2,7 @@ import { nextTick, type Ref } from 'vue'
 import type { DataTab } from '@/composables/useTabManager'
 import type { ReturnTypeUseWorkspaceStore } from '@/types/internal'
 import type { ReturnTypeUseConnectionStore } from '@/types/internal'
+import { utilsApi } from '@/api'
 import { createStartupTimer, logStartupStage } from '@/utils/startupProfiler'
 
 interface SessionLifecycleOptions {
@@ -10,7 +11,7 @@ interface SessionLifecycleOptions {
   dataTabs: Ref<DataTab[]>
   mainTabKey: Ref<string>
   isSqlSupported: Ref<boolean>
-  handleNewQuery: (payload: Record<string, never>) => void | Promise<void>
+  openOrCreateQueryTab: (payload: { connectionId?: string; database?: string; filePath?: string; title?: string; content?: string }) => Promise<boolean>
 }
 
 export function useWorkspaceSessionLifecycle(options: SessionLifecycleOptions) {
@@ -42,6 +43,28 @@ export function useWorkspaceSessionLifecycle(options: SessionLifecycleOptions) {
       clearTimeout(sessionSaveTimer)
       sessionSaveTimer = null
     }
+  }
+
+  async function restoreSessionQueryTabs(tabs: DataTab[]) {
+    const restoredTabs = await Promise.all(tabs.map(async (tab) => {
+      if (tab.type !== 'query' || !tab.filePath || tab.isUntitled) return tab
+
+      try {
+        const content = await utilsApi.readFile(tab.filePath)
+        return {
+          ...tab,
+          content,
+          dirty: false,
+        }
+      } catch {
+        return {
+          ...tab,
+          dirty: false,
+        }
+      }
+    }))
+
+    return restoredTabs
   }
 
   function scheduleSessionReconnect(connectionIds: string[]) {
@@ -78,10 +101,11 @@ export function useWorkspaceSessionLifecycle(options: SessionLifecycleOptions) {
       const session = await options.workspaceStore.loadSession()
       await logStartupStage('restoreSession:session-loaded', session ? `tabs=${session.open_tabs.length}` : 'tabs=0')
       if (session && session.open_tabs.length > 0) {
-        options.dataTabs.value = session.open_tabs.map(tab => ({
+        const restoredTabs = await restoreSessionQueryTabs(session.open_tabs.map(tab => ({
           ...tab,
           type: tab.type,
-        })) as DataTab[]
+        })) as DataTab[])
+        options.dataTabs.value = restoredTabs
         options.mainTabKey.value = session.active_tab_key
         await logStartupStage('restoreSession:tabs-applied', `active=${session.active_tab_key}`)
         if (options.connectionStore.connections.length === 0) {
@@ -92,11 +116,11 @@ export function useWorkspaceSessionLifecycle(options: SessionLifecycleOptions) {
         pendingReconnectIds = collectSessionConnectionIds(options.dataTabs.value)
         await logStartupStage('restoreSession:pending-reconnects', pendingReconnectIds.join(',') || 'none')
       } else if (options.isSqlSupported.value) {
-        await options.handleNewQuery({})
+        await options.openOrCreateQueryTab({})
         await logStartupStage('restoreSession:created-default-query')
       }
     } catch {
-      if (options.isSqlSupported.value) await options.handleNewQuery({})
+      if (options.isSqlSupported.value) await options.openOrCreateQueryTab({})
       await logStartupStage('restoreSession:error-fallback', undefined, true)
     } finally {
       options.workspaceStore.isRestoring = false

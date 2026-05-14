@@ -4,6 +4,7 @@ import { TabType } from '@/types/workspace'
 import type { DataTab } from '@/composables/useTabManager'
 import { supportsDataCompare, supportsQueryBuilder } from '@/utils/databaseSupport'
 import type { ReturnTypeUseConnectionStore } from '@/types/internal'
+import type { SqlDocumentInput } from '@/composables/useSqlDocumentActions'
 
 export interface TableEventData {
   connectionId?: string
@@ -42,23 +43,10 @@ interface WorkspaceTabActionsOptions {
   t: (key: string, options?: Record<string, unknown>) => string
   tabExists: (key: string) => boolean
   addTab: (tab: DataTab) => void
+  openOrCreateQueryTab: (data: SqlDocumentInput) => Promise<boolean>
 }
 
 export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
-  function generateNextScriptTitle() {
-    const used = new Set(
-      options.dataTabs.value
-        .map(tab => /^script-(\d+)\.sql$/i.exec(tab.title)?.[1])
-        .filter((value): value is string => Boolean(value))
-        .map(value => Number(value))
-        .filter(value => Number.isInteger(value) && value > 0)
-    )
-
-    let index = 1
-    while (used.has(index)) index += 1
-    return `script-${index}.sql`
-  }
-
   function handleTableSelected(data: TableEventData) {
     const connectionId = data.connectionId || options.connectionStore.activeConnectionId
     const key = `table-${connectionId}-${data.database}-${data.table}`
@@ -98,36 +86,7 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
   }
 
   async function handleNewQuery(data: QueryEventData) {
-    if (!options.isSqlSupported.value) return
-
-    const connectionId = data.connectionId || options.connectionStore.activeConnectionId
-    let database = data.database
-    if (connectionId && !database) {
-      const connection = options.connectionStore.connections.find(item => item.id === connectionId)
-      if (connection?.db_type === 'sqlite') {
-        database = 'main'
-      }
-    }
-
-    if (data.filePath) {
-      const existingTab = options.dataTabs.value.find(tab => tab.type === TabType.Query && tab.filePath === data.filePath)
-      if (existingTab) {
-        options.mainTabKey.value = existingTab.key
-        return
-      }
-    }
-
-    const key = `query-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    options.addTab({
-      key,
-      title: data.title || generateNextScriptTitle(),
-      type: TabType.Query,
-      connectionId: connectionId || undefined,
-      database,
-      content: data.content || '',
-      filePath: data.filePath,
-      dirty: false,
-    })
+    await options.openOrCreateQueryTab(data)
   }
 
   function handleOpenSavedScript(data: QueryEventData) {

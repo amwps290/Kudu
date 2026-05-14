@@ -20,6 +20,7 @@ export interface TabState {
   filePath?: string
   readOnly?: boolean
   dirty?: boolean
+  isUntitled?: boolean
 }
 
 export interface SessionState {

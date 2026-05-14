@@ -8,7 +8,7 @@ interface ConfirmCloseOptions {
   dataTabs: Ref<DataTab[]>
   mainTabKey: Ref<string>
   findTabByKey: (key: string) => DataTab | undefined
-  callActiveEditor: (method: string, ...args: unknown[]) => unknown
+  saveQueryTab: (key: string) => Promise<boolean>
   closeTab: (key: string) => void
   removeTabs: (keys: Iterable<string>, fallbackActiveKey?: string) => void
   t: (key: string, options?: Record<string, unknown>) => string
@@ -86,7 +86,7 @@ export function useWorkspaceCloseGuards(options: ConfirmCloseOptions) {
             type: 'button',
             onClick: async () => {
               try {
-                const saved = await (options.callActiveEditor('handleSave') as Promise<boolean> | undefined)
+                const saved = await options.saveQueryTab(tab.key)
                 if (saved) {
                   finish(true)
                 }

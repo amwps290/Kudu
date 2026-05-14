@@ -11,8 +11,6 @@ export interface SqlEditorExposed {
   executeQuery: () => void
   explainQuery: () => void
   stopExecution: () => void
-  handleSave: () => Promise<boolean>
-  saveAsFile: () => Promise<boolean>
   focusEditor: () => void
   handleSystemClipboardAction: (action: 'copy' | 'cut' | 'paste') => void
   formatSql: () => void
@@ -45,12 +43,20 @@ export function useTabManager() {
     }
   })
 
+  const activeTab = computed(() =>
+    dataTabs.value.find(t => t.key === mainTabKey.value)
+  )
+
   const activeEditorExecuting = computed(() =>
     sqlExecutionStates[mainTabKey.value]?.status === 'running'
   )
 
   const activeEditorExecutionState = computed<SqlExecutionState | null>(() =>
     sqlExecutionStates[mainTabKey.value] || null
+  )
+
+  const activeQueryTab = computed(() =>
+    activeTab.value?.type === 'query' ? activeTab.value : null
   )
 
   function setSqlEditorRef(el: unknown, key: string) {
@@ -208,6 +214,7 @@ export function useTabManager() {
       tab.filePath = path
       tab.title = title
       tab.dirty = false
+      tab.isUntitled = false
     }
   }
 
@@ -220,6 +227,8 @@ export function useTabManager() {
     mainTabKey,
     sqlEditorRefs,
     sqlExecutionStates,
+    activeTab,
+    activeQueryTab,
     activeTabType,
     activeTabDatabase,
     activeEditorExecuting,

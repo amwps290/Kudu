@@ -225,7 +225,7 @@ import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 import { message } from '@/ui/antd'
 import { ExportOutlined, CopyOutlined, LoadingOutlined, CloseCircleOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { save } from '@tauri-apps/plugin-dialog'
-import { exportApi, queryApi, metadataApi, utilsApi, SQL_FILE_FILTERS } from '@/api'
+import { exportApi, queryApi, metadataApi } from '@/api'
 import type { QueryResult, DatabaseInfo } from '@/types/database'
 import { useConnectionStore } from '@/stores/connection'
 import { useAppStore } from '@/stores/app'
@@ -244,7 +244,7 @@ const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRunti
 // ── 基础设置 ──
 const { t } = useI18n()
 const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string }>()
-const emit = defineEmits(['contentChange', 'fileSaved', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
+const emit = defineEmits(['contentChange', 'requestSave', 'requestSaveAs', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
 const connectionStore = useConnectionStore()
 const appStore = useAppStore()
 let autocompleteManager: Awaited<ReturnType<typeof getSqlAutocompleteManager>> | null = null
@@ -297,15 +297,6 @@ async function handleSearchPathChange(newPath: string) {
 const currentConnection = computed(() =>
   connectionStore.connections.find(c => c.id === (props.connectionId || connectionStore.activeConnectionId)) || null
 )
-const currentFilePath = ref(props.filePath || '')
-const isDirty = ref(false)
-
-watch(() => props.filePath, (value) => {
-  currentFilePath.value = value || ''
-  if (value) {
-    isDirty.value = false
-  }
-})
 const currentDatabaseLabel = computed(() => {
   const conn = currentConnection.value
   if (selectedDatabase.value) return selectedDatabase.value
@@ -675,70 +666,8 @@ function startMessagesResize(e: MouseEvent) {
 function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
 async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: unknown) { message.error(getErrorMessage(e)) } }
 function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'result-0'; errorTabs.value = []; resultTabCreatedAt.value = {}; dbMessages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
-function buildSuggestedFileName() {
-  const base = currentDatabaseLabel.value && currentDatabaseLabel.value !== t('editor.default_database')
-    ? currentDatabaseLabel.value
-    : 'query'
-  return `${base}.sql`.replace(/[\\/:*?"<>|]+/g, '_')
-}
-
 function handleQuerySaved() { message.success(t('common.save')) }
 
-async function saveAsFile(): Promise<boolean> {
-  if (!editor) return false
-
-  const filePath = await save({
-    defaultPath: currentFilePath.value || buildSuggestedFileName(),
-    filters: [...SQL_FILE_FILTERS],
-  })
-  if (!filePath) return false
-
-  try {
-    const saved = await utilsApi.saveFileAs({ path: filePath, content: editor.getValue() })
-    currentFilePath.value = saved.path
-    isDirty.value = false
-    emit('fileSaved', saved.path, saved.title)
-    message.success(t('common.save'))
-    return true
-  } catch (err: unknown) {
-    message.error(`${t('common.fail')}: ${getErrorMessage(err)}`)
-    return false
-  }
-}
-
-async function handleSave(isAuto = false): Promise<boolean> {
-  if (!editor) return false
-
-  const content = editor.getValue()
-  if (!content.trim()) return false
-
-  const targetPath = currentFilePath.value || props.filePath
-  if (!targetPath) {
-    if (!isAuto) {
-      return saveAsFile()
-    }
-    return false
-  }
-
-  try {
-    await utilsApi.writeFile(targetPath, content)
-    currentFilePath.value = targetPath
-    isDirty.value = false
-    emit('fileSaved', targetPath, targetPath.split(/[\\/]/).pop() || buildSuggestedFileName())
-    if (!isAuto) message.success(t('common.save'))
-    return true
-  } catch (err: unknown) {
-    if (!isAuto) message.error(`${t('common.fail')}: ${getErrorMessage(err)}`)
-    return false
-  }
-}
-let autoSaveTimer: number | null = null
-function triggerAutoSave() {
-  isDirty.value = true
-  if (!currentFilePath.value) return
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = window.setTimeout(() => { void handleSave(true) }, 2000)
-}
 async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid || !autocompleteManager) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
 
 // ── 历史记录（composable） ──
@@ -1064,8 +993,8 @@ function handleToolbarAction(method: string) {
     executeQuery,
     explainQuery,
     stopExecution: stopExec,
-    handleSave,
-    saveAsFile,
+    handleSave: () => emit('requestSave'),
+    saveAsFile: () => emit('requestSaveAs'),
     formatSql,
     clearEditor,
     openHistory,
@@ -1122,10 +1051,10 @@ onMounted(async () => {
     acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false,
   })
   updateAutocompleteContext()
-  editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || ''); triggerAutoSave() })
+  editor.onDidChangeModelContent(() => { emit('contentChange', editor?.getValue() || '') })
     editor.onKeyUp((e: any) => { if (monacoInstance && (e.keyCode === monacoInstance.KeyCode.Space || e.keyCode === monacoInstance.KeyCode.Period)) editor?.trigger('keyboard', 'editor.action.triggerSuggest', {}) })
   editor.addCommand(monacoInstance.KeyCode.F5, () => executeQuery())
-  editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => handleSave())
+  editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => emit('requestSave'))
   currentStatementDecoration = editor.createDecorationsCollection()
   editor.onDidChangeCursorPosition(() => updateCurrentStatementHighlight())
   editor.onDidChangeModelContent(() => updateCurrentStatementHighlight())
@@ -1136,7 +1065,7 @@ onMounted(async () => {
   requestAnimationFrame(() => focusEditor())
 })
 onActivated(() => { requestAnimationFrame(() => focusEditor()); loadAvailableDatabases(); loadSearchPath() })
-onUnmounted(() => { if (autoSaveTimer) clearTimeout(autoSaveTimer); execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m && autocompleteManager) autocompleteManager.unbindModel(m); editor?.dispose() })
+onUnmounted(() => { execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m && autocompleteManager) autocompleteManager.unbindModel(m); editor?.dispose() })
 
 // ── 设置变更监听 ──
 watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], ([theme]) => {
@@ -1155,7 +1084,7 @@ watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
 
-defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete, handleSave, saveAsFile })
+defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete })
 </script>
 
 <style scoped>

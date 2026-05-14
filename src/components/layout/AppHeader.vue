@@ -15,6 +15,19 @@
         <a-menu mode="horizontal" :selected-keys="[]" :disabled-overflow="true" class="top-menu">
           <a-sub-menu key="file">
             <template #title>{{ $t('common.file') }}</template>
+            <a-menu-item key="new-query" @click="$emit('newQuery')">
+              <FileAddOutlined /> {{ $t('tree.new_query') }}
+            </a-menu-item>
+            <a-menu-item key="open-sql-file" @click="$emit('openSqlFile')">
+              <FolderOpenOutlined /> {{ $t('editor.sql_file') || 'Open SQL File' }}
+            </a-menu-item>
+            <a-menu-item key="save-query" :disabled="!canSaveQuery" @click="$emit('saveQuery')">
+              <SaveOutlined /> {{ $t('common.save') }}
+            </a-menu-item>
+            <a-menu-item key="save-query-as" :disabled="!canSaveQueryAs" @click="$emit('saveQueryAs')">
+              <FileTextOutlined /> {{ $t('editor.save_as') }}
+            </a-menu-item>
+            <a-menu-divider />
             <a-menu-item key="new-connection" @click="$emit('newConnection')">
               <PlusOutlined /> {{ $t('connection.new') }}
             </a-menu-item>
@@ -114,6 +127,7 @@ import { Icon } from '@iconify/vue'
 import {
   BuildOutlined, PlusOutlined, SettingOutlined,
   MenuOutlined, RetweetOutlined, SearchOutlined,
+  FileAddOutlined, FolderOpenOutlined, SaveOutlined, FileTextOutlined,
 } from '@ant-design/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useWindowControls } from '@/composables/useWindowControls'
@@ -124,14 +138,22 @@ withDefaults(defineProps<{
   showSearch?: boolean
   showQueryBuilder?: boolean
   showDataCompare?: boolean
+  canSaveQuery?: boolean
+  canSaveQueryAs?: boolean
 }>(), {
   showSearch: true,
   showQueryBuilder: false,
   showDataCompare: false,
+  canSaveQuery: false,
+  canSaveQueryAs: false,
 })
 
 defineEmits<{
   newConnection: []
+  newQuery: []
+  openSqlFile: []
+  saveQuery: []
+  saveQueryAs: []
   openQueryBuilder: []
   openDataCompare: []
   openSettings: []

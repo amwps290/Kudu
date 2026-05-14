@@ -4,7 +4,13 @@
     <AppHeader
       :show-query-builder="showQueryBuilderEntry"
       :show-data-compare="showDataCompareEntry"
+      :can-save-query="Boolean(activeQueryTab)"
+      :can-save-query-as="Boolean(activeQueryTab)"
       @new-connection="openConnectionDialog"
+      @new-query="handleNewQuery({})"
+      @open-sql-file="handleOpenSqlFile"
+      @save-query="handleSaveActiveQuery"
+      @save-query-as="handleSaveActiveQueryAs"
       @open-query-builder="handleOpenQueryBuilder"
       @open-data-compare="handleOpenDataCompare"
       @open-settings="openSettings"
@@ -47,7 +53,7 @@
             </template>
             <div class="tab-content-wrapper">
               <KeepAlive>
-                <SqlEditor v-if="tab.type === 'query'" :key="tab.key" :ref="(el: unknown) => setSqlEditorRef(el, tab.key)" :connection-id="tab.connectionId" :initial-database="tab.database" :initial-value="tab.content" :file-path="tab.filePath" :tab-id="tab.key" @content-change="(val: string) => handleContentChange(tab.key, val)" @file-saved="(path: string, title: string) => handleFileSaved(tab.key, path, title)" @database-change="(db: string) => handleEditorDatabaseChange(tab.key, String(db || ''))" @execution-state-change="(state) => updateSqlExecutionState(tab.key, state)" />
+                <SqlEditor v-if="tab.type === 'query'" :key="tab.key" :ref="(el: unknown) => setSqlEditorRef(el, tab.key)" :connection-id="tab.connectionId" :initial-database="tab.database" :initial-value="tab.content" :file-path="tab.filePath" :tab-id="tab.key" @content-change="(val: string) => handleContentChange(tab.key, val)" @request-save="handleSaveActiveQuery" @request-save-as="handleSaveActiveQueryAs" @database-change="(db: string) => handleEditorDatabaseChange(tab.key, String(db || ''))" @execution-state-change="(state) => updateSqlExecutionState(tab.key, state)" />
                 <TableDataGrid v-else-if="tab.type === 'data'" :key="tab.key" :connection-id="tab.connectionId!" :database="tab.database!" :table="tab.table!" :schema="tab.schema" />
                 <TableDesigner v-else-if="tab.type === 'design'" :key="tab.key" :connection-id="tab.connectionId!" :database="tab.database!" :table="tab.table!" :schema="tab.schema" :read-only="tab.readOnly" />
                 <QueryBuilder v-else-if="tab.type === 'builder'" :key="tab.key" :connection-id="tab.connectionId || null" :initial-database="tab.database || null" @execute-query="(payload: QueryBuilderExecutePayload | string) => handleQueryBuilderExecute(tab, payload)" />
@@ -125,6 +131,7 @@ import { useWorkspaceViewActions } from '@/composables/useWorkspaceViewActions'
 import { useWorkspaceCloseGuards } from '@/composables/useWorkspaceCloseGuards'
 import { useWorkspaceSessionLifecycle } from '@/composables/useWorkspaceSessionLifecycle'
 import { useWorkspaceClipboardRouting } from '@/composables/useWorkspaceClipboardRouting'
+import { useSqlDocumentActions } from '@/composables/useSqlDocumentActions'
 import {
   useWorkspaceTabActions,
   type QueryBuilderExecutePayload,
@@ -153,6 +160,7 @@ const workspaceStore = useWorkspaceStore()
 const { sidebarWidth, startResize } = useSidebarResize()
 const {
   dataTabs, mainTabKey,
+  activeQueryTab,
   activeTabType, activeTabDatabase,
   setSqlEditorRef, updateSqlExecutionState, callActiveEditor, closeTab,
   removeTabs, findTabByKey, tabExists, addTab, handleContentChange, handleFileSaved,
@@ -168,6 +176,24 @@ const isSqlSupported = computed(() => {
   return !activeConnection.value || supportsSqlWorkspace(activeConnection.value.db_type)
 })
 
+const {
+  openOrCreateQueryTab,
+  openQueryFile,
+  saveQueryTab,
+  saveActiveQueryTab,
+  saveActiveQueryTabAs,
+  focusActiveQueryEditor,
+} = useSqlDocumentActions({
+  mainTabKey,
+  dataTabs,
+  isSqlSupported,
+  connectionStore,
+  findTabByKey,
+  addTab,
+  handleFileSaved,
+  callActiveEditor,
+})
+
 const tabActions = useWorkspaceTabActions({
   connectionStore,
   dataTabs,
@@ -179,6 +205,7 @@ const tabActions = useWorkspaceTabActions({
   t,
   tabExists,
   addTab,
+  openOrCreateQueryTab,
 })
 
 const {
@@ -231,7 +258,7 @@ const sessionLifecycle = useWorkspaceSessionLifecycle({
   dataTabs,
   mainTabKey,
   isSqlSupported,
-  handleNewQuery,
+  openOrCreateQueryTab,
 })
 
 const { restoreSession } = sessionLifecycle
@@ -253,7 +280,7 @@ const {
   dataTabs,
   mainTabKey,
   findTabByKey,
-  callActiveEditor,
+  saveQueryTab,
   closeTab,
   removeTabs,
   t,
@@ -284,6 +311,23 @@ const { handleEditorDatabaseChange } = useWorkspacePageLifecycle({
   setupWindowCloseGuard,
   cleanupWindowCloseGuard,
 })
+
+async function handleOpenSqlFile() {
+  const opened = await openQueryFile()
+  if (opened) {
+    await focusActiveQueryEditor()
+  }
+}
+
+async function handleSaveActiveQuery() {
+  if (!activeQueryTab.value) return
+  await saveActiveQueryTab()
+}
+
+async function handleSaveActiveQueryAs() {
+  if (!activeQueryTab.value) return
+  await saveActiveQueryTabAs()
+}
 
 async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, action: string) {
   if (action === 'add') {
