@@ -19,11 +19,12 @@
       </div>
     </div>
 
-    <div class="result-dock" :class="{ collapsed: !resultPanelVisible }" :style="{ height: `${resultDockHeight}px` }">
-      <div v-if="resultPanelVisible" class="split-resizer" @mousedown="startResultResize">
-        <div class="resizer-handle"></div>
-      </div>
+    <!-- 结果面板拖拽条（在结果面板外部，不受 overflow:hidden 影响） -->
+    <div v-if="resultPanelVisible" class="split-resizer split-resizer--result" @mousedown="startResultResize">
+      <div class="resizer-handle"></div>
+    </div>
 
+    <div class="result-dock" :class="{ collapsed: !resultPanelVisible }" :style="{ height: `${resultDockHeight}px` }">
       <!-- 统一 Tabs (按时间先后排列) -->
       <a-tabs v-if="hasAnyResultContent" v-model:activeKey="resultTabKey" size="small" class="result-tabs">
         <template v-for="tab in orderedTabs" :key="tab.key">
@@ -166,9 +167,6 @@
 
     <!-- 数据库消息面板 -->
     <div class="messages-dock" :class="{ collapsed: !messagesPanelVisible }" :style="{ height: messagesPanelVisible ? `${messagesPanelHeight}px` : '0' }">
-      <div v-if="messagesPanelVisible" class="split-resizer" @mousedown="startMessagesResize">
-        <div class="resizer-handle"></div>
-      </div>
       <div class="messages-panel-header">
         <span class="messages-panel-title">{{ $t('editor.messages_panel') }}</span>
       </div>
@@ -1143,11 +1141,14 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
   background: var(--color-primary-soft-bg);
   border-left: 2px solid var(--color-primary-border);
 }
-.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border-color); background: var(--surface-elevated); box-shadow: var(--shadow-soft); transition: height 0.18s ease; }
-.result-dock.collapsed { border-top-color: transparent; box-shadow: none; }
-.split-resizer { height: 1px; background: var(--border-color); cursor: row-resize; display: block; transition: background-color 0.2s; flex-shrink: 0; position: relative; overflow: visible; }
-.split-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -4px; bottom: -4px; cursor: row-resize; }
-.split-resizer:hover { background: var(--color-primary); }
+.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); box-shadow: var(--shadow-soft); transition: height 0.18s ease; }
+.result-dock.collapsed { box-shadow: none; }
+/* 结果面板上方拖拽条（在 result-dock 外部） */
+.split-resizer--result { height: 6px; background: var(--border-color); cursor: row-resize; display: block; transition: background-color 0.2s; flex-shrink: 0; position: relative; overflow: visible; z-index: 5; }
+.split-resizer--result::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
+.split-resizer--result::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 4px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
+.split-resizer--result:hover { background: var(--color-primary); }
+.split-resizer--result:hover::after { background: var(--color-primary); }
 .resizer-handle { display: none; }
 /* ── 无数据结果 (DDL 等) ── */
 .result-empty-ddl { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
@@ -1180,16 +1181,13 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .execution-error-tab .error-time { margin-top: 4px; font-size: 11px; color: var(--app-text-subtle); font-variant-numeric: tabular-nums; }
 
 /* ── 面板间分隔条 & 消息面板 ── */
-.inter-panel-resizer { height: 6px; background: transparent; cursor: row-resize; flex-shrink: 0; position: relative; }
+.inter-panel-resizer { height: 6px; background: var(--border-color-muted); cursor: row-resize; flex-shrink: 0; position: relative; transition: background-color 0.2s; }
 .inter-panel-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
-.inter-panel-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 32px; height: 3px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
+.inter-panel-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 4px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
+.inter-panel-resizer:hover { background: var(--color-primary); }
 .inter-panel-resizer:hover::after { background: var(--color-primary); }
-.messages-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border-color); background: var(--surface-elevated); transition: height 0.18s ease; }
+.messages-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); transition: height 0.18s ease; border-top: 1px solid var(--border-color); }
 .messages-dock.collapsed { border-top-color: transparent; }
-.messages-dock .split-resizer { height: 5px; background: transparent; cursor: row-resize; display: block; flex-shrink: 0; position: relative; }
-.messages-dock .split-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
-.messages-dock .split-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 32px; height: 3px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
-.messages-dock .split-resizer:hover::after { background: var(--color-primary); }
 .messages-panel-header { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 10px; border-bottom: 1px solid var(--border-color-muted); background: var(--surface-muted); flex-shrink: 0; }
 .messages-panel-title { font-size: 12px; font-weight: 600; color: var(--app-text-muted); }
 /* 复用 .messages-content 和 .message-item 样式 */
