@@ -266,6 +266,12 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(())
     }
 
+    async fn check_health(&self) -> DbResult<bool> {
+        let client = self.get_client_arc().await?;
+        client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        Ok(true)
+    }
+
     async fn switch_database(&self, database: &str) -> DbResult<()> {
         let state = self.state.lock().await;
         let mut config = state.config.clone().ok_or(DbError::Other("未找到初始配置".into()))?;

@@ -31,6 +31,7 @@ fn main() {
             commands::connection::delete_connection,
             commands::connection::create_connection,
             commands::connection::disconnect_database,
+            commands::connection::check_connection_health,
             commands::connection::create_sqlite_database,
             commands::query::execute_query,
             commands::query::explain_query,

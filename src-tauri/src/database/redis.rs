@@ -166,6 +166,13 @@ impl DatabaseOperations for RedisDatabase {
         Ok(())
     }
 
+    async fn check_health(&self) -> DbResult<bool> {
+        let state = self.state.lock().await;
+        let mut conn = state.conn.clone().ok_or(DbError::not_connected())?;
+        let _: String = redis::cmd("PING").query_async(&mut conn).await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
+        Ok(true)
+    }
+
     async fn execute_query(&self, sql: &str, _database: Option<&str>, _query_id: Option<u64>) -> DbResult<Vec<QueryResult>> {
         let parts: Vec<&str> = sql.split_whitespace().collect();
         if parts.is_empty() { return Ok(vec![]) }

@@ -137,6 +137,8 @@
     "update_success": "连接更新成功",
     "delete_confirm": "确定要删除该连接吗？",
     "no_connections": "暂无连接",
+    "connection_lost": "连接已断开",
+    "connecting": "正在连接",
     "select_file": "选择",
     "create_file": "新建",
     "sqlite_created": "数据库文件已创建",

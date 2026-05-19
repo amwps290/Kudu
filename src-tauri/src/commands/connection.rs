@@ -192,3 +192,36 @@ pub async fn disconnect_database(
     manager.disconnect(&connection_id).await.to_cmd_result()?;
     Ok(())
 }
+
+/// 连接健康检查结果
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ConnectionHealthResult {
+    pub connection_id: String,
+    pub alive: bool,
+    pub latency_ms: u128,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+#[instrument(skip(state))]
+pub async fn check_connection_health(
+    connection_id: String,
+    state: State<'_, AppState>,
+) -> Result<ConnectionHealthResult, String> {
+    let start = std::time::Instant::now();
+    let manager = &state.connection_manager;
+    match manager.check_health(&connection_id).await {
+        Ok(_) => Ok(ConnectionHealthResult {
+            connection_id,
+            alive: true,
+            latency_ms: start.elapsed().as_millis(),
+            error: None,
+        }),
+        Err(e) => Ok(ConnectionHealthResult {
+            connection_id,
+            alive: false,
+            latency_ms: start.elapsed().as_millis(),
+            error: Some(e.to_string()),
+        }),
+    }
+}

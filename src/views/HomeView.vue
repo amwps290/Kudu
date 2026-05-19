@@ -41,7 +41,12 @@
           <a-tab-pane v-for="tab in dataTabs" :key="tab.key" :closable="tab.closable !== false">
             <template #tab>
               <span class="tab-title" @contextmenu.prevent="handleTabContextMenu($event, tab.key, tab.closable !== false)">
-                <span v-if="getConnectionColor(tab.connectionId)" class="tab-connection-dot" :style="{ backgroundColor: getConnectionColor(tab.connectionId) }"></span>
+                <span
+                  v-if="getConnectionColor(tab.connectionId)"
+                  class="tab-connection-dot"
+                  :class="{ 'tab-connection-dot--error': tab.connectionId && connectionStore.getConnectionStatus(tab.connectionId) === 'error' }"
+                  :style="{ backgroundColor: getConnectionColor(tab.connectionId) }"
+                ></span>
                 <FileTextOutlined v-if="tab.type === 'query'" />
                 <TableOutlined v-else-if="tab.type === 'data'" />
                 <EditOutlined v-else-if="tab.type === 'design'" />
@@ -136,6 +141,7 @@ import {
   useWorkspaceTabActions,
   type QueryBuilderExecutePayload,
 } from '@/composables/useWorkspaceTabActions'
+import { useConnectionHealthMonitor } from '@/composables/useConnectionHealthMonitor'
 import { getDatabaseSupportProfile, supportsSqlWorkspace } from '@/utils/databaseSupport'
 
 // Step 34: 重量级组件懒加载
@@ -167,6 +173,9 @@ const {
 } = useTabManager()
 
 const redisEditorRef = ref()
+
+// 连接健康状态监控（每 10 秒自动 ping 已连接的数据库）
+const healthMonitor = useConnectionHealthMonitor()
 
 const activeConnection = computed(() => connectionStore.getActiveConnection())
 const activeSupportProfile = computed(() => getDatabaseSupportProfile(activeConnection.value?.db_type || null))
@@ -306,12 +315,20 @@ const { handleEditorDatabaseChange } = useWorkspacePageLifecycle({
   activeTabType,
   callActiveEditor,
   restoreSession,
-  sessionCleanup: sessionLifecycle.cleanup,
+  sessionCleanup: () => {
+    sessionLifecycle.cleanup()
+    healthMonitor.stop()
+  },
   setupClipboardRouting,
   cleanupClipboardRouting,
   setupWindowCloseGuard,
   cleanupWindowCloseGuard,
 })
+
+// 连接加载完成后启动健康监控
+watch(() => connectionStore.connections.length, (len) => {
+  if (len > 0) healthMonitor.start()
+}, { immediate: true })
 
 async function handleOpenSqlFile() {
   const opened = await openQueryFile()
@@ -417,7 +434,9 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
 .workspace-tabs :deep(.ant-tabs-content) { flex: 1; height: 100%; overflow: hidden; }
 .workspace-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
 .tab-title { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.tab-connection-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; box-shadow: var(--indicator-ring-soft); }
+.tab-connection-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; box-shadow: var(--indicator-ring-soft); transition: background-color 0.3s; }
+.tab-connection-dot--error { box-shadow: 0 0 0 1.5px var(--color-danger); animation: tab-dot-pulse 1.5s ease-in-out infinite; }
+@keyframes tab-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab-dirty-indicator { color: var(--color-warning); font-weight: 700; }
 .tab-content-wrapper { flex: 1; height: 100%; overflow: hidden; position: relative; }

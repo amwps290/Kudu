@@ -49,6 +49,13 @@ impl DatabaseOperations for MongoDatabase {
         Ok(())
     }
 
+    async fn check_health(&self) -> DbResult<bool> {
+        let state = self.state.lock().await;
+        let client = state.client.as_ref().ok_or(DbError::not_connected())?;
+        client.list_database_names().await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
+        Ok(true)
+    }
+
     async fn execute_query(&self, sql: &str, database: Option<&str>, _query_id: Option<u64>) -> DbResult<Vec<QueryResult>> {
         let state = self.state.lock().await;
         let client = state.client.as_ref().ok_or(DbError::not_connected())?;

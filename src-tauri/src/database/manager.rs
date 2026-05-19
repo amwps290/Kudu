@@ -346,6 +346,13 @@ impl ConnectionManager {
             .and_then(|config| config.database.clone())
     }
 
+    /// 检查已建立连接的健康状态（轻量 ping）
+    pub async fn check_health(&self, composite_id: &str) -> DbResult<bool> {
+        let real_id = self.normalize_composite_id(composite_id);
+        let db = self.get_db_ref(&real_id).await?;
+        db.check_health().await
+    }
+
     pub async fn get_schemas(&self, composite_id: &str, database: Option<&str>) -> DbResult<Vec<SchemaInfo>> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

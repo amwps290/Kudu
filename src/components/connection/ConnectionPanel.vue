@@ -43,35 +43,44 @@
             class="connection-item"
             :class="{ 
               active: activeConnectionId === conn.id,
-              expanded: expandedConnections.has(conn.id)
+              expanded: expandedConnections.has(conn.id),
+              'connection-item--error': getConnectionStatus(conn.id) === 'error'
             }"
             :style="{ '--connection-accent': conn.color || 'transparent' }"
-            :title="`${conn.db_type} • ${conn.host}:${conn.port}`"
+            :title="getConnectionTooltip(conn)"
             @click="handleSelectConnection(conn)"
             @dblclick="handleToggleConnection(conn)"
             @contextmenu.prevent="handleContextMenu($event, conn)"
           >
-            <div class="connection-expand-icon" @click.stop="handleToggleExpand(conn)">
+            <div class="connection-expand-icon" @click.stop="getConnectionStatus(conn.id) === 'error' ? handleConnectToDatabase(conn) : handleToggleExpand(conn)">
+              <ReloadOutlined
+                v-if="getConnectionStatus(conn.id) === 'error'"
+                class="reconnect-icon"
+              />
               <DownOutlined 
-                v-if="getConnectionStatus(conn.id) === 'connected' && expandedConnections.has(conn.id)" 
+                v-else-if="getConnectionStatus(conn.id) === 'connected' && expandedConnections.has(conn.id)" 
                 class="expand-icon"
               />
               <RightOutlined 
                 v-else-if="getConnectionStatus(conn.id) === 'connected'" 
                 class="expand-icon"
               />
+              <LoadingOutlined
+                v-else-if="getConnectionStatus(conn.id) === 'connecting'"
+                class="expand-icon connecting-icon"
+              />
               <span v-else class="connection-indent-placeholder"></span>
             </div>
             
             <!-- 专业品牌图标 -->
-            <div class="connection-icon">
+            <div class="connection-icon" :class="{ 'connection-icon--dimmed': getConnectionStatus(conn.id) !== 'connected' && getConnectionStatus(conn.id) !== 'connecting' }">
               <Icon 
                 :icon="getBrandIcon(conn.db_type)" 
                 class="brand-icon"
               />
             </div>
             
-            <div class="connection-name">{{ conn.name }}</div>
+            <div class="connection-name" :class="{ 'connection-name--error': getConnectionStatus(conn.id) === 'error' }">{{ conn.name }}</div>
             
             <div class="connection-actions">
               <a-badge :status="getStatusBadge(conn.id)" size="small" />
@@ -79,6 +88,11 @@
                 v-if="getConnectionStatus(conn.id) === 'connected'"
                 class="disconnect-btn"
                 @click.stop="handleDisconnect(conn)"
+              />
+              <LinkOutlined
+                v-if="getConnectionStatus(conn.id) === 'error'"
+                class="reconnect-action-btn"
+                @click.stop="handleConnectToDatabase(conn)"
               />
             </div>
           </div>
@@ -160,7 +174,8 @@ import { h, computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   DatabaseOutlined, PlusOutlined, LinkOutlined, EditOutlined, DeleteOutlined,
-  DisconnectOutlined, DownOutlined, RightOutlined, SearchOutlined
+  DisconnectOutlined, DownOutlined, RightOutlined, SearchOutlined,
+  ReloadOutlined, LoadingOutlined
 } from '@ant-design/icons-vue'
 import { message, Modal, Empty } from '@/ui/antd'
 import { getErrorMessage } from '@/utils/errorHandler'
@@ -325,6 +340,13 @@ async function handleMenuClick({ key }: { key: string | number }) {
 
 function handleDatabaseCreated() { if (selectedConnection.value) databaseTreeRefs.get(selectedConnection.value.id)?.refresh() }
 function getConnectionStatus(id: string) { return connectionStore.getConnectionStatus(id) }
+function getConnectionTooltip(conn: ConnectionConfig): string {
+  const baseInfo = `${conn.db_type} • ${conn.host}:${conn.port}`
+  const status = connectionStore.getConnectionStatus(conn.id)
+  if (status === 'error') return `${baseInfo}\n⚠ ${t('connection.connection_lost')}`
+  if (status === 'connecting') return `${baseInfo}\n⌛ ${t('connection.connecting')}`
+  return baseInfo
+}
 function getStatusBadge(id: string) {
   const s = connectionStore.getConnectionStatus(id)
   return s === 'connected' ? 'success' : s === 'connecting' ? 'processing' : s === 'error' ? 'error' : 'default'
@@ -357,19 +379,28 @@ onUnmounted(() => {
 .panel-content { flex: 1; overflow: auto; padding: 4px 0; }
 .connection-group { position: relative; }
 .connection-item { display: flex; align-items: center; padding: 0 8px; height: 28px; cursor: pointer; transition: background-color 0.1s; user-select: none; position: relative; }
-.connection-item::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 0 999px 999px 0; background-color: var(--connection-accent, transparent); opacity: 0.95; }
+.connection-item::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 0 999px 999px 0; background-color: var(--connection-accent, transparent); opacity: 0.95; transition: background-color 0.3s; }
 .connection-item:hover { background-color: var(--surface-hover); }
 .connection-item.active { background-color: var(--surface-active); color: var(--color-primary); }
+.connection-item--error::before { background-color: var(--color-danger) !important; opacity: 0.85 !important; }
 .connection-indent-placeholder { width: 12px; display: inline-block; }
 .connection-expand-icon { display: flex; align-items: center; justify-content: center; width: 16px; font-size: 10px; color: var(--app-text-subtle); margin-right: 2px; }
-.connection-icon { display: flex; align-items: center; justify-content: center; width: 20px; margin-right: 8px; flex-shrink: 0; }
+.reconnect-icon { font-size: 12px; color: var(--color-danger); cursor: pointer; }
+.reconnect-icon:hover { color: var(--color-danger-hover); }
+.connecting-icon { color: var(--color-primary); animation: spin 1s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.connection-icon { display: flex; align-items: center; justify-content: center; width: 20px; margin-right: 8px; flex-shrink: 0; transition: opacity 0.3s; }
+.connection-icon--dimmed { opacity: 0.45; }
 .brand-icon { font-size: 16px; }
 .connection-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--app-text-muted); }
+.connection-name--error { color: var(--color-danger) !important; }
 .active .connection-name { color: inherit; }
 .connection-actions { display: flex; align-items: center; gap: 6px; opacity: 0.6; }
 .connection-item:hover .connection-actions { opacity: 1; }
 .disconnect-btn { font-size: 12px; color: var(--color-danger); cursor: pointer; }
 .disconnect-btn:hover { color: var(--color-danger-hover); }
+.reconnect-action-btn { font-size: 12px; color: var(--color-primary); cursor: pointer; }
+.reconnect-action-btn:hover { color: var(--color-primary-hover); }
 .database-tree-wrapper { position: relative; }
 .database-tree-wrapper :deep(.database-tree) { padding-left: 10px; box-sizing: border-box; }
 .root-tree-line { position: absolute; left: 16px; top: 0; bottom: 0; width: 1px; background-color: var(--connection-accent, var(--border-color)); z-index: 1; pointer-events: none; opacity: 0.55; }

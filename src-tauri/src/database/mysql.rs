@@ -270,6 +270,14 @@ impl DatabaseOperations for MySqlDatabase {
         Ok(())
     }
 
+    async fn check_health(&self) -> DbResult<bool> {
+        let state = self.state.lock().await;
+        let pool = state.pool.as_ref().ok_or(DbError::not_connected())?;
+        let mut conn = pool.get_conn().await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;
+        conn.query_drop("SELECT 1").await.map_err(|e| DbError::QueryFailed(Self::format_mysql_error(e)))?;
+        Ok(true)
+    }
+
     async fn switch_database(&self, database: &str) -> DbResult<()> {
         let mut state = self.state.lock().await;
         let mut config = state.config.clone().ok_or(DbError::Other("未找到初始配置".into()))?;

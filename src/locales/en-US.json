@@ -137,6 +137,8 @@
     "update_success": "Connection updated successfully",
     "delete_confirm": "Are you sure you want to delete this connection?",
     "no_connections": "No connections",
+    "connection_lost": "Connection Lost",
+    "connecting": "Connecting",
     "select_file": "Select",
     "create_file": "New",
     "sqlite_created": "Database file created",

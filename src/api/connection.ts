@@ -10,6 +10,14 @@ export interface ConnectionOverrides {
   mysql_init_sql?: string
 }
 
+/** 连接健康检查结果 */
+export interface ConnectionHealthResult {
+  connection_id: string
+  alive: boolean
+  latency_ms: number
+  error?: string | null
+}
+
 export const connectionApi = {
   /**
    * 获取所有已保存的连接
@@ -65,5 +73,12 @@ export const connectionApi = {
    */
   async createSqliteDatabase(path: string): Promise<string> {
     return invoke<string>('create_sqlite_database', { path })
+  },
+
+  /**
+   * 检查已建立连接的健康状态（轻量 ping）
+   */
+  async checkConnectionHealth(connectionId: string): Promise<ConnectionHealthResult> {
+    return invoke<ConnectionHealthResult>('check_connection_health', { connectionId })
   }
 }

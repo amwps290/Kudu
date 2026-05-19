@@ -105,6 +105,13 @@ impl DatabaseOperations for SqliteDatabase {
         Ok(())
     }
 
+    async fn check_health(&self) -> DbResult<bool> {
+        let state = self.state.lock().await;
+        let conn = state.conn.as_ref().ok_or(DbError::not_connected())?;
+        conn.execute_batch("SELECT 1").map_err(|e| DbError::QueryFailed(e.to_string()))?;
+        Ok(true)
+    }
+
     #[instrument(skip(self, sql))]
     async fn execute_query(&self, sql: &str, _database: Option<&str>, query_id: Option<u64>) -> DbResult<Vec<QueryResult>> {
         let start = Instant::now();

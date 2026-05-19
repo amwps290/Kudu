@@ -268,7 +268,7 @@ impl Serialize for DbError {
 /// 数据库操作 Trait
 #[async_trait]
 pub trait DatabaseOperations: Send + Sync {
-    /// 测试连接
+    /// 测试连接（创建新连接）
     async fn test_connection(&self, config: &ConnectionConfig) -> DbResult<bool>;
 
     /// 连接数据库 - 改为 &self 以支持 Arc 共享
@@ -276,6 +276,11 @@ pub trait DatabaseOperations: Send + Sync {
 
     /// 断开连接 - 改为 &self
     async fn disconnect(&self) -> DbResult<()>;
+
+    /// 检查已建立连接的健康状态（轻量 ping）
+    async fn check_health(&self) -> DbResult<bool> {
+        Err(DbError::Other("该数据库类型不支持健康检查".into()))
+    }
 
     /// 执行查询 - 支持多结果集
     async fn execute_query(&self, sql: &str, database: Option<&str>, query_id: Option<u64>) -> DbResult<Vec<QueryResult>>;
