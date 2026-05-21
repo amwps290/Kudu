@@ -167,8 +167,9 @@ const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'd
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures', 'schema-indexes']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
+const TABLE_OBJECT_GROUP_NODE_TYPES = ['table-columns', 'view-columns', 'table-indexes', 'table-foreign-keys']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
@@ -248,7 +249,14 @@ const filteredTreeData = computed(() => {
     // 搜索列名模式：表/视图节点下检查列节点
     let columnMatch = false
     if (opts.searchColumns && (node.type === 'table' || node.type === 'view') && node.children) {
-      columnMatch = node.children.some(child => child.type === 'column' && matcher(child.title))
+      const hasMatchingColumn = (nodes: TreeNode[]): boolean => nodes.some(child =>
+        child.type === 'column'
+          ? matcher(child.title)
+          : Array.isArray(child.children) && child.children.length > 0
+            ? hasMatchingColumn(child.children)
+            : false
+      )
+      columnMatch = hasMatchingColumn(node.children)
     }
 
     const nodeMatches = titleMatch || columnMatch
@@ -363,7 +371,6 @@ async function onLoadData(treeNode: TreeNode) {
     const children = [
       { key: `${treeNode.key}-tables`, title: t('tree.tables'), type: 'schema-tables', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-views`, title: t('tree.views'), type: 'schema-views', isLeaf: false, metadata: { database: db, schema } },
-      { key: `${treeNode.key}-indexes`, title: t('tree.indexes'), type: 'schema-indexes', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
@@ -387,17 +394,14 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['schema-indexes', 'schema-functions', 'schema-procedures', 'schema-aggregates', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
+  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
     const isProcedure = treeNode.type === 'schema-procedures' || treeNode.type === 'procedures'
     const isAggregate = treeNode.type === 'schema-aggregates'
-    const isIndex = treeNode.type === 'schema-indexes'
 
     try {
       let res: any[]
-      if (isIndex) {
-        res = await metadataApi.getSchemaIndexes(connId, treeNode.metadata.database, treeNode.metadata.schema)
-      } else if (isFunction) {
+      if (isFunction) {
         res = await metadataApi.getSchemaFunctions(connId, treeNode.metadata.database, treeNode.metadata.schema || treeNode.metadata.database)
       } else if (isProcedure) {
         res = await metadataApi.getSchemaProcedures(connId, treeNode.metadata.database, treeNode.metadata.schema || treeNode.metadata.database)
@@ -412,10 +416,6 @@ async function onLoadData(treeNode: TreeNode) {
         // 针对函数和聚合函数，拼接参数列表
         if ((isFunction || isProcedure || isAggregate) && item.arguments) {
           title = `${item.name}(${item.arguments})`
-        }
-        // 针对索引类型，拼接关联列名
-        else if (isIndex && item.columns && item.columns.length > 0) {
-          title = `${item.name} (${item.columns.join(', ')})`
         }
 
         return {
@@ -432,9 +432,82 @@ async function onLoadData(treeNode: TreeNode) {
   }
   else if (['table', 'view'].includes(treeNode.type)) {
     try {
-      const res = await metadataApi.getTableStructure({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema })
-      const children = res.map(c => ({ key: `${treeNode.key}-col-${c.name}`, title: `${c.name}${c.data_type ? ' : ' + c.data_type : ''}${c.is_primary_key ? ' [PK]' : ''}`, type: 'column', isLeaf: true, metadata: { ...c, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema } }))
-      updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children.length ? children : [{ key: `${treeNode.key}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }])
+      const [columns, indexes, foreignKeys] = await Promise.all([
+        metadataApi.getTableStructure({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema }),
+        treeNode.type === 'table'
+          ? metadataApi.getTableIndexes({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, schema: treeNode.metadata.schema })
+          : Promise.resolve([]),
+        treeNode.type === 'table'
+          ? metadataApi.getTableForeignKeys({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, schema: treeNode.metadata.schema })
+          : Promise.resolve([])
+      ])
+
+      const columnChildren = columns.map(c => ({
+        key: `${treeNode.key}-col-${c.name}`,
+        title: `${c.name}${c.data_type ? ' : ' + c.data_type : ''}${c.is_primary_key ? ' [PK]' : ''}`,
+        type: 'column',
+        isLeaf: true,
+        metadata: { ...c, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+      }))
+
+      const indexChildren = indexes.map(index => {
+        const indexFlags = [
+          index.is_primary ? 'PRIMARY' : '',
+          !index.is_primary && index.is_unique ? 'UNIQUE' : ''
+        ].filter(Boolean)
+        const indexBadge = indexFlags.length ? ` [${indexFlags.join(', ')}]` : ''
+        const indexColumns = index.columns?.length ? ` (${index.columns.join(', ')})` : ''
+
+        return {
+          key: `${treeNode.key}-idx-${index.name}`,
+          title: `${index.name}${indexBadge}${indexColumns}`,
+          type: 'index',
+          isLeaf: true,
+          metadata: { ...index, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+        }
+      })
+
+      const foreignKeyChildren = foreignKeys.map(fk => ({
+        key: `${treeNode.key}-fk-${fk.name}`,
+        title: `${fk.name} (${fk.column_name} → ${fk.referenced_table_name}.${fk.referenced_column_name})`,
+        type: 'foreign-key',
+        isLeaf: true,
+        metadata: { ...fk, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+      }))
+
+      const groupNodes: TreeNode[] = [
+        {
+          key: `${treeNode.key}-columns`,
+          title: t('tree.columns'),
+          type: treeNode.type === 'view' ? 'view-columns' : 'table-columns',
+          isLeaf: false,
+          metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+          children: columnChildren.length ? columnChildren : [{ key: `${treeNode.key}-columns-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
+        }
+      ]
+
+      if (treeNode.type === 'table') {
+        groupNodes.push(
+          {
+            key: `${treeNode.key}-indexes`,
+            title: t('tree.indexes'),
+            type: 'table-indexes',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: indexChildren.length ? indexChildren : [{ key: `${treeNode.key}-indexes-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
+          },
+          {
+            key: `${treeNode.key}-foreign-keys`,
+            title: t('tree.foreign_keys'),
+            type: 'table-foreign-keys',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: foreignKeyChildren.length ? foreignKeyChildren : [{ key: `${treeNode.key}-foreign-keys-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
+          }
+        )
+      }
+
+      updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = groupNodes)
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
@@ -470,7 +543,7 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
-  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-indexes'].includes(node.type)) handleToggle(node)
+  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
   else if (['table', 'view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
 
