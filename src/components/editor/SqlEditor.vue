@@ -1,5 +1,9 @@
 <template>
-  <div ref="sqlEditorRoot" class="sql-editor-container">
+  <div
+    ref="sqlEditorRoot"
+    class="sql-editor-container"
+    :class="{ 'is-resizing-result': isSplitResizing }"
+  >
     <SqlToolbar
       :executing="executing"
       :selected-database="selectedDatabase"
@@ -20,7 +24,7 @@
     </div>
 
     <!-- 结果面板拖拽条（在结果面板外部，不受 overflow:hidden 影响） -->
-    <div v-if="resultPanelVisible" class="split-resizer split-resizer--result" @mousedown="startResultResize">
+    <div v-if="resultPanelVisible" class="split-resizer split-resizer--result" @pointerdown="startResultResize">
       <div class="resizer-handle"></div>
     </div>
 
@@ -162,22 +166,26 @@
       </div>
     </div>
 
-    <!-- 面板间分隔条 -->
-    <div v-if="resultPanelVisible && messagesPanelVisible" class="inter-panel-resizer" @mousedown="startMessagesResize"></div>
-
-    <!-- 数据库消息面板 -->
-    <div class="messages-dock" :class="{ collapsed: !messagesPanelVisible }" :style="{ height: messagesPanelVisible ? `${messagesPanelHeight}px` : '0' }">
-      <div class="messages-panel-header">
-        <span class="messages-panel-title">{{ $t('editor.messages_panel') }}</span>
-      </div>
-      <div class="messages-content">
+    <a-drawer
+      :title="$t('editor.messages_panel')"
+      placement="right"
+      v-model:open="messagesPanelVisible"
+      width="360"
+      class="sql-messages-drawer"
+    >
+      <template #extra>
+        <a-button size="small" type="text" :disabled="dbMessages.length === 0" @click="clearDbMessages">
+          {{ $t('common.clear') }}
+        </a-button>
+      </template>
+      <div class="messages-drawer-content">
         <div v-for="(msg, index) in dbMessages" :key="index" class="message-line">
           <span class="message-time">{{ formatMessageTime(index) }}</span>
           <span class="message-body">{{ msg.text }}</span>
         </div>
         <a-empty v-if="dbMessages.length === 0" :description="$t('editor.messages_hint')" />
       </div>
-    </div>
+    </a-drawer>
 
     <!-- 历史记录 -->
     <a-drawer :title="$t('editor.history_title')" placement="right" v-model:open="showHistory" width="400">
@@ -265,6 +273,8 @@ const sqlEditorRoot = ref<HTMLElement>()
 const editorContainer = ref<HTMLElement>()
 let monacoInstance: MonacoModule | null = null
 let editor: any = null
+let editorAutoLayoutSuspendCount = 0
+let editorLayoutResumeRaf = 0
 
 // ── 数据库上下文 ──
 const availableDatabases = ref<DatabaseInfo[]>([])
@@ -388,13 +398,9 @@ function formatElapsed(ms: number): string {
 
 // ── 消息面板 ──
 const MESSAGES_PANEL_VISIBLE_KEY = 'sql_messages_panel_visible'
-const MESSAGES_PANEL_HEIGHT_KEY = 'sql_messages_panel_height'
-const MESSAGES_PANEL_MIN_HEIGHT = 100
 const messagesPanelVisible = ref(getStorageItem(MESSAGES_PANEL_VISIBLE_KEY, false))
-const messagesPanelHeight = ref(getStorageItem(MESSAGES_PANEL_HEIGHT_KEY, 200))
 
 const isSplitResizing = ref(false)
-const isMessagesResizing = ref(false)
 
 const queryResultStates = reactive<Record<number, { pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>>({})
 
@@ -417,6 +423,7 @@ function formatMessageTime(index: number): string {
 function revealResultPanel() { resultPanelVisible.value = true }
 function toggleResultPanel() { resultPanelVisible.value = !resultPanelVisible.value; setStorageItem(RESULT_PANEL_VISIBLE_KEY, resultPanelVisible.value) }
 function toggleMessagesPanel() { messagesPanelVisible.value = !messagesPanelVisible.value; setStorageItem(MESSAGES_PANEL_VISIBLE_KEY, messagesPanelVisible.value) }
+function clearDbMessages() { dbMessages.value = [] }
 
 function appendQueryResults(results: QueryResult[], states: Array<{ pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>) {
   const startIndex = queryResults.value.length
@@ -474,10 +481,8 @@ function closeResultTabsRightOf(index: number) {
 
 function getMaxResultPanelHeight() {
   const h = sqlEditorRoot.value?.clientHeight || 0
-  // 编辑器最小高度 + 消息面板空间
   const editorMin = 120
-  const messagesSpace = messagesPanelVisible.value ? messagesPanelHeight.value + 6 : 0
-  return h <= 0 ? 420 : Math.max(RESULT_PANEL_MIN_HEIGHT, h - editorMin - messagesSpace)
+  return h <= 0 ? 420 : Math.max(RESULT_PANEL_MIN_HEIGHT, h - editorMin)
 }
 const resultDockHeight = computed(() => resultPanelVisible.value ? resultPanelHeight.value : RESULT_PANEL_COLLAPSED_HEIGHT)
 
@@ -486,7 +491,7 @@ function getGridOptions(result: QueryResult, index: number): VxeGridProps {
   return {
     border: true, height: 'auto', loading: state?.loading || false,
     columnConfig: { resizable: true }, rowConfig: { isHover: true, isCurrent: true, height: 36 },
-    mouseConfig: { selected: true }, scrollX: { enabled: true, gt: 20 }, scrollY: { enabled: true, gt: 0 },
+    mouseConfig: { selected: false }, scrollX: { enabled: true, gt: 20 }, scrollY: { enabled: true, gt: 0 },
     columns: result.columns.map(col => ({ field: col, title: col, minWidth: 150, showOverflow: true, slots: { default: 'cell_default' } })),
     data: result.rows,
   }
@@ -643,21 +648,79 @@ async function handleCopyMenuClick(index: number, { key }: { key: string | numbe
 }
 
 // ── 分隔条拖拽 ──
-function startResultResize(e: MouseEvent) {
-  e.preventDefault()
-  isSplitResizing.value = true; const sy = e.clientY; const sh = resultPanelHeight.value
-  const move = (ev: MouseEvent) => { if (!isSplitResizing.value) return; resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, sh - (ev.clientY - sy))) }
-  const stop = () => { isSplitResizing.value = false; setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = ''; document.body.style.userSelect = '' }
-  document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
+function suspendEditorAutomaticLayout() {
+  if (!editor) return
+  if (editorLayoutResumeRaf) {
+    cancelAnimationFrame(editorLayoutResumeRaf)
+    editorLayoutResumeRaf = 0
+  }
+  editorAutoLayoutSuspendCount++
+  if (editorAutoLayoutSuspendCount === 1) {
+    editor.updateOptions({ automaticLayout: false })
+  }
 }
 
-function startMessagesResize(e: MouseEvent) {
+function resumeEditorAutomaticLayout() {
+  if (!editor || editorAutoLayoutSuspendCount === 0) return
+  editorAutoLayoutSuspendCount--
+  if (editorAutoLayoutSuspendCount > 0) return
+  editorLayoutResumeRaf = requestAnimationFrame(() => {
+    editorLayoutResumeRaf = 0
+    editor?.layout()
+    editor?.updateOptions({ automaticLayout: true })
+  })
+}
+
+function setGlobalResizeState(active: boolean, cursor: string) {
+  document.body.style.cursor = active ? cursor : ''
+  document.body.style.userSelect = active ? 'none' : ''
+  document.body.style.webkitUserSelect = active ? 'none' : ''
+}
+
+function startResultResize(e: PointerEvent) {
+  if (e.button !== 0) return
   e.preventDefault()
-  isMessagesResizing.value = true; const sy = e.clientY; const sh = messagesPanelHeight.value
-  const maxH = Math.max(MESSAGES_PANEL_MIN_HEIGHT, Math.floor((sqlEditorRoot.value?.clientHeight || 600) * 0.7))
-  const move = (ev: MouseEvent) => { if (!isMessagesResizing.value) return; messagesPanelHeight.value = Math.min(maxH, Math.max(MESSAGES_PANEL_MIN_HEIGHT, sh - (ev.clientY - sy))) }
-  const stop = () => { isMessagesResizing.value = false; setStorageItem(MESSAGES_PANEL_HEIGHT_KEY, messagesPanelHeight.value); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.body.style.cursor = ''; document.body.style.userSelect = '' }
-  document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop)
+  suspendEditorAutomaticLayout()
+  isSplitResizing.value = true
+  const target = e.currentTarget as HTMLElement | null
+  target?.setPointerCapture?.(e.pointerId)
+  const startY = e.clientY
+  const startHeight = resultPanelHeight.value
+  let lastClientY = e.clientY
+  let rafId = 0
+
+  const applyResize = () => {
+    rafId = 0
+    const nextHeight = startHeight - (lastClientY - startY)
+    resultPanelHeight.value = Math.min(getMaxResultPanelHeight(), Math.max(RESULT_PANEL_MIN_HEIGHT, nextHeight))
+  }
+
+  const move = (ev: PointerEvent) => {
+    if (!isSplitResizing.value) return
+    lastClientY = ev.clientY
+    if (!rafId) rafId = requestAnimationFrame(applyResize)
+  }
+
+  const stop = () => {
+    if (!isSplitResizing.value) return
+    isSplitResizing.value = false
+    if (rafId) {
+      cancelAnimationFrame(rafId)
+      applyResize()
+    }
+    setStorageItem(RESULT_PANEL_HEIGHT_KEY, resultPanelHeight.value)
+    resumeEditorAutomaticLayout()
+    target?.releasePointerCapture?.(e.pointerId)
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', stop)
+    window.removeEventListener('pointercancel', stop)
+    setGlobalResizeState(false, 'row-resize')
+  }
+
+  setGlobalResizeState(true, 'row-resize')
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', stop, { once: true })
+  window.addEventListener('pointercancel', stop, { once: true })
 }
 
 // ── 编辑器操作 ──
@@ -1103,7 +1166,14 @@ onMounted(async () => {
   requestAnimationFrame(() => focusEditor())
 })
 onActivated(() => { requestAnimationFrame(() => focusEditor()); updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
-onUnmounted(() => { execution.hideSummary(); hideResultContextMenu(); const m = editor?.getModel(); if (m && autocompleteManager) autocompleteManager.unbindModel(m); editor?.dispose() })
+onUnmounted(() => {
+  execution.hideSummary()
+  hideResultContextMenu()
+  if (editorLayoutResumeRaf) cancelAnimationFrame(editorLayoutResumeRaf)
+  const m = editor?.getModel()
+  if (m && autocompleteManager) autocompleteManager.unbindModel(m)
+  editor?.dispose()
+})
 
 // ── 设置变更监听 ──
 watch(() => [appStore.theme, appStore.editorSettings.fontSize, appStore.editorSettings.minimap, appStore.editorSettings.lineNumbers, appStore.editorSettings.fontFamily], ([theme]) => {
@@ -1126,7 +1196,10 @@ watch(() => {
   }
 })
 watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
-watch(resultPanelHeight, v => setStorageItem(RESULT_PANEL_HEIGHT_KEY, v))
+watch(messagesPanelVisible, v => setStorageItem(MESSAGES_PANEL_VISIBLE_KEY, v))
+watch(resultPanelHeight, v => {
+  if (!isSplitResizing.value) setStorageItem(RESULT_PANEL_HEIGHT_KEY, v)
+})
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
 
 defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete })
@@ -1141,10 +1214,13 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
   background: var(--color-primary-soft-bg);
   border-left: 2px solid var(--color-primary-border);
 }
-.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); box-shadow: var(--shadow-soft); transition: height 0.18s ease; }
+.result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); box-shadow: var(--shadow-soft); transition: height 0.18s ease; will-change: height; }
+.sql-editor-container.is-resizing-result .result-dock { transition: none; }
+.sql-editor-container.is-resizing-result .monaco-container,
+.sql-editor-container.is-resizing-result .result-dock { pointer-events: none; }
 .result-dock.collapsed { box-shadow: none; }
 /* 结果面板上方拖拽条（在 result-dock 外部） */
-.split-resizer--result { height: 6px; background: var(--border-color); cursor: row-resize; display: block; transition: background-color 0.2s; flex-shrink: 0; position: relative; overflow: visible; z-index: 5; }
+.split-resizer--result { height: 6px; background: var(--border-color); cursor: row-resize; display: block; transition: background-color 0.2s; flex-shrink: 0; position: relative; overflow: visible; z-index: 5; touch-action: none; }
 .split-resizer--result::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
 .split-resizer--result::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 4px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
 .split-resizer--result:hover { background: var(--color-primary); }
@@ -1180,17 +1256,9 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .execution-error-tab .error-detail { font-size: 12px; color: var(--color-danger); line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; font-family: monospace; background: var(--color-danger-soft-bg); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-danger-border); }
 .execution-error-tab .error-time { margin-top: 4px; font-size: 11px; color: var(--app-text-subtle); font-variant-numeric: tabular-nums; }
 
-/* ── 面板间分隔条 & 消息面板 ── */
-.inter-panel-resizer { height: 6px; background: var(--border-color-muted); cursor: row-resize; flex-shrink: 0; position: relative; transition: background-color 0.2s; }
-.inter-panel-resizer::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }
-.inter-panel-resizer::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 4px; border-radius: 2px; background: var(--border-color-strong); transition: background-color 0.2s; }
-.inter-panel-resizer:hover { background: var(--color-primary); }
-.inter-panel-resizer:hover::after { background: var(--color-primary); }
-.messages-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); transition: height 0.18s ease; border-top: 1px solid var(--border-color); }
-.messages-dock.collapsed { border-top-color: transparent; }
-.messages-panel-header { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 10px; border-bottom: 1px solid var(--border-color-muted); background: var(--surface-muted); flex-shrink: 0; }
-.messages-panel-title { font-size: 12px; font-weight: 600; color: var(--app-text-muted); }
-/* 复用 .messages-content 和 .message-item 样式 */
+/* ── 右侧消息面板 ── */
+.sql-messages-drawer :deep(.ant-drawer-body) { padding: 0; }
+.messages-drawer-content { height: 100%; padding: 10px 12px; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.6; user-select: text; -webkit-user-select: text; }
 .result-tabs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .result-tabs :deep(.ant-tabs-content) { flex: 1; overflow: hidden; }
 .result-tabs :deep(.ant-tabs-tabpane) { height: 100%; display: flex; flex-direction: column; }
@@ -1198,8 +1266,7 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-info { margin-bottom: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .affected-text { font-size: 12px; color: var(--app-text-subtle); }
 .table-wrapper { flex: 1; min-height: 0; overflow: hidden; }
-.messages-content { flex: 1; padding: 6px 8px; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.6; }
-.message-line { display: flex; gap: 8px; padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+.message-line { display: flex; gap: 8px; padding: 1px 0; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
 .message-time { flex-shrink: 0; color: var(--app-text-subtle); font-variant-numeric: tabular-nums; }
 .message-body { color: var(--app-text); }
 .history-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
@@ -1214,7 +1281,7 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .result-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-tab-close { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--app-text-subtle); font-size: 12px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: background-color 0.2s, color 0.2s; }
 .result-tab-close:hover { background: var(--surface-hover); color: var(--app-text); }
-.result-cell-text, .messages-content, :deep(.table-wrapper .vxe-cell), :deep(.table-wrapper .vxe-cell--label), :deep(.table-wrapper .vxe-body--row .vxe-cell) { user-select: text !important; -webkit-user-select: text !important; }
+.result-cell-text, .messages-drawer-content, .message-line, .message-time, .message-body, :deep(.table-wrapper .vxe-cell), :deep(.table-wrapper .vxe-cell--label), :deep(.table-wrapper .vxe-body--row .vxe-cell), :deep(.table-wrapper .vxe-cell .result-cell-text) { user-select: text !important; -webkit-user-select: text !important; }
 :deep(.danger-confirm-content) { display: flex; flex-direction: column; gap: 12px; }
 :deep(.danger-confirm-intro) { margin: 0; color: var(--app-text-muted); }
 :deep(.danger-confirm-list) { margin: 0; padding-left: 18px; color: var(--app-text); }

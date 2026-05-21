@@ -7,6 +7,19 @@ interface ClipboardRoutingOptions {
 }
 
 export function useWorkspaceClipboardRouting(options: ClipboardRoutingOptions) {
+  function isNodeInsideMonaco(node: Node | null) {
+    const element = node instanceof HTMLElement ? node : node?.parentElement || null
+    return Boolean(element?.closest('.monaco-editor'))
+  }
+
+  function hasTextSelectionOutsideMonaco() {
+    const selection = window.getSelection()
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false
+    const anchorNode = selection.anchorNode
+    const focusNode = selection.focusNode
+    return !isNodeInsideMonaco(anchorNode) || !isNodeInsideMonaco(focusNode)
+  }
+
   function isEditableTargetOutsideMonaco(target: EventTarget | null) {
     const element = target instanceof HTMLElement ? target : null
     if (!element) return false
@@ -17,7 +30,7 @@ export function useWorkspaceClipboardRouting(options: ClipboardRoutingOptions) {
   }
 
   function shouldRouteClipboardToActiveEditor(target: EventTarget | null) {
-    return options.activeTabType.value === TabType.Query && !isEditableTargetOutsideMonaco(target)
+    return options.activeTabType.value === TabType.Query && !isEditableTargetOutsideMonaco(target) && !hasTextSelectionOutsideMonaco()
   }
 
   function routeClipboardAction(action: 'copy' | 'cut' | 'paste') {

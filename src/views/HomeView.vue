@@ -34,7 +34,7 @@
         </div>
       </div>
 
-      <div v-if="!appStore.sidebarCollapsed" class="sidebar-resizer" @mousedown="startResize"></div>
+      <div v-if="!appStore.sidebarCollapsed" class="sidebar-resizer" @pointerdown="startResize"></div>
 
       <div class="main-workspace">
         <a-tabs v-model:activeKey="mainTabKey" type="editable-card" size="small" @edit="onTabEdit" class="workspace-tabs">
@@ -362,7 +362,7 @@ async function onTabEdit(key: string | number | MouseEvent | KeyboardEvent, acti
 .content-container { flex: 1; display: flex; flex-direction: row; overflow: hidden; position: relative; }
 .sidebar-wrapper { background: var(--sidebar-bg); border-right: 1px solid var(--border-color); height: 100%; overflow: hidden; flex-shrink: 0; }
 .sidebar-inner { height: 100%; overflow: auto; padding: 0 8px; }
-.sidebar-resizer { width: 1px; cursor: col-resize; background: var(--border-color); transition: background-color 0.2s; z-index: 10; flex-shrink: 0; position: relative; overflow: visible; }
+.sidebar-resizer { width: 1px; cursor: col-resize; background: var(--border-color); transition: background-color 0.2s; z-index: 10; flex-shrink: 0; position: relative; overflow: visible; touch-action: none; }
 .sidebar-resizer::before { content: ''; position: absolute; top: 0; bottom: 0; left: -4px; right: -4px; cursor: col-resize; }
 .sidebar-resizer:hover { background: var(--color-primary); }
 .main-workspace { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); min-width: 0; }
