@@ -191,6 +191,17 @@ pub struct ForeignKeyInfo {
     pub delete_rule: Option<String>,
 }
 
+/// 数据库元数据 - 触发器信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriggerInfo {
+    pub name: String,
+    pub table_name: String,
+    pub timing: Option<String>,
+    pub event: Option<String>,
+    pub enabled: Option<bool>,
+    pub definition: Option<String>,
+}
+
 /// 表结构变更类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -375,6 +386,11 @@ pub trait DatabaseOperations: Send + Sync {
 
     /// 获取外键信息
     async fn get_foreign_keys(&self, _table: &str, _schema: Option<&str>) -> DbResult<Vec<ForeignKeyInfo>> {
+        Ok(Vec::new())
+    }
+
+    /// 获取触发器信息
+    async fn get_triggers(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TriggerInfo>> {
         Ok(Vec::new())
     }
 

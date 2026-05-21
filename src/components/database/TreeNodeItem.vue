@@ -113,6 +113,7 @@ function getIconConfig(node: TreeNode) {
     'view-columns': { icon: 'ph:columns-duotone', color: 'var(--icon-color-gray)' },
     'table-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     'table-foreign-keys': { icon: 'ph:link-duotone', color: 'var(--icon-color-teal)' },
+    'table-triggers': { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' },
     tables: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     table: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     'schema-views': { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
@@ -129,6 +130,7 @@ function getIconConfig(node: TreeNode) {
     'schema-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     index: { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     'foreign-key': { icon: 'ph:link-duotone', color: 'var(--icon-color-teal)' },
+    trigger: { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' },
     'database-extensions': { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
     extension: { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
     'empty': { icon: 'ph:info-duotone', color: 'var(--icon-color-muted)' },
@@ -139,6 +141,7 @@ function getIconConfig(node: TreeNode) {
   if (type === 'leaf') {
     const key = node.key.toLowerCase()
     if (key.includes('-indexes') || key.includes('-index')) return { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' }
+    if (key.includes('-triggers') || key.includes('-trigger')) return { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' }
     if (key.includes('-aggregates')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' }
     if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' }
     if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' }

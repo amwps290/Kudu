@@ -106,6 +106,18 @@ export interface ForeignKeyInfo {
 }
 
 /**
+ * 触发器信息
+ */
+export interface TriggerInfo {
+  name: string
+  table_name: string
+  timing?: string
+  event?: string
+  enabled?: boolean
+  definition?: string
+}
+
+/**
  * Schema 信息
  */
 export interface SchemaInfo {

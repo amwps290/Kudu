@@ -196,6 +196,8 @@
     "functions": "函数",
     "aggregates": "聚合函数",
     "indexes": "索引",
+    "foreign_keys": "外键",
+    "triggers": "触发器",
     "extensions": "扩展",
     "no_data": "(无数据)",
     "new_query": "新建查询脚本",

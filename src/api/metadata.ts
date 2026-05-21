@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, FunctionInfo, ExtensionInfo 
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, FunctionInfo, ExtensionInfo 
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -107,6 +107,18 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<ForeignKeyInfo[]> {
     return withAutoReconnect(params.connectionId, () => invoke<ForeignKeyInfo[]>('get_table_foreign_keys', params), true)
+  },
+
+  /**
+   * 获取表触发器
+   */
+  async getTableTriggers(params: {
+    connectionId: string,
+    table: string,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<TriggerInfo[]> {
+    return withAutoReconnect(params.connectionId, () => invoke<TriggerInfo[]>('get_table_triggers', params), true)
   },
 
   /**

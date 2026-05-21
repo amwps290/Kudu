@@ -1,4 +1,4 @@
-use crate::database::{ColumnInfo, IndexInfo, ForeignKeyInfo, DatabaseInfo, TableInfo, SchemaInfo, FunctionInfo, ExtensionInfo, DatabaseType};
+use crate::database::{ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, DatabaseInfo, TableInfo, SchemaInfo, FunctionInfo, ExtensionInfo, DatabaseType};
 use crate::AppState;
 use super::error::ToCommandResult;
 use tauri::State;
@@ -84,6 +84,11 @@ pub async fn get_table_indexes(connection_id: String, table: String, schema: Opt
 #[tauri::command]
 pub async fn get_table_foreign_keys(connection_id: String, table: String, schema: Option<String>, state: State<'_, AppState>) -> Result<Vec<ForeignKeyInfo>, String> {
     state.connection_manager.get_foreign_keys(&connection_id, &table, schema.as_deref()).await.to_cmd_result()
+}
+
+#[tauri::command]
+pub async fn get_table_triggers(connection_id: String, table: String, database: Option<String>, schema: Option<String>, state: State<'_, AppState>) -> Result<Vec<TriggerInfo>, String> {
+    state.connection_manager.get_triggers(&connection_id, &table, schema.as_deref(), database.as_deref()).await.to_cmd_result()
 }
 
 #[tauri::command]

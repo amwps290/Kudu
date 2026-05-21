@@ -309,6 +309,39 @@ impl DatabaseOperations for SqliteDatabase {
         Ok(fks)
     }
 
+    async fn get_triggers(&self, table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TriggerInfo>> {
+        let sql = format!(
+            "SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{}' ORDER BY name",
+            table.replace("'", "''")
+        );
+        let results = self.execute_query(&sql, None, None).await?;
+        if let Some(res) = results.first() {
+            Ok(res.rows.iter().map(|r| {
+                let definition = r.get("sql").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let upper_definition = definition.as_deref().unwrap_or_default().to_uppercase();
+                let timing = ["BEFORE", "AFTER", "INSTEAD OF"]
+                    .iter()
+                    .find(|timing| upper_definition.contains(**timing))
+                    .map(|s| s.to_string());
+                let event = ["INSERT", "UPDATE", "DELETE"]
+                    .iter()
+                    .find(|event| upper_definition.contains(**event))
+                    .map(|s| s.to_string());
+
+                TriggerInfo {
+                    name: r.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+                    table_name: r.get("tbl_name").and_then(|v| v.as_str()).unwrap_or(table).to_string(),
+                    timing,
+                    event,
+                    enabled: None,
+                    definition,
+                }
+            }).collect())
+        } else {
+            Ok(vec![])
+        }
+    }
+
     async fn alter_table(&self, table: &str, _schema: Option<&str>, _database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let state = self.state.lock().await;
         let conn = state.conn.as_ref().ok_or(DbError::not_connected())?;

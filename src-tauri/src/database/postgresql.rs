@@ -652,6 +652,46 @@ impl DatabaseOperations for PostgreSqlDatabase {
         }).collect())
     }
 
+    async fn get_triggers(&self, table: &str, schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TriggerInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                tg.tgname,
+                cls.relname,
+                CASE
+                    WHEN (tg.tgtype & 64) = 64 THEN 'INSTEAD OF'
+                    WHEN (tg.tgtype & 2) = 2 THEN 'BEFORE'
+                    ELSE 'AFTER'
+                END AS timing,
+                concat_ws(', ',
+                    CASE WHEN (tg.tgtype & 4) = 4 THEN 'INSERT' END,
+                    CASE WHEN (tg.tgtype & 8) = 8 THEN 'DELETE' END,
+                    CASE WHEN (tg.tgtype & 16) = 16 THEN 'UPDATE' END,
+                    CASE WHEN (tg.tgtype & 32) = 32 THEN 'TRUNCATE' END
+                ) AS event,
+                tg.tgenabled::text,
+                pg_get_triggerdef(tg.oid, true)
+            FROM pg_trigger tg
+            JOIN pg_class cls ON cls.oid = tg.tgrelid
+            JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+            WHERE NOT tg.tgisinternal AND cls.relname = $1 AND ns.nspname = $2
+            ORDER BY tg.tgname
+        ";
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        Ok(rows.into_iter().map(|r| {
+            let enabled: String = r.get(4);
+            TriggerInfo {
+                name: r.get(0),
+                table_name: r.get(1),
+                timing: Some(r.get(2)),
+                event: Some(r.get(3)),
+                enabled: Some(enabled != "D"),
+                definition: Some(r.get(5)),
+            }
+        }).collect())
+    }
+
     async fn alter_table(&self, table: &str, schema: Option<&str>, _database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);

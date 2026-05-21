@@ -52,6 +52,7 @@ fn main() {
             commands::metadata::get_views,
             commands::metadata::get_table_indexes,
             commands::metadata::get_table_foreign_keys,
+            commands::metadata::get_table_triggers,
             commands::metadata::get_create_table_ddl,
             commands::metadata::get_view_definition,
             commands::metadata::get_autocomplete_data,

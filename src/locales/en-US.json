@@ -196,6 +196,8 @@
     "functions": "Functions",
     "aggregates": "Aggregate Functions",
     "indexes": "Indexes",
+    "foreign_keys": "Foreign Keys",
+    "triggers": "Triggers",
     "extensions": "Extensions",
     "no_data": "(No data)",
     "new_query": "New Query Script",

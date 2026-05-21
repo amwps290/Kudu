@@ -667,6 +667,28 @@ impl DatabaseOperations for MySqlDatabase {
         Ok(fks)
     }
 
+    async fn get_triggers(&self, table: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<Vec<TriggerInfo>> {
+        let target_schema = self.resolve_database_name(database, schema).await?;
+        let sql = format!(
+            "SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION, ACTION_STATEMENT FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = {} AND EVENT_OBJECT_TABLE = {} ORDER BY TRIGGER_NAME",
+            escape_string_literal(&target_schema),
+            escape_string_literal(table)
+        );
+        let results = self.execute_query(&sql, None, None).await?;
+        if let Some(res) = results.first() {
+            Ok(res.rows.iter().map(|r| TriggerInfo {
+                name: r.get("TRIGGER_NAME").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+                table_name: r.get("EVENT_OBJECT_TABLE").and_then(|v| v.as_str()).unwrap_or(table).to_string(),
+                timing: r.get("ACTION_TIMING").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                event: r.get("EVENT_MANIPULATION").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                enabled: None,
+                definition: r.get("ACTION_STATEMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            }).collect())
+        } else {
+            Ok(vec![])
+        }
+    }
+
     async fn alter_table(&self, table: &str, _schema: Option<&str>, database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let (pool, config) = self.get_pool_and_config().await?;
         let mut conn = pool.get_conn().await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;

@@ -169,7 +169,7 @@ const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || 
 
 const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
-const TABLE_OBJECT_GROUP_NODE_TYPES = ['table-columns', 'view-columns', 'table-indexes', 'table-foreign-keys']
+const TABLE_OBJECT_GROUP_NODE_TYPES = ['table-columns', 'view-columns', 'table-indexes', 'table-foreign-keys', 'table-triggers']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
@@ -432,13 +432,16 @@ async function onLoadData(treeNode: TreeNode) {
   }
   else if (['table', 'view'].includes(treeNode.type)) {
     try {
-      const [columns, indexes, foreignKeys] = await Promise.all([
+      const [columns, indexes, foreignKeys, triggers] = await Promise.all([
         metadataApi.getTableStructure({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema }),
         treeNode.type === 'table'
           ? metadataApi.getTableIndexes({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, schema: treeNode.metadata.schema })
           : Promise.resolve([]),
         treeNode.type === 'table'
           ? metadataApi.getTableForeignKeys({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, schema: treeNode.metadata.schema })
+          : Promise.resolve([]),
+        treeNode.type === 'table'
+          ? metadataApi.getTableTriggers({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema })
           : Promise.resolve([])
       ])
 
@@ -475,6 +478,20 @@ async function onLoadData(treeNode: TreeNode) {
         metadata: { ...fk, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
       }))
 
+      const triggerChildren = triggers.map(trigger => {
+        const triggerParts = [trigger.timing, trigger.event].filter(Boolean).join(' ')
+        const triggerBadge = triggerParts ? ` [${triggerParts}]` : ''
+        const disabledBadge = trigger.enabled === false ? ' [DISABLED]' : ''
+
+        return {
+          key: `${treeNode.key}-trigger-${trigger.name}`,
+          title: `${trigger.name}${triggerBadge}${disabledBadge}`,
+          type: 'trigger',
+          isLeaf: true,
+          metadata: { ...trigger, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+        }
+      })
+
       const groupNodes: TreeNode[] = [
         {
           key: `${treeNode.key}-columns`,
@@ -503,6 +520,14 @@ async function onLoadData(treeNode: TreeNode) {
             isLeaf: false,
             metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
             children: foreignKeyChildren.length ? foreignKeyChildren : [{ key: `${treeNode.key}-foreign-keys-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
+          },
+          {
+            key: `${treeNode.key}-triggers`,
+            title: t('tree.triggers'),
+            type: 'table-triggers',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: triggerChildren.length ? triggerChildren : [{ key: `${treeNode.key}-triggers-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
           }
         )
       }
