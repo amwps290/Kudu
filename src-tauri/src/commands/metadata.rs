@@ -273,6 +273,28 @@ pub async fn get_autocomplete_data(
 
     let mut tables = Vec::new();
     let mut functions = Vec::new();
+    let guc_parameters = if matches!(db_type, DatabaseType::PostgreSQL) {
+        manager
+            .execute_query(&connection_id, "SELECT name FROM pg_settings ORDER BY name", None, None)
+            .await
+            .ok()
+            .and_then(|results| results.into_iter().next())
+            .map(|result| {
+                result
+                    .rows
+                    .into_iter()
+                    .filter_map(|row| {
+                        row.get("name")
+                            .or_else(|| row.get("NAME"))
+                            .and_then(|value| value.as_str())
+                            .map(|name| name.to_string())
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
 
     for db_name in target_databases {
         let mut table_list = manager
@@ -386,5 +408,6 @@ pub async fn get_autocomplete_data(
         "tables": tables,
         "functions": functions,
         "keywords": default_keywords(),
+        "gucParameters": guc_parameters,
     }))
 }

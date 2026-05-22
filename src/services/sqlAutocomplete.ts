@@ -7,6 +7,7 @@ export interface AutoCompleteData {
   tables: TableSuggestion[]
   functions: FunctionSuggestion[]
   keywords: string[]
+  gucParameters?: string[]
 }
 
 export interface TableSuggestion {
@@ -400,9 +401,13 @@ export class SqlAutocompleteManager {
       }
     }
 
-    const shouldSuggestSetParameters = context.dbType === 'postgresql' && /\bSET\s+$/i.test(textUntilPosition)
-    if (shouldSuggestSetParameters) {
-      for (const guc of this.gucParameters) {
+    const shouldSuggestGucParameters = context.dbType === 'postgresql' && /\b(SET|SHOW)\s+$/i.test(textUntilPosition)
+    if (shouldSuggestGucParameters) {
+      const gucParameters = data.gucParameters?.length
+        ? new Set(data.gucParameters)
+        : this.gucParameters
+
+      for (const guc of gucParameters) {
         suggestions.push({
           label: guc,
           kind: this.monaco.languages.CompletionItemKind.Function,
