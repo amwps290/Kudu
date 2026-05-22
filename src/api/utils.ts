@@ -10,6 +10,20 @@ export interface SavedFileInfo {
   title: string
 }
 
+export interface AppInfo {
+  app_name: string
+  version: string
+  repository_url: string
+  git_commit?: string | null
+  git_short_commit?: string | null
+  git_branch?: string | null
+  git_commit_date?: string | null
+  build_time?: string | null
+  profile: string
+  os: string
+  arch: string
+}
+
 export interface SaveFileAsPayload {
   path: string
   content: string
@@ -18,6 +32,13 @@ export interface SaveFileAsPayload {
 export const SQL_FILE_FILTERS = [{ name: 'SQL', extensions: ['sql'] }]
 
 export const utilsApi = {
+  /**
+   * 获取应用信息
+   */
+  async getAppInfo(): Promise<AppInfo> {
+    return invoke<AppInfo>('get_app_info')
+  },
+
   /**
    * 读取文件内容
    */
@@ -51,6 +72,13 @@ export const utilsApi = {
    */
   async getSystemFonts(): Promise<SystemFont[]> {
     return invoke<SystemFont[]>('list_system_fonts')
+  },
+
+  /**
+   * 在系统默认浏览器中打开外部链接
+   */
+  async openExternalUrl(url: string): Promise<void> {
+    return invoke('open_external_url', { url })
   },
 
   /**

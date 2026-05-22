@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use tracing::info;
 use crate::utils::logger;
+use crate::models::AppInfo;
 
 #[derive(Debug, serde::Serialize)]
 pub struct SavedFileInfo {
@@ -116,6 +117,23 @@ fn validate_or_prepare_new_path(path: &str, app: &AppHandle) -> Result<PathBuf, 
 }
 
 #[tauri::command]
+pub async fn get_app_info() -> Result<AppInfo, String> {
+    Ok(AppInfo {
+        app_name: env!("CARGO_PKG_NAME").to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        repository_url: option_env!("KUDU_REPOSITORY_URL").unwrap_or("https://github.com/amwps290/DataSmith").to_string(),
+        git_commit: option_env!("KUDU_GIT_COMMIT").map(|s| s.to_string()),
+        git_short_commit: option_env!("KUDU_GIT_SHORT_COMMIT").map(|s| s.to_string()),
+        git_branch: option_env!("KUDU_GIT_BRANCH").map(|s| s.to_string()),
+        git_commit_date: option_env!("KUDU_GIT_COMMIT_DATE").map(|s| s.to_string()),
+        build_time: option_env!("KUDU_BUILD_TIME").map(|s| s.to_string()),
+        profile: if cfg!(debug_assertions) { "debug".to_string() } else { "release".to_string() },
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+    })
+}
+
+#[tauri::command]
 pub async fn set_log_level(level: String) -> Result<String, String> {
     logger::set_log_level(&level)
 }
@@ -128,6 +146,34 @@ pub async fn log_frontend_timing(stage: String, elapsed_ms: f64, details: Option
         details = details.as_deref().unwrap_or(""),
         "前端启动计时"
     );
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_external_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        return Err("只允许打开 http/https 链接".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", trimmed])
+        .spawn()
+        .map_err(|e| format!("无法打开链接: {}", e))?;
+
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(trimmed)
+        .spawn()
+        .map_err(|e| format!("无法打开链接: {}", e))?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(trimmed)
+        .spawn()
+        .map_err(|e| format!("无法打开链接: {}", e))?;
+
     Ok(())
 }
 

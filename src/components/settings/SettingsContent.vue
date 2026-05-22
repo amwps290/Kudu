@@ -11,14 +11,17 @@
       <button type="button" class="interactive-row settings-nav-item" :class="{ active: currentSection === 'database' }" @click="selectedKeys = ['database']">
         {{ $t('settings_page.database_title') }}
       </button>
+      <button type="button" class="interactive-row settings-nav-item" :class="{ active: currentSection === 'about' }" @click="selectedKeys = ['about']">
+        {{ $t('settings_page.about_title') }}
+      </button>
     </aside>
 
     <main class="settings-main">
-      <div class="section-header settings-header">
+      <div v-if="currentSection !== 'about'" class="section-header settings-header">
         <div class="settings-heading">
           <h1>{{ currentSectionTitle }}</h1>
           <p>{{ currentSectionDescription }}</p>
-          <div class="app-subtle-note settings-subtle">{{ $t('settings_page.instant_save_hint') }}</div>
+          <div v-if="currentSection !== 'about'" class="app-subtle-note settings-subtle">{{ $t('settings_page.instant_save_hint') }}</div>
         </div>
       </div>
 
@@ -131,7 +134,7 @@
         </section>
       </template>
 
-      <template v-else>
+      <template v-else-if="currentSection === 'database'">
         <section class="settings-group">
           <div class="setting-group-title settings-group-title">{{ $t('settings_page.database_connection_group') }}</div>
           <a-alert
@@ -168,6 +171,43 @@
           </div>
         </section>
       </template>
+
+      <template v-else>
+        <section class="about-hero-card">
+          <h2 class="about-hero-title">{{ appDisplayName }}</h2>
+          <p class="about-hero-description">{{ $t('settings_page.about_summary') }}</p>
+          <div class="about-hero-meta">
+            <span class="about-hero-badge">v{{ appInfo?.version || '-' }}</span>
+            <span v-if="appInfo?.git_short_commit" class="about-hero-badge">{{ appInfo.git_short_commit }}</span>
+          </div>
+          <button type="button" class="about-primary-link" @click="openExternalLink(appInfo?.repository_url)">
+            {{ $t('settings_page.about_open_github') }}
+          </button>
+        </section>
+
+        <section class="about-info-card">
+          <div class="setting-row setting-row-display">
+            <div class="setting-meta">
+              <div class="setting-label">{{ $t('settings_page.about_version') }}</div>
+            </div>
+            <div class="setting-display-value">{{ appInfo?.version || '-' }}</div>
+          </div>
+
+          <div class="setting-row setting-row-display">
+            <div class="setting-meta">
+              <div class="setting-label">{{ $t('settings_page.about_git_commit') }}</div>
+            </div>
+            <div class="setting-display-value">{{ appInfo?.git_short_commit || appInfo?.git_commit || '-' }}</div>
+          </div>
+
+          <div class="setting-row setting-row-display">
+            <div class="setting-meta">
+              <div class="setting-label">{{ $t('settings_page.about_build_time') }}</div>
+            </div>
+            <div class="setting-display-value">{{ formatBuildTimestamp(appInfo?.build_time) }}</div>
+          </div>
+        </section>
+      </template>
     </main>
   </div>
 </template>
@@ -176,7 +216,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, type Language, type LogLevel, type ThemeMode } from '@/stores/app'
-import { utilsApi } from '@/api'
+import { utilsApi, type AppInfo } from '@/api'
 
 withDefaults(defineProps<{
   embedded?: boolean
@@ -189,8 +229,9 @@ defineEmits<{
 }>()
 
 const appStore = useAppStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const selectedKeys = ref<string[]>(['interface'])
+const appInfo = ref<AppInfo | null>(null)
 
 const filterFontOption = (input: string, option: { label: string; value: string }) => {
   return option.label.toLowerCase().includes(input.toLowerCase()) || option.value.toLowerCase().includes(input.toLowerCase())
@@ -290,8 +331,47 @@ async function loadSystemFonts() {
   }
 }
 
+async function loadAppInfo() {
+  try {
+    appInfo.value = await utilsApi.getAppInfo()
+  } catch (error) {
+    console.warn('无法加载应用信息', error)
+  }
+}
+
+function formatDisplayDate(value?: string | null): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date)
+}
+
+function formatBuildTimestamp(value?: string | null): string {
+  if (!value) return '-'
+  const seconds = Number(value)
+  if (!Number.isFinite(seconds) || seconds <= 0) return value
+  return formatDisplayDate(new Date(seconds * 1000).toISOString())
+}
+
+async function openExternalLink(url?: string | null) {
+  if (!url) return
+  try {
+    await utilsApi.openExternalUrl(url)
+  } catch (error) {
+    console.warn('无法打开外部链接', error)
+  }
+}
+
 onMounted(() => {
   loadSystemFonts()
+  loadAppInfo()
 })
 
 const logLevelOptions = [
@@ -305,13 +385,21 @@ const logLevelOptions = [
 const currentSection = computed(() => selectedKeys.value[0] || 'interface')
 const currentSectionTitle = computed(() => {
   if (currentSection.value === 'interface') return t('settings_page.interface_preferences')
+  if (currentSection.value === 'editor') return t('settings_page.editor_preferences')
   if (currentSection.value === 'database') return t('settings_page.database_preferences')
-  return t('settings_page.editor_preferences')
+  return t('settings_page.about_preferences')
 })
 const currentSectionDescription = computed(() => {
   if (currentSection.value === 'interface') return t('settings_page.interface_description')
+  if (currentSection.value === 'editor') return t('settings_page.editor_description')
   if (currentSection.value === 'database') return t('settings_page.database_description')
-  return t('settings_page.editor_description')
+  return t('settings_page.about_description')
+})
+const appDisplayName = computed(() => {
+  const raw = appInfo.value?.app_name?.trim()
+  if (!raw) return 'Kudu'
+  if (raw.toLowerCase() === 'kudu') return 'Kudu'
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
 })
 
 const themeModeModel = computed({
@@ -448,6 +536,21 @@ const mysqlInitSqlModel = computed({
   min-width: 0;
 }
 
+.setting-row-display {
+  align-items: flex-start;
+}
+
+.setting-display-value {
+  max-width: 420px;
+  min-width: 180px;
+  padding-top: 1px;
+  color: var(--app-text);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+  word-break: break-word;
+}
+
 .setting-label {
   margin-bottom: 2px;
   font-size: 13px;
@@ -471,6 +574,87 @@ const mysqlInitSqlModel = computed({
   margin-bottom: 0;
 }
 
+.about-hero-card {
+  margin-bottom: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--color-fill-2, rgba(127,127,127,0.06)) 100%);
+}
+
+.about-hero-title {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.about-hero-description {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--app-text-subtle);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.about-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.about-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--app-text-subtle);
+  font-size: 12px;
+}
+
+.about-primary-link {
+  margin-top: 16px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.about-primary-link:hover {
+  opacity: 0.92;
+}
+
+.about-info-card {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0 18px;
+  background: var(--surface);
+}
+
+.settings-link-button {
+  max-width: 420px;
+  min-width: 180px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.settings-link-button:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   .settings-editor {
     flex-direction: column;
@@ -488,6 +672,12 @@ const mysqlInitSqlModel = computed({
     align-items: stretch;
   }
 
+  .about-info-card {
+    padding: 0 14px;
+  }
+
+  .setting-display-value,
+  .settings-link-button,
   .setting-select,
   .setting-select.compact,
   .setting-textarea {
