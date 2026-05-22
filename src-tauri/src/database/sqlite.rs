@@ -342,6 +342,44 @@ impl DatabaseOperations for SqliteDatabase {
         }
     }
 
+    async fn get_table_constraints(&self, table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TableConstraintInfo>> {
+        let index_results = self.execute_query(&format!("PRAGMA index_list('{}')", table.replace("'", "''")), None, None).await?;
+        let mut constraints = Vec::new();
+
+        if let Some(res) = index_results.first() {
+            for row in &res.rows {
+                let is_unique = row.get("unique")
+                    .and_then(|v| v.as_i64())
+                    .map(|n| n > 0)
+                    .or_else(|| row.get("unique").and_then(|v| v.as_str()).map(|s| s == "1"))
+                    .unwrap_or(false);
+                let origin = row.get("origin").and_then(|v| v.as_str()).unwrap_or("");
+                if !is_unique || origin != "u" {
+                    continue;
+                }
+
+                let name = row.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                let col_results = self.execute_query(&format!("PRAGMA index_info('{}')", name.replace("'", "''")), None, None).await?;
+                let columns = col_results
+                    .first()
+                    .map(|col_res| col_res.rows.iter()
+                        .filter_map(|cr| cr.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                        .collect::<Vec<_>>())
+                    .unwrap_or_default();
+                let definition = if columns.is_empty() { None } else { Some(format!("UNIQUE ({})", columns.join(", "))) };
+
+                constraints.push(TableConstraintInfo {
+                    name,
+                    constraint_type: "UNIQUE".to_string(),
+                    columns,
+                    definition,
+                });
+            }
+        }
+
+        Ok(constraints)
+    }
+
     async fn alter_table(&self, table: &str, _schema: Option<&str>, _database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let state = self.state.lock().await;
         let conn = state.conn.as_ref().ok_or(DbError::not_connected())?;

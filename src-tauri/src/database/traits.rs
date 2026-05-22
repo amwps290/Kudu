@@ -202,6 +202,24 @@ pub struct TriggerInfo {
     pub definition: Option<String>,
 }
 
+/// 数据库元数据 - 表约束信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableConstraintInfo {
+    pub name: String,
+    pub constraint_type: String,
+    pub columns: Vec<String>,
+    pub definition: Option<String>,
+}
+
+/// 数据库元数据 - 规则信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleInfo {
+    pub name: String,
+    pub event: Option<String>,
+    pub is_instead: Option<bool>,
+    pub definition: Option<String>,
+}
+
 /// 表结构变更类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -391,6 +409,16 @@ pub trait DatabaseOperations: Send + Sync {
 
     /// 获取触发器信息
     async fn get_triggers(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TriggerInfo>> {
+        Ok(Vec::new())
+    }
+
+    /// 获取表约束信息
+    async fn get_table_constraints(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TableConstraintInfo>> {
+        Ok(Vec::new())
+    }
+
+    /// 获取规则信息
+    async fn get_rules(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<RuleInfo>> {
         Ok(Vec::new())
     }
 

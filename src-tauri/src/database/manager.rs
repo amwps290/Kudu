@@ -387,6 +387,18 @@ impl ConnectionManager {
         db.get_triggers(table, schema, database).await
     }
 
+    pub async fn get_table_constraints(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<Vec<TableConstraintInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_table_constraints(table, schema, database).await
+    }
+
+    pub async fn get_rules(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<Vec<RuleInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_rules(table, schema, database).await
+    }
+
     pub async fn get_schema_indexes(&self, composite_id: &str, database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

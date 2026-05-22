@@ -80,6 +80,12 @@
             <a-menu-divider />
           </template>
 
+          <!-- 可查看定义的元数据节点 -->
+          <template v-else-if="hasDefinitionNode">
+            <a-menu-item key="view-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <!-- 其他可刷新节点（schema/tables组等） -->
           <template v-else-if="isRefreshableNode">
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
@@ -169,7 +175,17 @@ const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || 
 
 const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
-const TABLE_OBJECT_GROUP_NODE_TYPES = ['table-columns', 'view-columns', 'table-indexes', 'table-foreign-keys', 'table-triggers']
+const TABLE_OBJECT_GROUP_NODE_TYPES = [
+  'table-columns',
+  'view-columns',
+  'table-indexes',
+  'table-foreign-keys',
+  'table-triggers',
+  'table-rules',
+  'table-uniques',
+  'table-checks',
+  'table-excludes'
+]
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
@@ -197,6 +213,7 @@ const menuOpenUpward = ref(false)
 let contextMenuResizeObserver: ResizeObserver | null = null
 
 const showDdlModal = ref(false), ddlEditorContainer = ref<HTMLElement>()
+const hasDefinitionNode = computed(() => Boolean(selectedNode.value?.metadata?.definition))
 const showRenameModal = ref(false)
 const renameValue = ref('')
 const renameSubmitting = ref(false)
@@ -432,7 +449,7 @@ async function onLoadData(treeNode: TreeNode) {
   }
   else if (['table', 'view'].includes(treeNode.type)) {
     try {
-      const [columns, indexes, foreignKeys, triggers] = await Promise.all([
+      const [columns, indexes, foreignKeys, triggers, constraints, rules] = await Promise.all([
         metadataApi.getTableStructure({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema }),
         treeNode.type === 'table'
           ? metadataApi.getTableIndexes({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, schema: treeNode.metadata.schema })
@@ -442,6 +459,12 @@ async function onLoadData(treeNode: TreeNode) {
           : Promise.resolve([]),
         treeNode.type === 'table'
           ? metadataApi.getTableTriggers({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema })
+          : Promise.resolve([]),
+        treeNode.type === 'table'
+          ? metadataApi.getTableConstraints({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema })
+          : Promise.resolve([]),
+        treeNode.type === 'table'
+          ? metadataApi.getTableRules({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema })
           : Promise.resolve([])
       ])
 
@@ -492,6 +515,34 @@ async function onLoadData(treeNode: TreeNode) {
         }
       })
 
+      const makeConstraintChildren = (constraintType: string, nodeType: string) => constraints
+        .filter(constraint => constraint.constraint_type === constraintType)
+        .map(constraint => {
+          const columns = constraint.columns?.length ? ` (${constraint.columns.join(', ')})` : ''
+          return {
+            key: `${treeNode.key}-${nodeType}-${constraint.name}`,
+            title: `${constraint.name}${columns}`,
+            type: nodeType,
+            isLeaf: true,
+            metadata: { ...constraint, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+          }
+        })
+
+      const uniqueChildren = makeConstraintChildren('UNIQUE', 'unique-constraint')
+      const checkChildren = makeConstraintChildren('CHECK', 'check-constraint')
+      const excludeChildren = makeConstraintChildren('EXCLUDE', 'exclude-constraint')
+      const ruleChildren = rules.map(rule => {
+        const ruleParts = [rule.is_instead ? 'INSTEAD' : '', rule.event].filter(Boolean).join(' ')
+        const ruleBadge = ruleParts ? ` [${ruleParts}]` : ''
+        return {
+          key: `${treeNode.key}-rule-${rule.name}`,
+          title: `${rule.name}${ruleBadge}`,
+          type: 'rule',
+          isLeaf: true,
+          metadata: { ...rule, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+        }
+      })
+
       const groupNodes: TreeNode[] = [
         {
           key: `${treeNode.key}-columns`,
@@ -530,6 +581,50 @@ async function onLoadData(treeNode: TreeNode) {
             children: triggerChildren.length ? triggerChildren : [{ key: `${treeNode.key}-triggers-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
           }
         )
+
+        if (uniqueChildren.length) {
+          groupNodes.push({
+            key: `${treeNode.key}-uniques`,
+            title: t('tree.uniques'),
+            type: 'table-uniques',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: uniqueChildren
+          })
+        }
+
+        if (checkChildren.length) {
+          groupNodes.push({
+            key: `${treeNode.key}-checks`,
+            title: t('tree.checks'),
+            type: 'table-checks',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: checkChildren
+          })
+        }
+
+        if (excludeChildren.length) {
+          groupNodes.push({
+            key: `${treeNode.key}-excludes`,
+            title: t('tree.excludes'),
+            type: 'table-excludes',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: excludeChildren
+          })
+        }
+
+        if (ruleChildren.length) {
+          groupNodes.push({
+            key: `${treeNode.key}-rules`,
+            title: t('tree.rules'),
+            type: 'table-rules',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: ruleChildren
+          })
+        }
       }
 
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = groupNodes)
@@ -569,7 +664,19 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
   if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  else if (node.metadata?.definition) showMetadataDefinition(node)
   else if (['table', 'view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
+}
+
+async function showMetadataDefinition(node: TreeNode) {
+  selectedNode.value = node
+  showDdlModal.value = true
+  await nextTick()
+  if (ddlEditorContainer.value) {
+    disposeDdlEditor()
+    await createDdlEditor()
+    setDdlValue(String(node.metadata?.definition || ''))
+  }
 }
 
 function onRightClick({ event, node }: { event: MouseEvent; node: TreeNode }) {
@@ -625,6 +732,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   }
   else if (key === 'refresh') handleRefreshNode(selectedNode.value)
   else if (key === 'copy-name') { await writeClipboardText(selectedNode.value.title); message.success(t('common.copy')) }
+  else if (key === 'view-definition') { await showMetadataDefinition(selectedNode.value) }
   else if (key === 'view-data') {
     emit('table-selected', { 
       database: selectedNode.value.metadata.database, 

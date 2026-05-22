@@ -118,6 +118,26 @@ export interface TriggerInfo {
 }
 
 /**
+ * 表约束信息
+ */
+export interface TableConstraintInfo {
+  name: string
+  constraint_type: string
+  columns: string[]
+  definition?: string
+}
+
+/**
+ * 规则信息
+ */
+export interface RuleInfo {
+  name: string
+  event?: string
+  is_instead?: boolean
+  definition?: string
+}
+
+/**
  * Schema 信息
  */
 export interface SchemaInfo {

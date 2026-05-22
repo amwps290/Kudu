@@ -689,6 +689,75 @@ impl DatabaseOperations for MySqlDatabase {
         }
     }
 
+    async fn get_table_constraints(&self, table: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<Vec<TableConstraintInfo>> {
+        let target_schema = self.resolve_database_name(database, schema).await?;
+        let unique_sql = format!(
+            "SELECT tc.CONSTRAINT_NAME, GROUP_CONCAT(kcu.COLUMN_NAME ORDER BY kcu.ORDINAL_POSITION SEPARATOR ', ') AS COLUMNS \
+             FROM information_schema.TABLE_CONSTRAINTS tc \
+             LEFT JOIN information_schema.KEY_COLUMN_USAGE kcu \
+               ON kcu.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA \
+              AND kcu.CONSTRAINT_NAME = tc.CONSTRAINT_NAME \
+              AND kcu.TABLE_SCHEMA = tc.TABLE_SCHEMA \
+              AND kcu.TABLE_NAME = tc.TABLE_NAME \
+             WHERE tc.TABLE_SCHEMA = {} AND tc.TABLE_NAME = {} AND tc.CONSTRAINT_TYPE = 'UNIQUE' \
+             GROUP BY tc.CONSTRAINT_NAME \
+             ORDER BY tc.CONSTRAINT_NAME",
+            escape_string_literal(&target_schema),
+            escape_string_literal(table)
+        );
+
+        let mut constraints = Vec::new();
+        let unique_results = self.execute_query(&unique_sql, None, None).await?;
+        if let Some(res) = unique_results.first() {
+            for r in &res.rows {
+                let columns = r.get("COLUMNS")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.split(',').map(|item| item.trim().to_string()).filter(|item| !item.is_empty()).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                let definition = if columns.is_empty() {
+                    None
+                } else {
+                    Some(format!("UNIQUE ({})", columns.iter().map(|c| escape_mysql_id(c)).collect::<Vec<_>>().join(", ")))
+                };
+                constraints.push(TableConstraintInfo {
+                    name: r.get("CONSTRAINT_NAME").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+                    constraint_type: "UNIQUE".to_string(),
+                    columns,
+                    definition,
+                });
+            }
+        }
+
+        // MySQL 8+ exposes CHECK_CONSTRAINTS. Older versions may not have this table,
+        // so keep checks best-effort and never block table expansion because of it.
+        let check_sql = format!(
+            "SELECT tc.CONSTRAINT_NAME, cc.CHECK_CLAUSE \
+             FROM information_schema.TABLE_CONSTRAINTS tc \
+             JOIN information_schema.CHECK_CONSTRAINTS cc \
+               ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA \
+              AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME \
+             WHERE tc.TABLE_SCHEMA = {} AND tc.TABLE_NAME = {} AND tc.CONSTRAINT_TYPE = 'CHECK' \
+             ORDER BY tc.CONSTRAINT_NAME",
+            escape_string_literal(&target_schema),
+            escape_string_literal(table)
+        );
+
+        if let Ok(check_results) = self.execute_query(&check_sql, None, None).await {
+            if let Some(res) = check_results.first() {
+                for r in &res.rows {
+                    constraints.push(TableConstraintInfo {
+                        name: r.get("CONSTRAINT_NAME").and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+                        constraint_type: "CHECK".to_string(),
+                        columns: Vec::new(),
+                        definition: r.get("CHECK_CLAUSE").and_then(|v| v.as_str()).map(|s| format!("CHECK ({})", s)),
+                    });
+                }
+            }
+        }
+
+        Ok(constraints)
+    }
+
     async fn alter_table(&self, table: &str, _schema: Option<&str>, database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let (pool, config) = self.get_pool_and_config().await?;
         let mut conn = pool.get_conn().await.map_err(|e| DbError::ConnectionFailed(e.to_string()))?;

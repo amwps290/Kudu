@@ -114,6 +114,10 @@ function getIconConfig(node: TreeNode) {
     'table-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     'table-foreign-keys': { icon: 'ph:link-duotone', color: 'var(--icon-color-teal)' },
     'table-triggers': { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' },
+    'table-rules': { icon: 'ph:scroll-duotone', color: 'var(--icon-color-purple)' },
+    'table-uniques': { icon: 'ph:seal-check-duotone', color: 'var(--icon-color-green)' },
+    'table-checks': { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' },
+    'table-excludes': { icon: 'ph:prohibit-duotone', color: 'var(--icon-color-pink)' },
     tables: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     table: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     'schema-views': { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
@@ -131,6 +135,10 @@ function getIconConfig(node: TreeNode) {
     index: { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     'foreign-key': { icon: 'ph:link-duotone', color: 'var(--icon-color-teal)' },
     trigger: { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' },
+    rule: { icon: 'ph:scroll-duotone', color: 'var(--icon-color-purple)' },
+    'unique-constraint': { icon: 'ph:seal-check-duotone', color: 'var(--icon-color-green)' },
+    'check-constraint': { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' },
+    'exclude-constraint': { icon: 'ph:prohibit-duotone', color: 'var(--icon-color-pink)' },
     'database-extensions': { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
     extension: { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' },
     'empty': { icon: 'ph:info-duotone', color: 'var(--icon-color-muted)' },
@@ -142,6 +150,10 @@ function getIconConfig(node: TreeNode) {
     const key = node.key.toLowerCase()
     if (key.includes('-indexes') || key.includes('-index')) return { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' }
     if (key.includes('-triggers') || key.includes('-trigger')) return { icon: 'ph:lightning-duotone', color: 'var(--icon-color-yellow)' }
+    if (key.includes('-rules') || key.includes('-rule')) return { icon: 'ph:scroll-duotone', color: 'var(--icon-color-purple)' }
+    if (key.includes('-uniques') || key.includes('-unique')) return { icon: 'ph:seal-check-duotone', color: 'var(--icon-color-green)' }
+    if (key.includes('-checks') || key.includes('-check')) return { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' }
+    if (key.includes('-excludes') || key.includes('-exclude')) return { icon: 'ph:prohibit-duotone', color: 'var(--icon-color-pink)' }
     if (key.includes('-aggregates')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' }
     if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' }
     if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' }

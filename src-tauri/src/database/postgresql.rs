@@ -692,6 +692,68 @@ impl DatabaseOperations for PostgreSqlDatabase {
         }).collect())
     }
 
+    async fn get_table_constraints(&self, table: &str, schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<TableConstraintInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                c.conname,
+                CASE c.contype
+                    WHEN 'u' THEN 'UNIQUE'
+                    WHEN 'c' THEN 'CHECK'
+                    WHEN 'x' THEN 'EXCLUDE'
+                    ELSE c.contype::text
+                END AS constraint_type,
+                COALESCE(array_remove(array_agg(a.attname ORDER BY a.attnum), NULL), ARRAY[]::text[]) AS columns,
+                pg_get_constraintdef(c.oid, true) AS definition
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            LEFT JOIN unnest(c.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
+            LEFT JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ck.attnum
+            WHERE t.relname = $1 AND n.nspname = $2 AND c.contype IN ('u', 'c', 'x')
+            GROUP BY c.oid, c.conname, c.contype
+            ORDER BY constraint_type, c.conname
+        ";
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        Ok(rows.into_iter().map(|r| TableConstraintInfo {
+            name: r.get(0),
+            constraint_type: r.get(1),
+            columns: r.get(2),
+            definition: Some(r.get(3)),
+        }).collect())
+    }
+
+    async fn get_rules(&self, table: &str, schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<RuleInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                r.rulename,
+                CASE r.ev_type
+                    WHEN '1' THEN 'SELECT'
+                    WHEN '2' THEN 'UPDATE'
+                    WHEN '3' THEN 'INSERT'
+                    WHEN '4' THEN 'DELETE'
+                    ELSE r.ev_type::text
+                END AS event,
+                r.is_instead,
+                pg_get_ruledef(r.oid, true) AS definition
+            FROM pg_rewrite r
+            JOIN pg_class t ON t.oid = r.ev_class
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            WHERE t.relname = $1 AND n.nspname = $2 AND r.rulename <> '_RETURN'
+            ORDER BY r.rulename
+        ";
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        Ok(rows.into_iter().map(|r| RuleInfo {
+            name: r.get(0),
+            event: Some(r.get(1)),
+            is_instead: Some(r.get(2)),
+            definition: Some(r.get(3)),
+        }).collect())
+    }
+
     async fn alter_table(&self, table: &str, schema: Option<&str>, _database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);

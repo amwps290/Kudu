@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, FunctionInfo, ExtensionInfo 
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo 
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -119,6 +119,30 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<TriggerInfo[]> {
     return withAutoReconnect(params.connectionId, () => invoke<TriggerInfo[]>('get_table_triggers', params), true)
+  },
+
+  /**
+   * 获取表约束
+   */
+  async getTableConstraints(params: {
+    connectionId: string,
+    table: string,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<TableConstraintInfo[]> {
+    return withAutoReconnect(params.connectionId, () => invoke<TableConstraintInfo[]>('get_table_constraints', params), true)
+  },
+
+  /**
+   * 获取表规则
+   */
+  async getTableRules(params: {
+    connectionId: string,
+    table: string,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<RuleInfo[]> {
+    return withAutoReconnect(params.connectionId, () => invoke<RuleInfo[]>('get_table_rules', params), true)
   },
 
   /**
