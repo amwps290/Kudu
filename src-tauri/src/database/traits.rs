@@ -149,6 +149,7 @@ pub struct IndexInfo {
     pub is_unique: bool,
     pub is_primary: bool,
     pub index_type: String,
+    pub size_bytes: Option<i64>,
 }
 
 /// 数据库元数据 - Schema 信息

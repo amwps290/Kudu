@@ -184,7 +184,16 @@ function getIconConfig(node: TreeNode) {
 <style scoped>
 .tree-node { width: 100%; position: relative; }
 .tree-node-content { display: flex; align-items: center; padding: 2px 4px; user-select: none; border-radius: var(--radius-sm); height: 26px; position: relative; }
-.tree-node-content.selected { background-color: var(--surface-active); color: var(--color-primary); }
+.tree-node-content.selected { color: var(--color-primary); }
+.tree-node-content.selected .tree-node-main { background-color: var(--surface-active); border-radius: var(--radius-sm); }
+.tree-node-content.selected .tree-node-expand,
+.tree-node-content.selected .tree-node-icon { color: var(--color-primary); }
+
+.tree-node-content.interactive-row:hover,
+.tree-node-content.interactive-row--soft:hover,
+.tree-node-content.interactive-row--active {
+  background-color: transparent;
+}
 
 .tree-line { position: absolute; top: 0; bottom: 0; width: 1px; background-color: var(--border-color-muted); pointer-events: none; }
 .tree-line.is-current { top: 13px; }
@@ -200,7 +209,7 @@ function getIconConfig(node: TreeNode) {
 .brand-icon { font-size: 16px; }
 .type-icon { transition: transform 0.2s; }
 
-.tree-node-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.tree-node-main { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; }
 .tree-node-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--app-text-muted); }
 .tree-node-title.bold { font-weight: 600; color: var(--app-text); }
 .selected .tree-node-title { color: inherit; }

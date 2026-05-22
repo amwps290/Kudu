@@ -383,7 +383,7 @@ impl DatabaseOperations for MySqlDatabase {
 
     async fn get_tables(&self, database: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let sql = if let Some(db) = database {
-            format!("SELECT TABLE_NAME, TABLE_COMMENT, TABLE_ROWS, DATA_LENGTH, TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA = {} AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME", escape_string_literal(db))
+            format!("SELECT TABLE_NAME, TABLE_COMMENT, TABLE_ROWS, COALESCE(DATA_LENGTH, 0) + COALESCE(INDEX_LENGTH, 0) AS TOTAL_LENGTH, TABLE_SCHEMA FROM information_schema.TABLES WHERE TABLE_SCHEMA = {} AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME", escape_string_literal(db))
         } else {
             "SHOW TABLES".to_string()
         };
@@ -396,7 +396,7 @@ impl DatabaseOperations for MySqlDatabase {
                 table_type: "TABLE".into(),
                 engine: None,
                 rows: r.get("TABLE_ROWS").and_then(|v| v.as_u64()),
-                size_mb: r.get("DATA_LENGTH").and_then(|v| v.as_f64()).map(|s| s / 1024.0 / 1024.0),
+                size_mb: r.get("TOTAL_LENGTH").and_then(|v| v.as_f64()).map(|s| s / 1024.0 / 1024.0),
                 comment: r.get("TABLE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
             }).collect())
         } else {
@@ -542,6 +542,7 @@ impl DatabaseOperations for MySqlDatabase {
                     is_unique: non_unique == 0,
                     is_primary: r.get("Key_name").and_then(|v| v.as_str()) == Some("PRIMARY"),
                     index_type: r.get("Index_type").and_then(|v| v.as_str()).unwrap_or("BTREE").to_string(),
+                    size_bytes: None,
                 });
                 entry.columns.push(col);
             }

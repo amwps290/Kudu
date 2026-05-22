@@ -415,9 +415,9 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn get_tables(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
-        let sql = "SELECT n.nspname, c.relname, obj_description(c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
+        let sql = "SELECT n.nspname, c.relname, obj_description(c.oid), pg_total_relation_size(c.oid)::float8 / 1024 / 1024 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
-        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "TABLE".into(), engine: None, rows: None, size_mb: None, comment: r.try_get(2).ok() }).collect())
+        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "TABLE".into(), engine: None, rows: None, size_mb: r.try_get(3).ok(), comment: r.try_get(2).ok() }).collect())
     }
 
     async fn get_views(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
@@ -583,13 +583,13 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_indexes(&self, table: &str, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
+        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, pg_relation_size(i.oid)::int8 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
         let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
             let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into() });
+            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into(), size_bytes: Some(r.get(4)) });
             entry.columns.push(col);
         }
         Ok(map.into_values().collect())
@@ -598,13 +598,13 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_schema_indexes(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
+        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, pg_relation_size(i.oid)::int8 FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
             let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into() });
+            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into(), size_bytes: Some(r.get(4)) });
             entry.columns.push(col);
         }
         debug!(count = map.len(), sc = %schema_name, "已获取 PostgreSQL 索引");
