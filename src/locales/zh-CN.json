@@ -878,5 +878,26 @@
     "type_trigger": "触发器",
     "type_prefix": "类型",
     "path_copied": "路径已复制到剪贴板"
+  },
+  "status_bar": {
+    "connection": "连接",
+    "database": "数据库",
+    "schema": "Schema",
+    "read_only": "只读",
+    "connection_status": "连接状态",
+    "task_status": "任务状态",
+    "connected": "已连接",
+    "connecting": "连接中",
+    "disconnected": "未连接",
+    "error": "异常",
+    "idle": "空闲",
+    "running": "执行中",
+    "completed": "已完成",
+    "completed_with_warnings": "已完成（有警告）",
+    "cancelled": "已取消",
+    "failed": "失败",
+    "no_connection": "未选择连接",
+    "not_available": "未指定",
+    "default_schema": "默认"
   }
 }

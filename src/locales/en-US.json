@@ -878,5 +878,26 @@
     "type_trigger": "Trigger",
     "type_prefix": "Type",
     "path_copied": "Path copied to clipboard"
+  },
+  "status_bar": {
+    "connection": "Connection",
+    "database": "Database",
+    "schema": "Schema",
+    "read_only": "Read Only",
+    "connection_status": "Connection",
+    "task_status": "Task",
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "disconnected": "Disconnected",
+    "error": "Error",
+    "idle": "Idle",
+    "running": "Running",
+    "completed": "Completed",
+    "completed_with_warnings": "Completed with warnings",
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "no_connection": "No connection",
+    "not_available": "Not set",
+    "default_schema": "Default"
   }
 }

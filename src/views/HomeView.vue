@@ -114,6 +114,14 @@
 
     <ConnectionDialog v-model:visible="showConnectionDialog" :editing-connection="editingConnection" @close="handleConnectionDialogClose" />
     <GlobalSearch v-model:visible="showGlobalSearch" :connection-id="connectionStore.activeConnectionId" @view-data="handleTableSelected" />
+    <AppStatusBar
+      :connection-name="statusBarConnectionName"
+      :database-name="statusBarDatabaseName"
+      :schema-name="statusBarSchemaName"
+      :read-only="statusBarReadOnly"
+      :connection-status="statusBarConnectionStatus"
+      :execution-state="activeEditorExecutionState"
+    />
   </a-layout>
 </template>
 
@@ -156,6 +164,7 @@ const GlobalSearch = defineAsyncComponent(() => import('@/components/search/Glob
 const QueryBuilder = defineAsyncComponent(() => import('@/components/tools/QueryBuilder.vue'))
 const DataCompare = defineAsyncComponent(() => import('@/components/tools/DataCompare.vue'))
 const SettingsContent = defineAsyncComponent(() => import('@/components/settings/SettingsContent.vue'))
+const AppStatusBar = defineAsyncComponent(() => import('@/components/layout/AppStatusBar.vue'))
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -166,9 +175,11 @@ const workspaceStore = useWorkspaceStore()
 const { sidebarWidth, startResize } = useSidebarResize()
 const {
   dataTabs, mainTabKey,
+  activeTab,
   activeQueryTab,
   activeTabType, activeTabDatabase,
   setSqlEditorRef, updateSqlExecutionState, callActiveEditor, closeTab,
+  activeEditorExecutionState,
   removeTabs, findTabByKey, tabExists, addTab, handleContentChange, handleFileSaved,
 } = useTabManager()
 
@@ -329,6 +340,33 @@ const { handleEditorDatabaseChange } = useWorkspacePageLifecycle({
 watch(() => connectionStore.connections.length, (len) => {
   if (len > 0) healthMonitor.start()
 }, { immediate: true })
+
+const statusBarConnection = computed(() => {
+  const tabConnectionId = activeTab.value?.connectionId
+  if (tabConnectionId) {
+    return connectionStore.connections.find(conn => conn.id === tabConnectionId) || null
+  }
+  return activeConnection.value
+})
+
+const statusBarConnectionName = computed(() =>
+  statusBarConnection.value?.name || t('status_bar.no_connection')
+)
+
+const statusBarDatabaseName = computed(() =>
+  activeTab.value?.database || statusBarConnection.value?.database || t('status_bar.not_available')
+)
+
+const statusBarSchemaName = computed(() =>
+  activeTab.value?.schema || t('status_bar.default_schema')
+)
+
+const statusBarReadOnly = computed(() => Boolean(statusBarConnection.value?.read_only))
+
+const statusBarConnectionStatus = computed(() => {
+  const connectionId = statusBarConnection.value?.id
+  return connectionId ? connectionStore.getConnectionStatus(connectionId) : 'disconnected'
+})
 
 async function handleOpenSqlFile() {
   const opened = await openQueryFile()
