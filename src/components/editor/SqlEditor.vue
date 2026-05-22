@@ -985,8 +985,9 @@ function updateCurrentStatementHighlight() {
   currentStatementDecoration.set([{
     range: monacoInstance ? new monacoInstance.Range(stmt.startLine, stmt.startCol, stmt.endLine, stmt.endCol) : null,
     options: {
-      isWholeLine: false,
+      isWholeLine: true,
       className: 'current-statement-highlight',
+      linesDecorationsClassName: 'current-statement-highlight-gutter',
     },
   }])
 }
@@ -1211,8 +1212,14 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .editor-section { flex: 1; min-width: 0; min-height: 100px; overflow: hidden; position: relative; background: inherit; }
 .monaco-container { height: 100%; width: 100%; background: transparent; }
 .monaco-container :deep(.current-statement-highlight) {
-  background: var(--color-primary-soft-bg);
-  border-left: 2px solid var(--color-primary-border);
+  background: color-mix(in srgb, var(--color-primary-soft-bg) 58%, transparent);
+  border-radius: 0;
+}
+.monaco-container :deep(.current-statement-highlight-gutter) {
+  margin-left: 6px;
+  width: 2px !important;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 42%, transparent);
 }
 .result-dock { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-elevated); box-shadow: var(--shadow-soft); transition: height 0.18s ease; will-change: height; }
 .sql-editor-container.is-resizing-result .result-dock { transition: none; }
