@@ -36,7 +36,7 @@
               <a-select-option value="tables">{{ $t('search.scope_tables') }}</a-select-option>
               <a-select-option value="columns">{{ $t('search.scope_columns') }}</a-select-option>
               <a-select-option value="views">{{ $t('search.scope_views') }}</a-select-option>
-              <a-select-option value="procedures">{{ $t('search.scope_procedures') }}</a-select-option>
+              <a-select-option v-if="!isPostgreSQL" value="procedures">{{ $t('search.scope_procedures') }}</a-select-option>
               <a-select-option value="functions">{{ $t('search.scope_functions') }}</a-select-option>
             </a-select>
 
@@ -149,6 +149,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useConnectionStore } from '@/stores/connection'
 import {
   SearchOutlined,
   CopyOutlined,
@@ -174,6 +175,9 @@ interface SearchResult {
 }
 
 const { t } = useI18n()
+const connectionStore = useConnectionStore()
+const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(conn => conn.id === props.connectionId) || null : null)
+const isPostgreSQL = computed(() => (currentConnection.value?.db_type || '').toLowerCase() === 'postgresql')
 
 const props = defineProps<{
   visible: boolean
@@ -196,7 +200,7 @@ const resultTypes = computed(() => [
   { key: 'table', label: t('search.scope_tables') },
   { key: 'column', label: t('search.scope_columns') },
   { key: 'view', label: t('search.scope_views') },
-  { key: 'procedure', label: t('search.scope_procedures') },
+  ...(isPostgreSQL.value ? [] : [{ key: 'procedure', label: t('search.scope_procedures') }]),
   { key: 'function', label: t('search.scope_functions') },
 ])
 
@@ -348,8 +352,8 @@ async function handleSearch() {
         }
       }
 
-      // 搜索存储过程
-      if (searchScope.value === 'all' || searchScope.value === 'procedures') {
+      // 搜索存储过程（MySQL 等支持的数据库）
+      if (!isPostgreSQL.value && (searchScope.value === 'all' || searchScope.value === 'procedures')) {
         try {
           const procedures = await invoke<{ ROUTINE_NAME: string }[]>('get_procedures', {
             connectionId: props.connectionId,
