@@ -41,8 +41,16 @@
           <template v-else-if="selectedNode?.type === 'table'">
             <a-menu-item v-if="supportProfile.supportsTableDataView" key="view-data"><template #icon><TableOutlined /></template>{{ $t('tree.view_data') }}</a-menu-item>
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_ddl') }}</a-menu-item>
-            <a-menu-item v-if="supportProfile.supportsTableDesign" key="design-table"><template #icon><EditOutlined /></template>{{ $t('tree.design_table') }}</a-menu-item>
+            <a-menu-item v-if="supportProfile.supportsTableDesign" key="design-table" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.design_table') }}</a-menu-item>
             <a-menu-divider />
+            <a-sub-menu v-if="supportProfile.supportsTableDesign" key="sub-alter-table" :disabled="isSelectedNodeReadOnly">
+              <template #icon><EditOutlined /></template>
+              <template #title>{{ $t('tree.submenu_alter_table') }}</template>
+              <a-menu-item key="add-column">{{ $t('tree.add_column') }}</a-menu-item>
+              <a-menu-item key="add-index">{{ $t('tree.add_index') }}</a-menu-item>
+              <a-menu-item key="add-foreign-key">{{ $t('tree.add_foreign_key') }}</a-menu-item>
+            </a-sub-menu>
+            <a-menu-divider v-if="supportProfile.supportsTableDesign" />
             <a-sub-menu key="sub-stats">
               <template #icon><NumberOutlined /></template>
               <template #title>{{ $t('tree.submenu_stats') }}</template>
@@ -58,10 +66,10 @@
             </a-sub-menu>
             <a-menu-divider />
             <a-menu-item key="copy-columns"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_columns') }}</a-menu-item>
-            <a-menu-item key="rename-table"><template #icon><EditOutlined /></template>{{ $t('tree.rename_table') }}</a-menu-item>
+            <a-menu-item key="rename-table" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_table') }}</a-menu-item>
             <a-menu-divider />
-            <a-menu-item key="truncate-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.truncate_table') }}</a-menu-item>
-            <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ selectedTableNodes.length > 1 ? $t('tree.drop_table_batch', { count: selectedTableNodes.length }) : $t('tree.drop_table') }}</a-menu-item>
+            <a-menu-item key="truncate-table" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.truncate_table') }}</a-menu-item>
+            <a-menu-item key="drop-table" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ selectedTableNodes.length > 1 ? $t('tree.drop_table_batch', { count: selectedTableNodes.length }) : $t('tree.drop_table') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
             <a-menu-divider />
@@ -74,15 +82,76 @@
             <a-menu-divider />
             <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
             <a-menu-divider />
+            <a-menu-item key="copy-view-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="rename-table" :disabled="isSelectedNodeReadOnly || !supportsViewRename"><template #icon><EditOutlined /></template>{{ $t('tree.rename_view') }}</a-menu-item>
+            <a-menu-divider />
             <a-menu-item key="drop-table" danger><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_view') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'column'">
+            <a-menu-item key="copy-column-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="rename-column" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_column') }}</a-menu-item>
+            <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="drop-column" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_column') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="selectedNode?.type === 'index'">
+            <a-menu-item key="copy-object-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="drop-index" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_index') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="selectedNode?.type === 'foreign-key'">
+            <a-menu-item key="copy-object-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="drop-foreign-key" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_foreign_key') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="['function', 'procedure', 'aggregate'].includes(selectedNode?.type || '')">
+            <a-menu-item key="view-routine-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="copy-routine-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="gen-call-sql"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_call_sql') }}</a-menu-item>
+            <a-menu-item key="copy-signature"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_signature') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="selectedNode?.type === 'extension'">
+            <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="isTableChildObjectNode">
+            <a-menu-item v-if="hasDefinitionNode" key="view-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="copy-object-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
+            <a-menu-divider v-if="isDroppableTableChildNode" />
+            <a-menu-item v-if="selectedNode?.type === 'trigger'" key="drop-trigger" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_trigger') }}</a-menu-item>
+            <a-menu-item v-else-if="selectedNode?.type === 'rule'" key="drop-rule" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_rule') }}</a-menu-item>
+            <a-menu-item v-else-if="isConstraintNode" key="drop-constraint" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_constraint') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <!-- 可查看定义的元数据节点 -->
           <template v-else-if="hasDefinitionNode">
             <a-menu-item key="view-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="selectedNode?.type === 'schema'">
+            <a-menu-item key="new-query"><template #icon><FileTextOutlined /></template>{{ $t('tree.new_query') }}</a-menu-item>
+            <a-menu-item key="gen-create-table"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_table') }}</a-menu-item>
+            <a-menu-item key="gen-create-view"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_view') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
             <a-menu-divider />
           </template>
 
@@ -97,7 +166,7 @@
       </div>
     </div>
 
-    <a-modal v-model:open="showRenameModal" :title="$t('tree.rename_table')" @ok="submitRename" :confirm-loading="renameSubmitting">
+    <a-modal v-model:open="showRenameModal" :title="renameModalTitle" @ok="submitRename" :confirm-loading="renameSubmitting">
       <a-input v-model:value="renameValue" :placeholder="$t('tree.rename_placeholder')" @pressEnter="submitRename" />
     </a-modal>
 
@@ -172,6 +241,7 @@ const props = defineProps<{ connectionId: string | null; dbType?: string; search
 const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'updateMatchesCount'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
+const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
 const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
@@ -186,6 +256,7 @@ const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-checks',
   'table-excludes'
 ]
+const TABLE_CHILD_OBJECT_NODE_TYPES = ['index', 'foreign-key', 'trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
@@ -217,10 +288,17 @@ const hasDefinitionNode = computed(() => Boolean(selectedNode.value?.metadata?.d
 const showRenameModal = ref(false)
 const renameValue = ref('')
 const renameSubmitting = ref(false)
+const renameMode = ref<'table' | 'column'>('table')
 const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDdlEditor } = useMonacoEditor(ddlEditorContainer, {
   language: 'sql',
   readOnly: true,
 })
+const renameModalTitle = computed(() => renameMode.value === 'column' ? t('tree.rename_column') : t('tree.rename_table'))
+const isTableChildObjectNode = computed(() => TABLE_CHILD_OBJECT_NODE_TYPES.includes(selectedNode.value?.type || ''))
+const isConstraintNode = computed(() => ['unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
+const isDroppableTableChildNode = computed(() => ['trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
+const isSelectedNodeReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
+const supportsViewRename = computed(() => props.dbType === 'postgresql')
 
 const filteredTreeData = computed(() => {
   const opts = props.searchOptions
@@ -469,6 +547,7 @@ async function onLoadData(treeNode: TreeNode) {
       }
       const children = res.map(item => {
         let title = item.name || item.index_name
+        const routineKeyPart = item.oid != null ? `oid-${item.oid}` : `${item.name || item.index_name}-${item.identity_arguments || item.arguments || ''}`
 
         // 针对函数和聚合函数，拼接参数列表
         if ((isFunction || isProcedure || isAggregate) && item.arguments) {
@@ -476,9 +555,9 @@ async function onLoadData(treeNode: TreeNode) {
         }
 
         return {
-          key: `${treeNode.key}-${item.name || item.index_name}`,
+          key: `${treeNode.key}-${routineKeyPart}`,
           title,
-          type: isFunction ? 'function' : isProcedure ? 'procedure' : 'leaf',
+          type: isFunction ? 'function' : isProcedure ? 'procedure' : isAggregate ? 'aggregate' : 'extension',
           isLeaf: true,
           metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
         }
@@ -808,8 +887,29 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'gen-insert') { await handleGenerateSql('INSERT') }
   else if (key === 'gen-update') { await handleGenerateSql('UPDATE') }
   else if (key === 'gen-delete') { await handleGenerateSql('DELETE') }
+  else if (key === 'gen-create-table') { await handleGenerateSchemaSql('table') }
+  else if (key === 'gen-create-view') { await handleGenerateSchemaSql('view') }
+  else if (key === 'add-column') { openNodeTableDesigner('columns', 'add_column') }
+  else if (key === 'add-index') { openNodeTableDesigner('indexes', 'add_index') }
+  else if (key === 'add-foreign-key') { openNodeTableDesigner('foreign_keys', 'add_foreign_key') }
   else if (key === 'copy-columns') { await handleCopyColumns() }
   else if (key === 'rename-table') { openRenameModal() }
+  else if (key === 'copy-column-definition') { await handleCopyColumnDefinition() }
+  else if (key === 'copy-view-definition') { await handleCopyViewDefinition() }
+  else if (key === 'view-routine-definition') { await handleViewRoutineDefinition() }
+  else if (key === 'copy-routine-definition') { await handleCopyRoutineDefinition() }
+  else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
+  else if (key === 'copy-signature') { await handleCopySignature() }
+  else if (key === 'copy-extension-info') { await handleCopyExtensionInfo() }
+  else if (key === 'rename-column') { openRenameModal('column') }
+  else if (key === 'drop-column') { await handleDropColumn() }
+  else if (key === 'copy-object-definition') { await handleCopyObjectDefinition() }
+  else if (key === 'drop-index') { await handleDropIndex() }
+  else if (key === 'drop-foreign-key') { await handleDropForeignKey() }
+  else if (key === 'drop-trigger') { await handleDropTrigger() }
+  else if (key === 'drop-rule') { await handleDropRule() }
+  else if (key === 'drop-constraint') { await handleDropConstraint() }
+  else if (key === 'open-column-designer') { openNodeTableDesigner() }
   else if (key === 'truncate-table') { await handleTruncateTable() }
   else if (key === 'drop-table') { await handleDropTable() }
   else if (key === 'view-ddl') {
@@ -911,6 +1011,21 @@ async function handleGenerateSql(type: string) {
     }
     emit('generate-sql', { sql, database: db, connectionId: props.connectionId })
   } catch (e: unknown) { message.error(getErrorMessage(e)) }
+}
+
+async function handleGenerateSchemaSql(kind: 'table' | 'view') {
+  const node = selectedNode.value
+  if (!node || node.type !== 'schema') return
+  const schema = metaStr(node, 'name')
+  const database = metaStr(node, 'database')
+  const objectName = kind === 'table' ? 'new_table' : 'new_view'
+  const qualifiedName = props.dbType === 'postgresql'
+    ? `${quoteIdent(schema)}.${quoteIdent(objectName)}`
+    : quoteIdent(objectName)
+  const sql = kind === 'table'
+    ? `CREATE TABLE ${qualifiedName} (\n  id INTEGER PRIMARY KEY\n);`
+    : `CREATE VIEW ${qualifiedName} AS\nSELECT 1 AS sample;`
+  emit('generate-sql', { sql, database, connectionId: props.connectionId })
 }
 
 // ── 新增功能：清空表 ──
@@ -1069,42 +1184,67 @@ function bindContextMenuObserver() {
   contextMenuResizeObserver.observe(contextMenuRef.value)
 }
 
-function openRenameModal() {
+function getTableNodePayload(node: TreeNode) {
+  return {
+    database: metaStr(node, 'database'),
+    table: metaStr(node, 'table') || metaStr(node, 'name') || node.title,
+    schema: metaStr(node, 'schema'),
+  }
+}
+
+function resolveDesignerTarget(node: TreeNode) {
+  if (node.type === 'index') {
+    return { initialTab: 'indexes' as const, initialAction: undefined }
+  }
+  if (node.type === 'foreign-key') {
+    return { initialTab: 'foreign_keys' as const, initialAction: undefined }
+  }
+  return { initialTab: 'columns' as const, initialAction: undefined }
+}
+
+function openNodeTableDesigner(initialTab?: 'columns' | 'indexes' | 'foreign_keys' | 'ddl', initialAction?: 'add_column' | 'add_index' | 'add_foreign_key') {
   const node = selectedNode.value
-  if (!node || !['table', 'view'].includes(node.type)) return
-  renameValue.value = metaStr(node, 'name') || node.title
+  if (!node) return
+  const payload = getTableNodePayload(node)
+  if (!payload.table) return
+  const target = initialTab ? { initialTab, initialAction } : resolveDesignerTarget(node)
+  emit('design-table', {
+    ...payload,
+    designTab: target.initialTab,
+    designAction: initialAction || target.initialAction,
+  })
+}
+
+function openRenameModal(mode: 'table' | 'column' = 'table') {
+  const node = selectedNode.value
+  if (!node) return
+  if (mode === 'table' && !['table', 'view'].includes(node.type)) return
+  if (mode === 'column' && node.type !== 'column') return
+  renameMode.value = mode
+  renameValue.value = mode === 'column' ? metaStr(node, 'name') : (metaStr(node, 'name') || node.title)
   showRenameModal.value = true
 }
 
 async function submitRename() {
   const node = selectedNode.value
   if (!node) return
-  const oldName = metaStr(node, 'name') || node.title
+  const oldName = renameMode.value === 'column' ? metaStr(node, 'name') : (metaStr(node, 'name') || node.title)
   const newName = renameValue.value.trim()
   if (!newName) return message.warning(t('tree.rename_empty'))
   if (newName === oldName) return message.warning(t('tree.rename_same'))
 
-  const schema = metaStr(node, 'schema')
-  const database = metaStr(node, 'database') || null
-  let sql = ''
-  if (props.dbType === 'mysql') {
-    if (node.type !== 'table') return message.warning(t('tree.rename_unsupported'))
-    sql = `RENAME TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} TO ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(newName)}`
-  } else if (props.dbType === 'postgresql') {
-    sql = `${node.type === 'view' ? 'ALTER VIEW' : 'ALTER TABLE'} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
-  } else if (props.dbType === 'sqlite') {
-    if (node.type !== 'table') return message.warning(t('tree.rename_unsupported'))
-    sql = `ALTER TABLE ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
-  } else {
-    return message.warning(t('tree.rename_unsupported'))
-  }
-
   renameSubmitting.value = true
   try {
-    await queryApi.executeQuery(props.connectionId!, sql, database)
+    if (renameMode.value === 'column') {
+      await renameColumn(node, oldName, newName)
+    } else {
+      await renameTableLike(node, oldName, newName)
+    }
     showRenameModal.value = false
     message.success(t('tree.rename_success', { oldName, newName }))
-    const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
+    const parentKey = renameMode.value === 'column'
+      ? node.key.split('-col-')[0]
+      : node.key.substring(0, node.key.lastIndexOf('-'))
     const parentNode = findNodeByKey(treeData.value, parentKey)
     if (parentNode) await handleRefreshNode(parentNode)
   } catch (e: unknown) {
@@ -1114,10 +1254,55 @@ async function submitRename() {
   }
 }
 
+async function renameTableLike(node: TreeNode, oldName: string, newName: string) {
+  const schema = metaStr(node, 'schema')
+  const database = metaStr(node, 'database') || null
+  let sql = ''
+  if (props.dbType === 'mysql') {
+    if (node.type !== 'table') throw new Error(t('tree.rename_unsupported'))
+    sql = `RENAME TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} TO ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(newName)}`
+  } else if (props.dbType === 'postgresql') {
+    sql = `${node.type === 'view' ? 'ALTER VIEW' : 'ALTER TABLE'} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+  } else if (props.dbType === 'sqlite') {
+    if (node.type !== 'table') throw new Error(t('tree.rename_unsupported'))
+    sql = `ALTER TABLE ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+  } else {
+    throw new Error(t('tree.rename_unsupported'))
+  }
+  await queryApi.executeQuery(props.connectionId!, sql, database)
+}
+
+async function renameColumn(node: TreeNode, oldName: string, newName: string) {
+  await queryApi.alterTableStructure({
+    connectionId: props.connectionId!,
+    database: metaStr(node, 'database'),
+    table: metaStr(node, 'table'),
+    schema: metaStr(node, 'schema') || null,
+    changes: [{
+      type: 'modify_column',
+      data: {
+        old_name: oldName,
+        new_column: {
+          name: newName,
+          data_type: node.metadata.data_type,
+          nullable: node.metadata.nullable,
+          default_value: node.metadata.default_value || null,
+          is_primary_key: node.metadata.is_primary_key,
+          is_auto_increment: node.metadata.is_auto_increment,
+          comment: node.metadata.comment || null,
+          character_maximum_length: node.metadata.character_maximum_length ?? null,
+          numeric_precision: node.metadata.numeric_precision ?? null,
+          numeric_scale: node.metadata.numeric_scale ?? null,
+        }
+      }
+    }]
+  })
+}
+
 function quoteIdent(name: string): string {
   const dbType = props.dbType || 'mysql'
-  if (dbType === 'sqlite' || dbType === 'postgresql') return `"${name}"`
-  return `\`${name}\``
+  if (dbType === 'sqlite' || dbType === 'postgresql') return `"${name.replace(/"/g, '""')}"`
+  return `\`${name.replace(/`/g, '``')}\``
 }
 
 // ── 新增功能：复制列名列表 ──
@@ -1137,6 +1322,382 @@ async function handleCopyColumns() {
     await writeClipboardText(colList)
     message.success(`${t('tree.copy_columns')}: ${columns.length} ${t('tree.columns')}`)
   } catch (e: unknown) { message.error(getErrorMessage(e)) }
+}
+
+function formatColumnDefinition(node: TreeNode) {
+  const parts = [metaStr(node, 'name'), metaStr(node, 'data_type')]
+  if (!node.metadata?.nullable) parts.push('NOT NULL')
+  if (node.metadata?.default_value !== undefined && node.metadata?.default_value !== null && String(node.metadata.default_value) !== '') {
+    parts.push(`DEFAULT ${String(node.metadata.default_value)}`)
+  }
+  if (node.metadata?.is_primary_key) parts.push('PRIMARY KEY')
+  if (node.metadata?.is_auto_increment) parts.push('AUTO_INCREMENT')
+  if (node.metadata?.comment) parts.push(`COMMENT ${String(node.metadata.comment)}`)
+  return parts.filter(Boolean).join(' ')
+}
+
+async function handleCopyColumnDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'column') return
+  await writeClipboardText(formatColumnDefinition(node))
+  message.success(t('common.copy'))
+}
+
+async function handleCopyViewDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'view') return
+  try {
+    const ddl = await metadataApi.getViewDefinition({
+      connectionId: props.connectionId!,
+      view: metaStr(node, 'name') || node.title,
+      database: metaStr(node, 'database'),
+      schema: metaStr(node, 'schema') || undefined,
+    })
+    await writeClipboardText(ddl)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function fetchRoutineDefinition(node: TreeNode) {
+  const identityArguments = metaStr(node, 'identity_arguments') || metaStr(node, 'arguments')
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  console.info('[DatabaseTree] fetch routine definition', {
+    name: metaStr(node, 'name') || node.title,
+    routineType: node.type,
+    database: metaStr(node, 'database') || null,
+    schema: metaStr(node, 'schema') || null,
+    identityArguments: identityArguments || null,
+    oid,
+  })
+  return metadataApi.getRoutineDefinition({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    routineType: node.type,
+    identityArguments: identityArguments || undefined,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function handleViewRoutineDefinition() {
+  const node = selectedNode.value
+  if (!node || !['function', 'procedure', 'aggregate'].includes(node.type)) return
+  try {
+    const definition = await fetchRoutineDefinition(node)
+    selectedNode.value = {
+      ...node,
+      metadata: {
+        ...node.metadata,
+        definition,
+      }
+    }
+    await showMetadataDefinition(selectedNode.value)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleCopyRoutineDefinition() {
+  const node = selectedNode.value
+  if (!node || !['function', 'procedure', 'aggregate'].includes(node.type)) return
+  try {
+    const definition = await fetchRoutineDefinition(node)
+    await writeClipboardText(definition)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+function buildRoutineSignature(node: TreeNode) {
+  const name = metaStr(node, 'name') || node.title
+  const args = metaStr(node, 'arguments')
+  return `${name}(${args})`
+}
+
+async function handleCopySignature() {
+  const node = selectedNode.value
+  if (!node || !['function', 'procedure', 'aggregate'].includes(node.type)) return
+  await writeClipboardText(buildRoutineSignature(node))
+  message.success(t('common.copy'))
+}
+
+async function handleGenerateCallSql() {
+  const node = selectedNode.value
+  if (!node || !['function', 'procedure', 'aggregate'].includes(node.type)) return
+  const name = metaStr(node, 'name') || node.title
+  const schema = metaStr(node, 'schema')
+  const db = metaStr(node, 'database')
+  const qualifiedName = schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name)
+  const args = metaStr(node, 'arguments')
+  const argCount = args
+    ? args.split(',').map(item => item.trim()).filter(Boolean).length
+    : 0
+  const placeholders = Array.from({ length: argCount }, () => '/* arg */').join(', ')
+  const sql = node.type === 'procedure'
+    ? `CALL ${qualifiedName}(${placeholders});`
+    : `SELECT * FROM ${qualifiedName}(${placeholders});`
+  emit('generate-sql', { sql, database: db, connectionId: props.connectionId })
+}
+
+async function handleCopyExtensionInfo() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'extension') return
+  const name = metaStr(node, 'name') || node.title
+  const version = metaStr(node, 'version')
+  const schema = metaStr(node, 'schema')
+  const info = [name, version ? `v${version}` : '', schema ? `schema=${schema}` : ''].filter(Boolean).join(' ')
+  await writeClipboardText(info)
+  message.success(t('common.copy'))
+}
+
+function formatObjectDefinition(node: TreeNode) {
+  if (node.type === 'index') {
+    const name = metaStr(node, 'name')
+    const table = metaStr(node, 'table')
+    const schema = metaStr(node, 'schema')
+    const columns = Array.isArray(node.metadata?.columns)
+      ? node.metadata.columns.map((column: string) => quoteIdent(column)).join(', ')
+      : ''
+    const qualifiedTable = schema ? `${quoteIdent(schema)}.${quoteIdent(table)}` : quoteIdent(table)
+
+    if (node.metadata?.is_primary) {
+      return props.dbType === 'postgresql'
+        ? `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdent(name)} PRIMARY KEY (${columns})`
+        : `ALTER TABLE ${qualifiedTable} ADD PRIMARY KEY (${columns})`
+    }
+
+    const indexKeyword = node.metadata?.is_unique ? 'UNIQUE INDEX' : 'INDEX'
+    const usingClause = props.dbType === 'postgresql' && metaStr(node, 'index_type')
+      ? ` USING ${metaStr(node, 'index_type')}`
+      : ''
+    return `CREATE ${indexKeyword} ${quoteIdent(name)} ON ${qualifiedTable}${usingClause} (${columns})`
+  }
+
+  if (node.type === 'foreign-key') {
+    return `${metaStr(node, 'name')} FOREIGN KEY (${metaStr(node, 'column_name')}) REFERENCES ${metaStr(node, 'referenced_table_name')} (${metaStr(node, 'referenced_column_name')})`
+  }
+
+  if (node.metadata?.definition) {
+    return String(node.metadata.definition)
+  }
+
+  return metaStr(node, 'name') || node.title
+}
+
+async function handleCopyObjectDefinition() {
+  const node = selectedNode.value
+  if (!node) return
+  try {
+    if (node.type === 'index') {
+      const definition = await metadataApi.getIndexDefinition({
+        connectionId: props.connectionId!,
+        index: metaStr(node, 'name') || node.title,
+        database: metaStr(node, 'database') || undefined,
+        schema: metaStr(node, 'schema') || undefined,
+      })
+      await writeClipboardText(definition)
+    } else {
+      await writeClipboardText(formatObjectDefinition(node))
+    }
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleDropColumn() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'column') return
+  const columnName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_column'),
+    content: t('tree.drop_column_confirm', { name: columnName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        await queryApi.alterTableStructure({
+          connectionId: props.connectionId!,
+          database: metaStr(node, 'database'),
+          table: metaStr(node, 'table'),
+          schema: metaStr(node, 'schema') || null,
+          changes: [{ type: 'drop_column', data: columnName }]
+        })
+        message.success(t('tree.drop_column_success', { name: columnName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.split('-col-')[0])
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleDropIndex() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'index') return
+  const indexName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_index'),
+    content: t('tree.drop_index_confirm', { name: indexName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        await queryApi.alterTableStructure({
+          connectionId: props.connectionId!,
+          database: metaStr(node, 'database'),
+          table: metaStr(node, 'table'),
+          schema: metaStr(node, 'schema') || null,
+          changes: [{ type: 'drop_index', data: indexName }]
+        })
+        message.success(t('tree.drop_index_success', { name: indexName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.split('-idx-')[0])
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleDropForeignKey() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'foreign-key') return
+  const fkName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_foreign_key'),
+    content: t('tree.drop_foreign_key_confirm', { name: fkName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        await queryApi.alterTableStructure({
+          connectionId: props.connectionId!,
+          database: metaStr(node, 'database'),
+          table: metaStr(node, 'table'),
+          schema: metaStr(node, 'schema') || null,
+          changes: [{ type: 'drop_foreign_key', data: fkName }]
+        })
+        message.success(t('tree.drop_foreign_key_success', { name: fkName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.split('-fk-')[0])
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleDropTrigger() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'trigger') return
+  const triggerName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_trigger'),
+    content: t('tree.drop_trigger_confirm', { name: triggerName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = buildDropTriggerSql(node)
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.drop_trigger_success', { name: triggerName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.split('-trigger-')[0])
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleDropRule() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'rule') return
+  const ruleName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_rule'),
+    content: t('tree.drop_rule_confirm', { name: ruleName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = buildDropRuleSql(node)
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.drop_rule_success', { name: ruleName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.split('-rule-')[0])
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleDropConstraint() {
+  const node = selectedNode.value
+  if (!node || !['unique-constraint', 'check-constraint', 'exclude-constraint'].includes(node.type)) return
+  const constraintName = metaStr(node, 'name')
+  Modal.confirm({
+    title: t('tree.drop_constraint'),
+    content: t('tree.drop_constraint_confirm', { name: constraintName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = buildDropConstraintSql(node)
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.drop_constraint_success', { name: constraintName }))
+        const tableNode = findNodeByKey(treeData.value, node.key.replace(/-(unique|check|exclude)-constraint-.+$/, ''))
+        if (tableNode) await handleRefreshNode(tableNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+function buildDropTriggerSql(node: TreeNode) {
+  const triggerName = metaStr(node, 'name')
+  const tableName = metaStr(node, 'table')
+  const schema = metaStr(node, 'schema')
+  if (props.dbType === 'postgresql') {
+    const tableIdent = `${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(tableName)}`
+    return `DROP TRIGGER ${quoteIdent(triggerName)} ON ${tableIdent}`
+  }
+  if (props.dbType === 'mysql') {
+    return `DROP TRIGGER ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(triggerName)}`
+  }
+  if (props.dbType === 'sqlite') {
+    return `DROP TRIGGER ${quoteIdent(triggerName)}`
+  }
+  throw new Error(t('tree.drop_unsupported'))
+}
+
+function buildDropRuleSql(node: TreeNode) {
+  if (props.dbType !== 'postgresql') {
+    throw new Error(t('tree.drop_unsupported'))
+  }
+  const ruleName = metaStr(node, 'name')
+  const tableName = metaStr(node, 'table')
+  const schema = metaStr(node, 'schema')
+  return `DROP RULE ${quoteIdent(ruleName)} ON ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(tableName)}`
+}
+
+function buildDropConstraintSql(node: TreeNode) {
+  if (props.dbType !== 'postgresql') {
+    throw new Error(t('tree.drop_unsupported'))
+  }
+  const constraintName = metaStr(node, 'name')
+  const tableName = metaStr(node, 'table')
+  const schema = metaStr(node, 'schema')
+  return `ALTER TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(tableName)} DROP CONSTRAINT ${quoteIdent(constraintName)}`
 }
 
 function handleDatabaseBacked() {

@@ -163,10 +163,12 @@ pub struct SchemaInfo {
 /// 数据库元数据 - 函数信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionInfo {
+    pub oid: Option<i64>,
     pub name: String,
     pub schema: Option<String>,
     pub return_type: Option<String>,
     pub arguments: Option<String>,
+    pub identity_arguments: Option<String>,
     pub language: Option<String>,
     pub function_type: String, // "function" 或 "aggregate"
     pub comment: Option<String>,
@@ -360,6 +362,16 @@ pub trait DatabaseOperations: Send + Sync {
     /// 获取视图定义
     async fn get_view_definition(&self, _view: &str, _schema: Option<&str>) -> DbResult<String> {
         Err(DbError::Other("该数据库类型不支持视图定义".into()))
+    }
+
+    /// 获取索引定义
+    async fn get_index_definition(&self, _index: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持索引定义".into()))
+    }
+
+    /// 获取函数/过程定义
+    async fn get_routine_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _routine_type: &str, _identity_arguments: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持函数定义".into()))
     }
     
     async fn get_views(&self, _database: Option<&str>) -> DbResult<Vec<TableInfo>> {

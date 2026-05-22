@@ -423,6 +423,18 @@ impl ConnectionManager {
         db.get_view_definition(view, schema).await
     }
 
+    pub async fn get_index_definition(&self, composite_id: &str, index: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<String> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_index_definition(index, schema, database).await
+    }
+
+    pub async fn get_routine_definition(&self, composite_id: &str, name: &str, schema: Option<&str>, database: Option<&str>, routine_type: &str, identity_arguments: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_routine_definition(name, schema, database, routine_type, identity_arguments, oid).await
+    }
+
     pub async fn get_extensions(&self, composite_id: &str, database: Option<&str>) -> DbResult<Vec<ExtensionInfo>> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

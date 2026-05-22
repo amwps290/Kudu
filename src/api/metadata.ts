@@ -174,5 +174,47 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<string> {
     return withAutoReconnect(params.connectionId, () => invoke<string>('get_view_definition', params), true)
+  },
+
+  /**
+   * 获取索引定义
+   */
+  async getIndexDefinition(params: {
+    connectionId: string,
+    index: string,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_index_definition', {
+      connectionId: params.connectionId,
+      index: params.index,
+      database: params.database ?? null,
+      schema: params.schema ?? null,
+    }), true)
+  },
+
+  /**
+   * 获取函数/过程定义
+   */
+  async getRoutineDefinition(params: {
+    connectionId: string,
+    name: string,
+    routineType: string,
+    identityArguments?: string | null,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_routine_definition', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
+        routineType: params.routineType,
+        identityArguments: params.identityArguments ?? null,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
   }
 }

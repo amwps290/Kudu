@@ -151,10 +151,12 @@ export interface SchemaInfo {
  * 函数信息
  */
 export interface FunctionInfo {
+  oid?: number
   name: string
   schema?: string
   return_type?: string
   arguments?: string
+  identity_arguments?: string
   language?: string
   function_type: string
   comment?: string

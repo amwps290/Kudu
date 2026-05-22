@@ -215,6 +215,8 @@ const props = defineProps<{
   table: string
   schema?: string
   readOnly?: boolean
+  initialTab?: 'columns' | 'indexes' | 'foreign_keys' | 'ddl'
+  initialAction?: 'add_column' | 'add_index' | 'add_foreign_key'
 }>()
 
 const loading = ref(false)
@@ -269,6 +271,7 @@ const newForeignKey = reactive({
 const currentConnection = computed(() => connectionStore.connections.find(connection => connection.id === props.connectionId) || null)
 const effectiveReadOnly = computed(() => Boolean(props.readOnly) || Boolean(currentConnection.value?.read_only))
 const dbType = computed(() => currentConnection.value?.db_type || 'mysql')
+let lastHandledAction = ''
 
 function warnReadOnly() {
   message.warning(t('designer.read_only_blocked'))
@@ -278,6 +281,39 @@ function resetPreviewState() {
   showPreviewDialog.value = false
   previewSql.value = ''
   previewChanges.value = []
+}
+
+function resolveInitialTab() {
+  return props.initialTab || 'columns'
+}
+
+function resolveActionKey() {
+  return `${props.connectionId}:${props.database}:${props.schema || ''}:${props.table}:${props.initialAction || ''}`
+}
+
+async function applyInitialState() {
+  activeTab.value = resolveInitialTab()
+  await nextTick()
+
+  if (!props.initialAction || effectiveReadOnly.value) return
+
+  const actionKey = resolveActionKey()
+  if (lastHandledAction === actionKey) return
+  lastHandledAction = actionKey
+
+  if (props.initialAction === 'add_column') {
+    activeTab.value = 'columns'
+    await nextTick()
+    addColumn()
+  } else if (props.initialAction === 'add_index') {
+    activeTab.value = 'indexes'
+    await nextTick()
+    addIndex()
+  } else if (props.initialAction === 'add_foreign_key') {
+    activeTab.value = 'foreign_keys'
+    await nextTick()
+    addForeignKey()
+  }
 }
 
 // 加载表结构
@@ -759,9 +795,22 @@ async function removeForeignKey(record: { fk_name: string; _isNew?: boolean; nam
 }
 
 // 初始加载
-onMounted(() => { loadStructure() })
+onMounted(async () => {
+  activeTab.value = resolveInitialTab()
+  await loadStructure()
+  await applyInitialState()
+})
 watch(activeTab, (tab) => { if (tab === 'ddl') loadDDL() })
-watch(() => [props.connectionId, props.database, props.schema, props.table], () => { loadStructure() })
+watch(() => [props.connectionId, props.database, props.schema, props.table], async () => {
+  lastHandledAction = ''
+  activeTab.value = resolveInitialTab()
+  await loadStructure()
+  await applyInitialState()
+})
+watch(() => [props.initialTab, props.initialAction], async () => {
+  activeTab.value = resolveInitialTab()
+  await applyInitialState()
+})
 </script>
 
 <style scoped>

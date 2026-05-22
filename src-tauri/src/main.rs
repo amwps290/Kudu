@@ -57,6 +57,8 @@ fn main() {
             commands::metadata::get_table_rules,
             commands::metadata::get_create_table_ddl,
             commands::metadata::get_view_definition,
+            commands::metadata::get_index_definition,
+            commands::metadata::get_routine_definition,
             commands::metadata::get_autocomplete_data,
             commands::metadata::get_schemas,
             commands::metadata::get_schema_tables,

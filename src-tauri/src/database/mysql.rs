@@ -596,10 +596,12 @@ impl DatabaseOperations for MySqlDatabase {
         let results = self.execute_query(&sql, None, None).await?;
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| FunctionInfo {
+                oid: None,
                 name: r.get("ROUTINE_NAME").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 schema: r.get("ROUTINE_SCHEMA").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 return_type: r.get("RETURN_TYPE").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                identity_arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 language: r.get("ROUTINE_BODY").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 function_type: "function".into(),
                 comment: r.get("ROUTINE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
@@ -633,10 +635,12 @@ impl DatabaseOperations for MySqlDatabase {
         let results = self.execute_query(&sql, None, None).await?;
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| FunctionInfo {
+                oid: None,
                 name: r.get("ROUTINE_NAME").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 schema: r.get("ROUTINE_SCHEMA").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 return_type: None,
                 arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                identity_arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 language: r.get("ROUTINE_BODY").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 function_type: "procedure".into(),
                 comment: r.get("ROUTINE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
@@ -853,6 +857,67 @@ impl DatabaseOperations for MySqlDatabase {
             }
         }
         Err(DbError::Other("无法获取视图定义".into()))
+    }
+
+    async fn get_index_definition(&self, index: &str, _schema: Option<&str>, database: Option<&str>) -> DbResult<String> {
+        let db_name = database.unwrap_or("");
+        let sql = format!(
+            "SELECT INDEX_NAME, TABLE_NAME, NON_UNIQUE, INDEX_TYPE, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ', ') AS COLUMNS \
+             FROM information_schema.STATISTICS \
+             WHERE TABLE_SCHEMA = {} AND INDEX_NAME = {} \
+             GROUP BY INDEX_NAME, TABLE_NAME, NON_UNIQUE, INDEX_TYPE \
+             LIMIT 1",
+            escape_string_literal(db_name),
+            escape_string_literal(index)
+        );
+        let results = self.execute_query(&sql, None, None).await?;
+        if let Some(res) = results.first() {
+            if let Some(row) = res.rows.first() {
+                let table_name = row.get("TABLE_NAME").and_then(|v| v.as_str()).unwrap_or_default();
+                let non_unique = row.get("NON_UNIQUE").and_then(|v| v.as_i64()).unwrap_or(1);
+                let index_type = row.get("INDEX_TYPE").and_then(|v| v.as_str()).unwrap_or("BTREE");
+                let columns = row.get("COLUMNS").and_then(|v| v.as_str()).unwrap_or_default()
+                    .split(',')
+                    .map(|item| escape_mysql_id(item.trim()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let unique = if non_unique == 0 { "UNIQUE " } else { "" };
+                return Ok(format!(
+                    "CREATE {}INDEX {} ON {}.{} USING {} ({})",
+                    unique,
+                    escape_mysql_id(index),
+                    escape_mysql_id(db_name),
+                    escape_mysql_id(table_name),
+                    index_type,
+                    columns
+                ));
+            }
+        }
+        Err(DbError::Other("无法获取索引定义".into()))
+    }
+
+    async fn get_routine_definition(&self, name: &str, schema: Option<&str>, database: Option<&str>, routine_type: &str, identity_arguments: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        let target_schema = self.resolve_database_name(database, schema).await?;
+        debug!(
+            schema = %target_schema,
+            name = %name,
+            routine_type = %routine_type,
+            identity_arguments = ?identity_arguments,
+            "正在获取 MySQL 例程定义"
+        );
+        let sql = if routine_type == "procedure" {
+            format!("SHOW CREATE PROCEDURE {}.{}", escape_mysql_id(&target_schema), escape_mysql_id(name))
+        } else {
+            format!("SHOW CREATE FUNCTION {}.{}", escape_mysql_id(&target_schema), escape_mysql_id(name))
+        };
+        let results = self.execute_query(&sql, None, None).await?;
+        if let Some(res) = results.first() {
+            if let Some(row) = res.rows.first() {
+                let key = if routine_type == "procedure" { "Create Procedure" } else { "Create Function" };
+                return Ok(row.get(key).or_else(|| row.values().nth(2)).and_then(|v| v.as_str()).unwrap_or("").to_string());
+            }
+        }
+        Err(DbError::Other("无法获取函数定义".into()))
     }
 
     async fn explain_query(&self, sql: &str, database: Option<&str>, query_id: Option<u64>) -> DbResult<Vec<QueryResult>> {

@@ -2,6 +2,7 @@ use crate::database::{ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableC
 use crate::AppState;
 use super::error::ToCommandResult;
 use tauri::State;
+use serde::Deserialize;
 use serde_json::Value;
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -122,6 +123,51 @@ pub async fn get_view_definition(
     state
         .connection_manager
         .get_view_definition(&connection_id, &view, schema.as_deref(), Some(&database))
+        .await
+        .to_cmd_result()
+}
+
+#[tauri::command]
+pub async fn get_index_definition(
+    connection_id: String,
+    database: Option<String>,
+    index: String,
+    schema: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    state
+        .connection_manager
+        .get_index_definition(&connection_id, &index, schema.as_deref(), database.as_deref())
+        .await
+        .to_cmd_result()
+}
+
+#[tauri::command]
+pub async fn get_routine_definition(
+    request: RoutineDefinitionRequest,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    tracing::info!(
+        conn = %request.connection_id,
+        db = ?request.database,
+        sc = ?request.schema,
+        name = %request.name,
+        routine_type = %request.routine_type,
+        identity_arguments = ?request.identity_arguments,
+        oid = ?request.oid,
+        "正在获取例程定义..."
+    );
+    state
+        .connection_manager
+        .get_routine_definition(
+            &request.connection_id,
+            &request.name,
+            request.schema.as_deref(),
+            request.database.as_deref(),
+            &request.routine_type,
+            request.identity_arguments.as_deref(),
+            request.oid,
+        )
         .await
         .to_cmd_result()
 }
@@ -410,4 +456,15 @@ pub async fn get_autocomplete_data(
         "keywords": default_keywords(),
         "gucParameters": guc_parameters,
     }))
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoutineDefinitionRequest {
+    pub connection_id: String,
+    pub database: Option<String>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub routine_type: String,
+    pub identity_arguments: Option<String>,
+    pub oid: Option<i64>,
 }

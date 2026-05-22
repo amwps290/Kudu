@@ -19,6 +19,8 @@ export interface TabState {
   content?: string
   filePath?: string
   readOnly?: boolean
+  designTab?: 'columns' | 'indexes' | 'foreign_keys' | 'ddl'
+  designAction?: 'add_column' | 'add_index' | 'add_foreign_key'
   dirty?: boolean
   isUntitled?: boolean
 }

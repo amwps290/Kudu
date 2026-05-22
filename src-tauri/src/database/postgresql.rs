@@ -86,6 +86,91 @@ impl PostgreSqlDatabase {
         state.client.as_ref().cloned().ok_or(DbError::not_connected())
     }
 
+    async fn get_aggregate_definition(
+        &self,
+        client: &Client,
+        schema_name: &str,
+        name: &str,
+        identity_arguments: Option<&str>,
+        oid: Option<i64>,
+    ) -> DbResult<String> {
+        let oid_condition = oid
+            .map(|value| format!("p.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let identity_literal = identity_arguments
+            .map(escape_string_literal)
+            .unwrap_or_else(|| "NULL".to_string());
+        let name_condition = format!(
+            "p.proname = {} AND ({} IS NULL OR pg_get_function_identity_arguments(p.oid) = {})",
+            escape_string_literal(name),
+            identity_literal,
+            identity_literal
+        );
+        let sql = format!(
+            "
+            SELECT format(
+                'CREATE AGGREGATE %I.%I(%s) (\\n    SFUNC = %s,\\n    STYPE = %s%s%s%s%s%s%s%s%s%s\\n);',
+                n.nspname,
+                p.proname,
+                pg_get_function_identity_arguments(p.oid),
+                a.aggtransfn::regproc,
+                format_type(a.aggtranstype, NULL),
+                CASE WHEN a.aggfinalfn <> 0::regproc THEN format(',\\n    FINALFUNC = %s', a.aggfinalfn::regproc) ELSE '' END,
+                CASE WHEN a.aggcombinefn <> 0::regproc THEN format(',\\n    COMBINEFUNC = %s', a.aggcombinefn::regproc) ELSE '' END,
+                CASE WHEN a.aggserialfn <> 0::regproc THEN format(',\\n    SERIALFUNC = %s', a.aggserialfn::regproc) ELSE '' END,
+                CASE WHEN a.aggdeserialfn <> 0::regproc THEN format(',\\n    DESERIALFUNC = %s', a.aggdeserialfn::regproc) ELSE '' END,
+                CASE WHEN a.aggmtransfn <> 0::regproc THEN format(',\\n    MSFUNC = %s', a.aggmtransfn::regproc) ELSE '' END,
+                CASE WHEN a.aggminvtransfn <> 0::regproc THEN format(',\\n    MINVFUNC = %s', a.aggminvtransfn::regproc) ELSE '' END,
+                CASE WHEN a.aggmfinalfn <> 0::regproc THEN format(',\\n    MFINALFUNC = %s', a.aggmfinalfn::regproc) ELSE '' END,
+                CASE WHEN a.aggmtranstype <> 0 THEN format(',\\n    MSTYPE = %s', format_type(a.aggmtranstype, NULL)) ELSE '' END,
+                CASE WHEN a.agginitval IS NOT NULL THEN format(',\\n    INITCOND = %L', a.agginitval) ELSE '' END,
+                CASE WHEN a.aggminitval IS NOT NULL THEN format(',\\n    MINITCOND = %L', a.aggminitval) ELSE '' END
+            )
+            FROM pg_aggregate a
+            JOIN pg_proc p ON p.oid = a.aggfnoid
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = {schema}
+              AND (
+                    ({oid_condition})
+                 OR (
+                    {oid_is_null}
+                    AND {name_condition}
+                 )
+              )
+            ORDER BY p.oid
+            LIMIT 1
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name_condition = name_condition,
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 聚合函数定义 SQL");
+        let rows = match client.query(&sql, &[]).await {
+            Ok(rows) => {
+                info!(matched = rows.len(), "PostgreSQL 聚合函数定义查询完成");
+                rows
+            }
+            Err(error) => {
+                let formatted = Self::format_pg_error(error);
+                error!(
+                    schema = %schema_name,
+                    name = %name,
+                    identity_arguments = ?identity_arguments,
+                    oid = ?oid,
+                    error = %formatted,
+                    "PostgreSQL 聚合函数定义查询失败"
+                );
+                return Err(DbError::QueryFailed(formatted));
+            }
+        };
+        if let Some(row) = rows.first() {
+            let definition: String = row.get(0);
+            return Ok(definition.replace("\\n", "\n"));
+        }
+        Err(DbError::Other("无法获取聚合函数定义".into()))
+    }
+
     async fn create_client(config: &ConnectionConfig, notices: Arc<StdMutex<Vec<DbMessage>>>) -> DbResult<Arc<Client>> {
         let db_name = config.database.as_deref().unwrap_or("postgres");
         let timeout_secs = if config.connection_timeout > 0 { config.connection_timeout } else { 5 };
@@ -583,13 +668,13 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_indexes(&self, table: &str, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, pg_relation_size(i.oid)::int8 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
+        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
         let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
             let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into(), size_bytes: Some(r.get(4)) });
+            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: r.get::<_, String>(4).to_uppercase(), size_bytes: Some(r.get(5)) });
             entry.columns.push(col);
         }
         Ok(map.into_values().collect())
@@ -598,13 +683,13 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_schema_indexes(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, pg_relation_size(i.oid)::int8 FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
+        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
             let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: "BTREE".into(), size_bytes: Some(r.get(4)) });
+            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: r.get::<_, String>(4).to_uppercase(), size_bytes: Some(r.get(5)) });
             entry.columns.push(col);
         }
         debug!(count = map.len(), sc = %schema_name, "已获取 PostgreSQL 索引");
@@ -887,24 +972,148 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Err(DbError::Other("无法获取视图定义".into()))
     }
 
+    async fn get_index_definition(&self, index: &str, schema: Option<&str>, _database: Option<&str>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT pg_get_indexdef(i.oid)
+            FROM pg_class i
+            JOIN pg_namespace n ON n.oid = i.relnamespace
+            WHERE n.nspname = $1
+              AND i.relname = $2
+        ";
+        let rows = client.query(sql, &[&schema_name, &index]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        if let Some(row) = rows.first() {
+            let definition: String = row.get(0);
+            return Ok(definition);
+        }
+        Err(DbError::Other("无法获取索引定义".into()))
+    }
+
+    async fn get_routine_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, routine_type: &str, identity_arguments: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        if routine_type == "aggregate" {
+            return self.get_aggregate_definition(&client, schema_name, name, identity_arguments, oid).await;
+        }
+        let prokind = match routine_type {
+            "procedure" => "p",
+            _ => "f",
+        };
+        info!(
+            schema = %schema_name,
+            name = %name,
+            routine_type = %routine_type,
+            identity_arguments = ?identity_arguments,
+            oid = ?oid,
+            "正在获取 PostgreSQL 例程定义"
+        );
+        let oid_condition = oid
+            .map(|value| format!("p.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let name_condition = format!(
+            "p.proname = {} AND ({} IS NULL OR pg_get_function_identity_arguments(p.oid) = {})",
+            escape_string_literal(name),
+            identity_arguments
+                .map(escape_string_literal)
+                .unwrap_or_else(|| "NULL".to_string()),
+            identity_arguments
+                .map(escape_string_literal)
+                .unwrap_or_else(|| "NULL".to_string())
+        );
+        let sql = format!(
+            "
+            SELECT pg_get_functiondef(p.oid)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = {schema}
+              AND p.prokind::text = {prokind}
+              AND (
+                    ({oid_condition})
+                 OR (
+                    {oid_is_null}
+                    AND {name_condition}
+                 )
+              )
+            ORDER BY p.oid
+            LIMIT 1
+            ",
+            schema = escape_string_literal(schema_name),
+            prokind = escape_string_literal(prokind),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name_condition = name_condition,
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 例程定义 SQL");
+        let rows = match client
+            .query(&sql, &[])
+            .await
+        {
+            Ok(rows) => {
+                info!(matched = rows.len(), "PostgreSQL 例程定义查询完成");
+                rows
+            }
+            Err(error) => {
+                let formatted = Self::format_pg_error(error);
+                error!(
+                    schema = %schema_name,
+                    name = %name,
+                    routine_type = %routine_type,
+                    identity_arguments = ?identity_arguments,
+                    oid = ?oid,
+                    error = %formatted,
+                    "PostgreSQL 例程定义查询失败"
+                );
+                return Err(DbError::QueryFailed(formatted));
+            }
+        };
+        if let Some(row) = rows.first() {
+            let definition: String = row.get(0);
+            return Ok(definition);
+        }
+        Err(DbError::Other("无法获取函数定义".into()))
+    }
+
     async fn get_functions(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind != 'a' ORDER BY p.proname";
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'f' ORDER BY p.proname, p.oid";
         
         debug!(sc = %schema_name, "正在查询 PostgreSQL 函数...");
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
         debug!(count = rows.len(), "已获取函数列表");
         
-        Ok(rows.into_iter().map(|r| FunctionInfo { name: r.get(0), schema: Some(r.get(1)), return_type: r.try_get(2).ok(), arguments: r.try_get(3).ok(), language: r.try_get(4).ok(), function_type: "function".into(), comment: r.try_get(5).ok() }).collect())
+        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: r.try_get(6).ok(), function_type: "function".into(), comment: r.try_get(7).ok() }).collect())
     }
 
     async fn get_aggregate_functions(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.prokind = 'a' ORDER BY p.proname";
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.prokind = 'a' ORDER BY p.proname, p.oid";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
-        Ok(rows.into_iter().map(|r| FunctionInfo { name: r.get(0), schema: Some(r.get(1)), return_type: r.try_get(2).ok(), arguments: r.try_get(3).ok(), language: None, function_type: "aggregate".into(), comment: r.try_get(4).ok() }).collect())
+        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: None, function_type: "aggregate".into(), comment: r.try_get(6).ok() }).collect())
+    }
+
+    async fn get_procedures(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'p' ORDER BY p.proname, p.oid";
+
+        debug!(sc = %schema_name, "正在查询 PostgreSQL 存储过程...");
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        debug!(count = rows.len(), "已获取 PostgreSQL 存储过程列表");
+
+        Ok(rows.into_iter().map(|r| FunctionInfo {
+            oid: r.try_get(0).ok(),
+            name: r.get(1),
+            schema: Some(r.get(2)),
+            return_type: None,
+            arguments: r.try_get(3).ok(),
+            identity_arguments: r.try_get(4).ok(),
+            language: r.try_get(5).ok(),
+            function_type: "procedure".into(),
+            comment: r.try_get(6).ok(),
+        }).collect())
     }
 
     async fn get_extensions(&self, _database: Option<&str>) -> DbResult<Vec<ExtensionInfo>> {

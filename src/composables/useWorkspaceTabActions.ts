@@ -12,6 +12,8 @@ export interface TableEventData {
   table?: string
   schema?: string
   metadata?: { schema?: string }
+  designTab?: 'columns' | 'indexes' | 'foreign_keys' | 'ddl'
+  designAction?: 'add_column' | 'add_index' | 'add_foreign_key'
 }
 
 export interface QueryEventData {
@@ -117,12 +119,18 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
       table: data.table,
       schema: data.schema,
       readOnly: true,
+      designTab: data.designTab,
     })
   }
 
   function handleDesignTable(data: TableEventData) {
     const key = `design-${data.connectionId}-${data.database}-${data.table}`
     if (options.tabExists(key)) {
+      const tab = options.dataTabs.value.find(item => item.key === key)
+      if (tab) {
+        tab.designTab = data.designTab
+        tab.designAction = data.designAction
+      }
       options.mainTabKey.value = key
       return
     }
@@ -136,6 +144,8 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
       table: data.table,
       schema: data.schema,
       readOnly: false,
+      designTab: data.designTab,
+      designAction: data.designAction,
     })
   }
 
