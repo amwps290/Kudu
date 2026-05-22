@@ -91,6 +91,7 @@ export interface IndexInfo {
   is_unique: boolean
   is_primary: boolean
   index_type: string
+  size_bytes?: number
 }
 
 /**

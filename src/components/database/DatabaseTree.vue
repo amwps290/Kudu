@@ -432,7 +432,16 @@ async function onLoadData(treeNode: TreeNode) {
       } else {
         res = await metadataApi.getTables(connId, treeNode.metadata.database)
       }
-      const children = res.map(t => ({ key: `${treeNode.key}-${t.name}`, title: t.name, type: isViews ? 'view' : 'table', isLeaf: false, metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema } }))
+      const children = res.map(t => {
+        const sizeLabel = typeof t.size_mb === 'number' ? formatStorageSize(Math.max(0, t.size_mb * 1024 * 1024)) : ''
+        return {
+          key: `${treeNode.key}-${t.name}`,
+          title: sizeLabel ? `${t.name} · ${sizeLabel}` : t.name,
+          type: isViews ? 'view' : 'table',
+          isLeaf: false,
+          metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
+        }
+      })
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children.length ? children : [{ key: `${treeNode.key}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }])
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
@@ -510,9 +519,11 @@ async function onLoadData(treeNode: TreeNode) {
         const indexBadge = indexFlags.length ? ` [${indexFlags.join(', ')}]` : ''
         const indexColumns = index.columns?.length ? ` (${index.columns.join(', ')})` : ''
 
+        const sizeLabel = formatStorageSize(index.size_bytes)
+
         return {
           key: `${treeNode.key}-idx-${index.name}`,
-          title: `${index.name}${indexBadge}${indexColumns}`,
+          title: `${index.name}${indexBadge}${indexColumns}${sizeLabel ? ` · ${sizeLabel}` : ''}`,
           type: 'index',
           isLeaf: true,
           metadata: { ...index, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
@@ -727,6 +738,19 @@ function getNodeDatabaseName(node: TreeNode) {
 /** 安全地从节点 metadata 中提取字符串值 */
 function metaStr(node: TreeNode, key: string): string {
   return String((node.metadata as Record<string, unknown>)?.[key] || '')
+}
+
+function formatStorageSize(sizeInBytes?: number | null): string {
+  if (!sizeInBytes || sizeInBytes < 0) return ''
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let value = sizeInBytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+  const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
+  return `${displayValue}${units[unitIndex]}`
 }
 
 async function refreshDatabaseNode(databaseName: string) {

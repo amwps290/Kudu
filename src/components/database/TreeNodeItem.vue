@@ -35,8 +35,11 @@
         </template>
       </span>
       
-      <span class="tree-node-title" :class="{ 'bold': node.type === 'connection', 'search-highlight': node.highlight }">
-        {{ node.title }}
+      <span class="tree-node-main">
+        <span class="tree-node-title" :class="{ 'bold': node.type === 'connection', 'search-highlight': node.highlight }">
+          {{ displayTitle }}
+        </span>
+        <span v-if="sizeBadge" class="tree-node-size-badge">{{ sizeBadge }}</span>
       </span>
     </div>
     
@@ -64,6 +67,20 @@ import { Icon } from '@iconify/vue'
 
 interface TreeNode { key: string; title: string; type: string; isLeaf?: boolean; children?: TreeNode[]; metadata?: any; highlight?: boolean; }
 const props = defineProps<{ node: TreeNode; level: number; expandedKeys: string[]; selectedKeys: string[]; loadingNodes: Set<string>; }>()
+
+const displayTitle = computed(() => {
+  const title = props.node.title || ''
+  const separator = ' · '
+  const idx = title.lastIndexOf(separator)
+  return idx > -1 ? title.slice(0, idx) : title
+})
+
+const sizeBadge = computed(() => {
+  const title = props.node.title || ''
+  const separator = ' · '
+  const idx = title.lastIndexOf(separator)
+  return idx > -1 ? title.slice(idx + separator.length) : ''
+})
 const emit = defineEmits(['toggle', 'select', 'dblclick', 'contextmenu'])
 
 const isExpanded = computed(() => props.expandedKeys.includes(props.node.key))
@@ -183,9 +200,13 @@ function getIconConfig(node: TreeNode) {
 .brand-icon { font-size: 16px; }
 .type-icon { transition: transform 0.2s; }
 
-.tree-node-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--app-text-muted); }
+.tree-node-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.tree-node-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--app-text-muted); }
 .tree-node-title.bold { font-weight: 600; color: var(--app-text); }
 .selected .tree-node-title { color: inherit; }
+
+.tree-node-size-badge { flex-shrink: 0; display: inline-flex; align-items: center; padding: 0 8px; height: 18px; border-radius: 999px; font-size: 11px; line-height: 18px; color: var(--app-text-subtle); background: var(--surface-secondary); border: 1px solid var(--border-color-muted); }
+.selected .tree-node-size-badge { color: inherit; border-color: currentColor; background: transparent; opacity: 0.9; }
 
 .tree-node-title.search-highlight { background-color: var(--color-warning-soft-bg); color: var(--app-text); border-radius: 2px; padding: 0 2px; }
 </style>
