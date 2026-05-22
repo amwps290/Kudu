@@ -58,6 +58,11 @@
     "close_others": "Close Others",
     "close_saved": "Close Saved"
   },
+  "window": {
+    "minimize": "Minimize",
+    "maximize_restore": "Maximize/Restore",
+    "close": "Close"
+  },
   "settings_page": {
     "title": "Settings",
     "preferences": "Preferences",
@@ -83,6 +88,8 @@
     "theme_help": "Choose a light theme, dark theme, or automatically follow the system theme.",
     "current_theme": "Effective Theme",
     "current_theme_help": "When Follow System is selected, this shows the theme currently applied.",
+    "language_zh_cn": "Chinese",
+    "language_en_us": "English",
     "language_help": "Switch the app language. Changes apply immediately.",
     "diagnostics_group": "Diagnostics",
     "appearance_group": "Appearance",
@@ -130,6 +137,8 @@
     "option_off": "Off",
     "editor_preview": "Editor Preview",
     "custom_font": "Custom Font",
+    "current_label": "Current",
+    "non_monospace_label": "Non-monospace",
     "log_level": "Log Level",
     "log_level_help": "Control how verbose console and file logs are. Crash reports are still written separately.",
     "pending_changes": "Pending Changes",
@@ -190,9 +199,19 @@
       "timeout": "Timeout (sec)",
       "pool_size": "Pool Size",
       "protection": "Protection",
-      "read_only": "Read Only",
-      "read_only_help": "Treats this connection as read-only so data changes and schema edits can be blocked.",
-      "placeholders": {
+    "read_only": "Read Only",
+    "read_only_help": "Treats this connection as read-only so data changes and schema edits can be blocked.",
+    "errors": {
+      "fetch_list": "Failed to load connections",
+      "save": "Failed to save connection",
+      "update": "Failed to update connection",
+      "delete": "Failed to delete connection",
+      "test": "Failed to test connection",
+      "config_missing": "Connection configuration not found",
+      "connect": "Failed to connect to database",
+      "disconnect": "Failed to disconnect"
+    },
+    "placeholders": {
         "name": "Enter connection name",
         "type": "Select database type",
         "host": "localhost",
@@ -263,7 +282,9 @@
     "submenu_stats": "Statistics",
     "submenu_gen_sql": "Generate SQL",
     "columns": "columns",
-    "empty": "(No data)"
+    "empty": "(No data)",
+    "select_connection": "Please select a connection",
+    "ddl_preview_title": "DDL: {name}"
   },
   "editor": {
     "result": "Query Result",
@@ -292,7 +313,9 @@
     "exec_success": "Executed, returned {sets} result sets, affected {rows} rows",
     "exec_success_simple": "Execution succeeded",
     "explain_success": "Explain analysis completed",
+    "search_path_label": "search_path",
     "search_path_add": "Add schema",
+    "search_path_schema_placeholder": "schema",
     "open_file_location": "Open File Location",
     "no_open_tabs": "No open editors",
     "input_sql_warn": "Please input SQL",
@@ -429,12 +452,17 @@
     "index_columns": "Columns",
     "index_type": "Type",
     "unique": "Unique",
+    "index_name_placeholder": "e.g., idx_column_name",
     "fk_name": "FK Name",
+    "fk_name_placeholder": "e.g., fk_column_name",
     "fk_column": "Column",
     "ref_table": "Ref Table",
+    "ref_table_placeholder": "e.g., referenced_table",
     "ref_column": "Ref Column",
+    "ref_column_placeholder": "e.g., referenced_column",
     "on_delete": "On Delete",
     "on_update": "On Update",
+    "default_value_placeholder": "NULL",
     "add_column": "Add Column",
     "add_index": "Add Index",
     "add_fk": "Add FK",
@@ -612,6 +640,11 @@
       "category_name_required": "Please enter category name",
       "category_exists": "Category already exists",
       "category_added": "Category added successfully",
+      "default_categories": {
+        "common": "Common Queries",
+        "analysis": "Data Analysis",
+        "reporting": "Reporting"
+      },
       "success": "Query saved successfully",
       "fail": "Failed to save: {error}"
     },
@@ -658,6 +691,7 @@
   "redis": {
     "execute": "Execute (Ctrl+Enter)",
     "server_info": "Server Info",
+    "server_info_title": "Redis Server Info",
     "select_database": "Select Database",
     "line_col": "Line {line}, Col {col}",
     "command_history": "Redis Command History",
@@ -675,6 +709,19 @@
     "switched_db": "Switched to {db}",
     "switch_fail": "Failed to switch database: {error}",
     "keepalive_fail": "Redis connection may have disconnected, please try reconnecting",
+    "command_input_placeholder": "# Enter Redis commands here\n# PING - test whether the connection is healthy\n# INFO - view server information\n# GET key - read a key\n# SET key value - write a key\n\nPING",
+    "info": {
+      "version": "Version",
+      "mode": "Mode",
+      "used_memory": "Used Memory",
+      "peak_memory": "Peak Memory",
+      "connected_clients": "Connected Clients",
+      "uptime_days": "Uptime (days)",
+      "total_commands": "Total Commands",
+      "total_keys": "Total Keys",
+      "all_info": "All Info",
+      "fetch_fail": "Failed to fetch server info: {error}"
+    },
     "key_viewer": {
       "panel_title": "Key Details",
       "key_label": "Key: {key}",

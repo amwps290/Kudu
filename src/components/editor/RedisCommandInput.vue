@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { registerRedisCompletionProvider } from '@/services/redisAutocomplete'
 import { useAppStore } from '@/stores/app'
 import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
@@ -20,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
+const { t } = useI18n()
 const editorContainer = ref<HTMLElement>()
 let editor: any = null
 let monacoInstance: MonacoModule | null = null
@@ -31,7 +33,7 @@ onMounted(async () => {
   monacoInstance = monaco
 
   editor = monaco.editor.create(editorContainer.value, {
-    value: props.initialValue || '# 在此输入 Redis 命令\n# PING - 测试连接是否正常\n# INFO - 查看服务器信息\n# GET key - 获取键值\n# SET key value - 设置键值\n\nPING',
+    value: props.initialValue || t('redis.command_input_placeholder'),
     language: 'shell',
     theme: appStore.theme === 'dark' ? 'vs-dark' : 'vs',
     automaticLayout: true,

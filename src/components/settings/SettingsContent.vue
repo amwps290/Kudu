@@ -59,7 +59,7 @@
               show-search
               :filter-option="filterFontOption"
               :options="interfaceFontOptionsEffective"
-              placeholder="搜索或选择界面字体"
+              :placeholder="$t('settings_page.interface_font_placeholder')"
             />
           </div>
 
@@ -69,8 +69,8 @@
               <div class="help-text setting-help">{{ $t('settings_page.language_help') }}</div>
             </div>
             <a-select v-model:value="languageModel" class="setting-select compact">
-              <a-select-option value="zh-CN">中文</a-select-option>
-              <a-select-option value="en-US">English</a-select-option>
+              <a-select-option value="zh-CN">{{ $t('settings_page.language_zh_cn') }}</a-select-option>
+              <a-select-option value="en-US">{{ $t('settings_page.language_en_us') }}</a-select-option>
             </a-select>
           </div>
 
@@ -98,7 +98,7 @@
               show-search
               :filter-option="filterFontOption"
               :options="editorFontOptionsEffective"
-              placeholder="搜索或选择编辑器字体"
+              :placeholder="$t('settings_page.editor_font_placeholder')"
             />
           </div>
 
@@ -237,6 +237,18 @@ const filterFontOption = (input: string, option: { label: string; value: string 
   return option.label.toLowerCase().includes(input.toLowerCase()) || option.value.toLowerCase().includes(input.toLowerCase())
 }
 
+function withDefaultLabel(label: string): string {
+  return `${label} (${t('common.default_prefix')})`
+}
+
+function withCurrentLabel(label: string): string {
+  return `${label} (${t('settings_page.current_label')})`
+}
+
+function withNonMonospaceLabel(label: string): string {
+  return `${label} (${t('settings_page.non_monospace_label')})`
+}
+
 // 从 CSS font-family 值中提取首个字体名（用于自定义选项的 label）
 function extractFirstFont(value: string): string {
   // 去掉引号，取出第一个逗号前的字体名
@@ -246,12 +258,12 @@ function extractFirstFont(value: string): string {
 
 // 兜底字体选项（系统字体列表加载失败时使用）
 const FALLBACK_INTERFACE_FONTS = [
-  { label: 'Inter / SF Pro Display (默认)', value: `Inter, "SF Pro Display", "Segoe UI", sans-serif` },
+  { label: withDefaultLabel('Inter / SF Pro Display'), value: `Inter, "SF Pro Display", "Segoe UI", sans-serif` },
   { label: 'System UI', value: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` },
 ]
 
 const FALLBACK_EDITOR_FONTS = [
-  { label: 'JetBrains Mono (默认)', value: `"JetBrains Mono"` },
+  { label: withDefaultLabel('JetBrains Mono'), value: `"JetBrains Mono"` },
   { label: 'Fira Code', value: `"Fira Code"` },
   { label: 'Cascadia Code', value: `"Cascadia Code"` },
   { label: 'Consolas', value: `"Consolas"` },
@@ -274,7 +286,7 @@ const interfaceFontOptionsEffective = computed(() => {
   const options = [...interfaceFontOptions.value]
   const current = appStore.interfaceSettings.fontFamily
   if (current && !hasOptionWithValue(options, current)) {
-    options.unshift({ label: `${extractFirstFont(current)} (当前)`, value: current })
+    options.unshift({ label: withCurrentLabel(extractFirstFont(current)), value: current })
   }
   return options
 })
@@ -283,7 +295,7 @@ const editorFontOptionsEffective = computed(() => {
   const options = [...editorFontOptions.value]
   const current = appStore.editorSettings.fontFamily
   if (current && !hasOptionWithValue(options, current)) {
-    options.unshift({ label: `${extractFirstFont(current)} (当前)`, value: current })
+    options.unshift({ label: withCurrentLabel(extractFirstFont(current)), value: current })
   }
   return options
 })
@@ -309,7 +321,7 @@ async function loadSystemFonts() {
     const otherFonts = fonts
       .filter(f => !f.is_monospace)
       .map(f => ({
-        label: f.family + ' (非等宽)',
+        label: withNonMonospaceLabel(f.family),
         value: `"${f.family}"`,
       }))
 

@@ -148,7 +148,7 @@ export class RedisCompletionProvider {
             kind: monaco.languages.CompletionItemKind.Function,
             detail: cmd.category,
             documentation: {
-              value: `**${cmd.command}** ${cmd.args.join(' ')}\n\n${cmd.description}`,
+              value: `**${cmd.command}** ${cmd.args.join(' ')}`.trim(),
             },
             insertText: cmd.command,
             range: {
@@ -170,8 +170,8 @@ export class RedisCompletionProvider {
           suggestions.push({
             label: cmdInfo.args[argIndex],
             kind: monaco.languages.CompletionItemKind.Variable,
-            detail: `参数 ${argIndex + 1}`,
-            documentation: `${cmdInfo.command} 的第 ${argIndex + 1} 个参数`,
+            detail: `${cmdInfo.command} argument ${argIndex + 1}`,
+            documentation: `${cmdInfo.command} ${cmdInfo.args[argIndex]}`,
             insertText: cmdInfo.args[argIndex],
             range: {
               startLineNumber: position.lineNumber,

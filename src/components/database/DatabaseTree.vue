@@ -16,7 +16,7 @@
           />
         </div>
       </div>
-      <a-empty v-if="!loading && filteredTreeData.length === 0" :description="props.searchOptions?.text ? $t('tree.no_data') : '请选择连接'" :image-style="{ height: '60px' }" />
+      <a-empty v-if="!loading && filteredTreeData.length === 0" :description="props.searchOptions?.text ? $t('tree.no_data') : $t('tree.select_connection')" :image-style="{ height: '60px' }" />
     </a-spin>
 
     <!-- 右键菜单 -->
@@ -102,7 +102,7 @@
     </a-modal>
 
     <!-- DDL 预览弹窗 -->
-    <a-modal v-model:open="showDdlModal" :title="`DDL: ${selectedNode?.title}`" width="800px" :footer="null">
+    <a-modal v-model:open="showDdlModal" :title="$t('tree.ddl_preview_title', { name: selectedNode?.title || '' })" width="800px" :footer="null">
       <div ref="ddlEditorContainer" class="ddl-preview-editor"></div>
     </a-modal>
 

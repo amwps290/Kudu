@@ -90,7 +90,7 @@
           <a-input
             v-model:value="record.default_value"
             size="small"
-            placeholder="NULL"
+            :placeholder="$t('designer.default_value_placeholder')"
             @change="record._modified = true"
           />
         </template>

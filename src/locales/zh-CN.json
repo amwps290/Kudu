@@ -58,6 +58,11 @@
     "close_others": "关闭其他",
     "close_saved": "关闭已保存的"
   },
+  "window": {
+    "minimize": "最小化",
+    "maximize_restore": "最大化/还原",
+    "close": "关闭"
+  },
   "settings_page": {
     "title": "设置",
     "preferences": "偏好设置",
@@ -83,6 +88,8 @@
     "theme_help": "控制应用界面使用亮色、暗色或自动跟随系统主题。",
     "current_theme": "当前生效主题",
     "current_theme_help": "当选择“跟随系统”时，这里会显示当前实际生效的主题。",
+    "language_zh_cn": "中文",
+    "language_en_us": "英文",
     "language_help": "切换界面文案语言，设置会立即生效。",
     "diagnostics_group": "诊断",
     "appearance_group": "外观",
@@ -130,6 +137,8 @@
     "option_off": "关闭",
     "editor_preview": "编辑器预览",
     "custom_font": "自定义字体",
+    "current_label": "当前",
+    "non_monospace_label": "非等宽",
     "log_level": "日志等级",
     "log_level_help": "控制控制台和日志文件的输出详细程度。崩溃日志仍会单独记录。",
     "pending_changes": "有未应用的设置",
@@ -190,9 +199,19 @@
       "timeout": "连接超时(秒)",
       "pool_size": "连接池大小",
       "protection": "安全保护",
-      "read_only": "只读模式",
-      "read_only_help": "开启后，该连接将被视为只读连接，后续数据修改和结构变更会被阻止。",
-      "placeholders": {
+    "read_only": "只读模式",
+    "read_only_help": "开启后，该连接将被视为只读连接，后续数据修改和结构变更会被阻止。",
+    "errors": {
+      "fetch_list": "获取连接列表失败",
+      "save": "保存连接失败",
+      "update": "更新连接失败",
+      "delete": "删除连接失败",
+      "test": "测试连接失败",
+      "config_missing": "连接配置不存在",
+      "connect": "连接数据库失败",
+      "disconnect": "断开连接失败"
+    },
+    "placeholders": {
         "name": "请输入连接名称",
         "type": "请选择数据库类型",
         "host": "localhost",
@@ -263,7 +282,9 @@
     "submenu_stats": "统计信息",
     "submenu_gen_sql": "生成 SQL",
     "columns": "列",
-    "empty": "(无数据)"
+    "empty": "(无数据)",
+    "select_connection": "请选择连接",
+    "ddl_preview_title": "DDL: {name}"
   },
   "editor": {
     "result": "查询结果",
@@ -292,7 +313,9 @@
     "exec_success": "执行完成，返回 {sets} 个结果集，总计影响 {rows} 行",
     "exec_success_simple": "执行成功",
     "explain_success": "执行计划分析完成",
+    "search_path_label": "search_path",
     "search_path_add": "添加 schema",
+    "search_path_schema_placeholder": "schema",
     "open_file_location": "打开文件所在目录",
     "no_open_tabs": "暂无打开的编辑器",
     "input_sql_warn": "请输入 SQL",
@@ -429,12 +452,17 @@
     "index_columns": "索引列",
     "index_type": "索引类型",
     "unique": "唯一",
+    "index_name_placeholder": "例如: idx_column_name",
     "fk_name": "外键名",
+    "fk_name_placeholder": "例如: fk_column_name",
     "fk_column": "字段",
     "ref_table": "参考表",
+    "ref_table_placeholder": "例如: referenced_table",
     "ref_column": "参考字段",
+    "ref_column_placeholder": "例如: referenced_column",
     "on_delete": "删除时",
     "on_update": "更新时",
+    "default_value_placeholder": "NULL",
     "add_column": "添加列",
     "add_index": "添加索引",
     "add_fk": "添加外键",
@@ -612,6 +640,11 @@
       "category_name_required": "请输入分类名称",
       "category_exists": "分类已存在",
       "category_added": "分类添加成功",
+      "default_categories": {
+        "common": "常用查询",
+        "analysis": "数据分析",
+        "reporting": "报表查询"
+      },
       "success": "查询保存成功",
       "fail": "保存失败: {error}"
     },
@@ -658,6 +691,7 @@
   "redis": {
     "execute": "执行 (Ctrl+Enter)",
     "server_info": "服务器信息",
+    "server_info_title": "Redis 服务器信息",
     "select_database": "选择数据库",
     "line_col": "行 {line}, 列 {col}",
     "command_history": "Redis 命令历史",
@@ -675,6 +709,19 @@
     "switched_db": "已切换到 {db}",
     "switch_fail": "切换数据库失败: {error}",
     "keepalive_fail": "Redis 连接可能已断开，请尝试重新连接",
+    "command_input_placeholder": "# 在此输入 Redis 命令\n# PING - 测试连接是否正常\n# INFO - 查看服务器信息\n# GET key - 获取键值\n# SET key value - 设置键值\n\nPING",
+    "info": {
+      "version": "版本",
+      "mode": "模式",
+      "used_memory": "已用内存",
+      "peak_memory": "内存峰值",
+      "connected_clients": "已连接客户端",
+      "uptime_days": "运行时间(天)",
+      "total_commands": "总命令数",
+      "total_keys": "键总数",
+      "all_info": "所有信息",
+      "fetch_fail": "获取服务器信息失败: {error}"
+    },
     "key_viewer": {
       "panel_title": "键详情",
       "key_label": "键: {key}",

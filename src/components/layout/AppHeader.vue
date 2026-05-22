@@ -19,7 +19,7 @@
               <FileAddOutlined /> {{ $t('tree.new_query') }}
             </a-menu-item>
             <a-menu-item key="open-sql-file" @click="$emit('openSqlFile')">
-              <FolderOpenOutlined /> {{ $t('editor.sql_file') || 'Open SQL File' }}
+              <FolderOpenOutlined /> {{ $t('editor.sql_file') }}
             </a-menu-item>
             <a-menu-item key="save-query" :disabled="!canSaveQuery" @click="$emit('saveQuery')">
               <SaveOutlined /> {{ $t('common.save') }}
@@ -105,13 +105,13 @@
           </a-button>
 
           <div class="window-controls">
-            <div class="win-btn" title="最小化" @click="minimizeWindow">
+            <div class="win-btn" :title="$t('window.minimize')" @click="minimizeWindow">
               <Icon icon="fluent:subtract-16-filled" />
             </div>
-            <div class="win-btn" title="最大化/还原" @click="toggleMaximize">
+            <div class="win-btn" :title="$t('window.maximize_restore')" @click="toggleMaximize">
               <Icon :icon="isMaximized ? 'fluent:square-multiple-16-regular' : 'fluent:square-16-regular'" />
             </div>
-            <div class="win-btn close" title="关闭" @click="closeWindow">
+            <div class="win-btn close" :title="$t('window.close')" @click="closeWindow">
               <Icon icon="fluent:dismiss-16-filled" />
             </div>
           </div>

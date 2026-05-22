@@ -76,7 +76,7 @@
     >
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
         <a-form-item :label="$t('designer.index_name')">
-          <a-input v-model:value="newIndex.name" placeholder="idx_column_name" />
+          <a-input v-model:value="newIndex.name" :placeholder="$t('designer.index_name_placeholder')" />
         </a-form-item>
         <a-form-item :label="$t('designer.index_type')">
           <a-select v-model:value="newIndex.type">
@@ -111,7 +111,7 @@
     >
       <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
         <a-form-item :label="$t('designer.fk_name')">
-          <a-input v-model:value="newForeignKey.name" placeholder="fk_column_name" />
+          <a-input v-model:value="newForeignKey.name" :placeholder="$t('designer.fk_name_placeholder')" />
         </a-form-item>
         <a-form-item :label="$t('designer.fk_column')">
           <a-select v-model:value="newForeignKey.column">
@@ -125,10 +125,10 @@
           </a-select>
         </a-form-item>
         <a-form-item :label="$t('designer.ref_table')">
-          <a-input v-model:value="newForeignKey.refTable" placeholder="referenced_table" />
+          <a-input v-model:value="newForeignKey.refTable" :placeholder="$t('designer.ref_table_placeholder')" />
         </a-form-item>
         <a-form-item :label="$t('designer.ref_column')">
-          <a-input v-model:value="newForeignKey.refColumn" placeholder="referenced_column" />
+          <a-input v-model:value="newForeignKey.refColumn" :placeholder="$t('designer.ref_column_placeholder')" />
         </a-form-item>
         <a-form-item :label="$t('designer.on_delete')">
           <a-select v-model:value="newForeignKey.onDelete">

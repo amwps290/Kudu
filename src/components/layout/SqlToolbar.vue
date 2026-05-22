@@ -51,14 +51,14 @@
       <!-- 垂直布局 (保留兼容) -->
       <template v-if="vertical">
         <a-dropdown placement="bottomLeft" trigger="click">
-          <a-tooltip :title="selectedDatabase || (appStore.language === 'zh-CN' ? '默认数据库' : 'Default Database')">
+          <a-tooltip :title="selectedDatabase || $t('editor.default_database')">
             <a-button type="text" size="small" class="db-trigger">
               <template #icon><DatabaseOutlined /></template>
             </a-button>
           </a-tooltip>
           <template #overlay>
             <a-menu :selected-keys="[selectedDatabase || '__default__']" @click="handleDatabaseMenuClick">
-              <a-menu-item key="__default__">{{ appStore.language === 'zh-CN' ? '默认' : 'Default' }}</a-menu-item>
+              <a-menu-item key="__default__">{{ $t('common.default_prefix') }}</a-menu-item>
               <a-menu-item v-for="db in databases" :key="db.name">{{ db.name }}</a-menu-item>
             </a-menu>
           </template>
@@ -93,7 +93,7 @@
         </div>
         <a-divider type="vertical" />
         <div class="toolbar-right-section" v-if="showSearchPath">
-          <span class="toolbar-label">search_path</span>
+          <span class="toolbar-label">{{ $t('editor.search_path_label') }}</span>
           <a-popover
             v-model:open="searchPathEditorOpen"
             trigger="click"
@@ -118,7 +118,7 @@
                     v-model:value="searchPathNewItem"
                     size="small"
                     class="search-path-input"
-                    placeholder="schema"
+                    :placeholder="$t('editor.search_path_schema_placeholder')"
                     @pressEnter="confirmAddSearchPathItem"
                     @blur="confirmAddSearchPathItem"
                   />
@@ -164,7 +164,7 @@ import {
   FormatPainterOutlined, ClearOutlined, HistoryOutlined, CodeOutlined, SyncOutlined,
   SearchOutlined, DatabaseOutlined, TableOutlined, MessageOutlined, ApartmentOutlined, PlusOutlined
 } from '@ant-design/icons-vue'
-import { useAppStore } from '@/stores/app'
+import { useI18n } from 'vue-i18n'
 import type { DatabaseInfo } from '@/types/database'
 
 const props = withDefaults(defineProps<{
@@ -191,7 +191,7 @@ const emit = defineEmits<{
   searchPathChange: [value: string]
 }>()
 
-const appStore = useAppStore()
+const { t } = useI18n()
 
 // ── search_path 编辑器 ──
 const searchPathEditorOpen = ref(false)
@@ -204,7 +204,7 @@ const searchPathItems = computed({
   set: (_val) => {}
 })
 
-const searchPathDisplay = computed(() => searchPathItems.value.join(', ') || '—')
+const searchPathDisplay = computed(() => searchPathItems.value.join(', ') || t('common.no_data'))
 
 const searchPathSql = computed(() => {
   if (searchPathItems.value.length === 0) return ''

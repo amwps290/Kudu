@@ -4,6 +4,7 @@ import type { ConnectionConfig, ConnectionStatus, StoredConnection } from '@/typ
 import { connectionApi } from '@/api'
 import { withErrorHandler } from '@/utils/errorHandler'
 import { useAppStore } from './app'
+import i18n from '@/i18n'
 
 interface ConnectToDatabaseOptions {
   showErrorMessage?: boolean
@@ -11,6 +12,7 @@ interface ConnectToDatabaseOptions {
 
 export const useConnectionStore = defineStore('connection', () => {
   const appStore = useAppStore()
+  const t = i18n.global.t
   // 状态
   const connections = ref<ConnectionConfig[]>([])
   const activeConnectionId = ref<string | null>(null)
@@ -32,7 +34,7 @@ export const useConnectionStore = defineStore('connection', () => {
           previousStatuses.get(connection.id) || 'disconnected'
         ])
       )
-    }, { messagePrefix: '获取连接列表失败' })
+    }, { messagePrefix: t('connection.errors.fetch_list') })
       .finally(() => {
         fetchConnectionsPromise = null
       })
@@ -103,7 +105,7 @@ export const useConnectionStore = defineStore('connection', () => {
         connections.value.push({ ...normalizedConfig, ...saved })
       }
       return saved
-    }, { messagePrefix: '保存连接失败' })
+    }, { messagePrefix: t('connection.errors.save') })
   }
 
   // 更新连接
@@ -118,7 +120,7 @@ export const useConnectionStore = defineStore('connection', () => {
         connections.value[index] = { ...normalizedConfig, ...updated }
       }
       return updated
-    }, { messagePrefix: '更新连接失败' })
+    }, { messagePrefix: t('connection.errors.update') })
   }
 
   // 删除连接
@@ -130,7 +132,7 @@ export const useConnectionStore = defineStore('connection', () => {
         activeConnectionId.value = null
       }
       connectionStatuses.value.delete(id)
-    }, { messagePrefix: '删除连接失败' })
+    }, { messagePrefix: t('connection.errors.delete') })
   }
 
   // 测试连接
@@ -138,17 +140,17 @@ export const useConnectionStore = defineStore('connection', () => {
     return withErrorHandler(async () => {
       const result = await connectionApi.testConnection(applyDatabaseDefaults(config))
       if (!result.success) {
-        throw new Error(result.message || '连接失败')
+        throw new Error(result.message || t('connection.fail'))
       }
       return result
-    }, { messagePrefix: '测试连接失败' })
+    }, { messagePrefix: t('connection.errors.test') })
   }
 
   // 连接到数据库
   async function connectToDatabase(id: string, options: ConnectToDatabaseOptions = {}) {
     const conn = connections.value.find(c => c.id === id)
     if (!conn) {
-      throw new Error('连接配置不存在')
+      throw new Error(t('connection.errors.config_missing'))
     }
 
     const { showErrorMessage = true } = options
@@ -159,7 +161,7 @@ export const useConnectionStore = defineStore('connection', () => {
       updateConnectionStatus(id, 'connected')
     }, {
       showMessage: showErrorMessage,
-      messagePrefix: '连接数据库失败',
+      messagePrefix: t('connection.errors.connect'),
       onError: () => updateConnectionStatus(id, 'error')
     })
   }
@@ -169,7 +171,7 @@ export const useConnectionStore = defineStore('connection', () => {
     return withErrorHandler(async () => {
       await connectionApi.disconnectDatabase(id)
       updateConnectionStatus(id, 'disconnected')
-    }, { messagePrefix: '断开连接失败' })
+    }, { messagePrefix: t('connection.errors.disconnect') })
   }
 
   // 设置活动连接

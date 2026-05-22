@@ -107,7 +107,11 @@ const sqlPreview = computed(() => {
 
 // 加载分类列表
 function loadCategories() {
-  categories.value = getStorageItem<string[]>(STORAGE_KEYS.QUERY_CATEGORIES, ['常用查询', '数据分析', '报表查询'])
+  categories.value = getStorageItem<string[]>(STORAGE_KEYS.QUERY_CATEGORIES, [
+    t('dialog.save_query.default_categories.common'),
+    t('dialog.save_query.default_categories.analysis'),
+    t('dialog.save_query.default_categories.reporting'),
+  ])
 }
 
 // 添加分类

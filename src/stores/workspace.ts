@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { workspaceApi, type RawSessionState } from '@/api/workspace'
 import { withErrorHandler } from '@/utils/errorHandler'
 import { TabType, type TabState } from '@/types/workspace'
+import i18n from '@/i18n'
 
 export type { TabState }
 
@@ -40,10 +41,18 @@ function toRawSessionState(tabs: TabState[], activeKey: string): RawSessionState
   }
 }
 
+function resolvePersistedTabTitle(tab: RawSessionState['open_tabs'][number]): string {
+  if (tab.type === TabType.Settings) {
+    return i18n.global.t('common.settings')
+  }
+
+  return tab.title
+}
+
 function fromRawSessionState(session: RawSessionState): { open_tabs: TabState[], active_tab_key: string } {
   const openTabs = session.open_tabs.map((tab) => ({
     key: tab.key,
-    title: tab.title,
+    title: resolvePersistedTabTitle(tab),
     type: tab.type as TabType,
     connectionId: tab.connection_id,
     database: tab.database,
