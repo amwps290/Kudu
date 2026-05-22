@@ -330,10 +330,36 @@ async function loadDatabases() {
 }
 
 async function handleRefreshNode(node: TreeNode) {
-  expandedKeys.value = expandedKeys.value.filter(k => k !== node.key)
+  const currentNode = findNodeInTree(treeData.value, node.key) || node
+  const staleExpandedKeys = collectSubtreeKeys(currentNode)
+  expandedKeys.value = expandedKeys.value.filter(key => !staleExpandedKeys.has(key))
   updateNodeInTree(treeData.value, node.key, (target) => { target.children = undefined })
   treeData.value = [...treeData.value]
   message.success(t('common.refresh'))
+}
+
+function collectSubtreeKeys(node: TreeNode): Set<string> {
+  const keys = new Set<string>([node.key])
+  const visit = (children?: TreeNode[]) => {
+    if (!children) return
+    for (const child of children) {
+      keys.add(child.key)
+      visit(child.children)
+    }
+  }
+  visit(node.children)
+  return keys
+}
+
+function findNodeInTree(nodes: TreeNode[], targetKey: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.key === targetKey) return node
+    if (node.children) {
+      const found = findNodeInTree(node.children, targetKey)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 function updateNodeInTree(nodes: TreeNode[], targetKey: string, updater: (node: TreeNode) => void): boolean {
