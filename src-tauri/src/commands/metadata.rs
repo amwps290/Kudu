@@ -224,7 +224,7 @@ pub async fn get_procedures(
             "SELECT ROUTINE_NAME FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'PROCEDURE' ORDER BY ROUTINE_NAME",
             database.replace('\'', "''")
         ),
-        DatabaseType::PostgreSQL => "SELECT p.proname AS ROUTINE_NAME FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.prokind = 'p' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY p.proname".to_string(),
+        DatabaseType::PostgreSQL => return Ok(Vec::new()),
         _ => return Ok(Vec::new()),
     };
 
