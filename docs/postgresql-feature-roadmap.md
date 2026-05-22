@@ -35,10 +35,15 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
 
 ## Recommended Next
 
-- [ ] Sequence support
+- [x] Sequence support
   - Browse sequences in the object tree
   - View sequence definition
-  - Support common maintenance actions such as `setval`
+  - Copy sequence definition
+  - View sequence state
+  - Set next value with `setval`
+  - Restart sequence from start value
+  - Rename sequence
+  - Drop sequence
 
 - [ ] Materialized view support
   - Browse materialized views in the object tree

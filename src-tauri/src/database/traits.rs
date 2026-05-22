@@ -183,6 +183,27 @@ pub struct ExtensionInfo {
     pub comment: Option<String>,
 }
 
+/// 数据库元数据 - Sequence 信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceInfo {
+    pub oid: Option<i64>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub comment: Option<String>,
+}
+
+/// 数据库元数据 - Sequence 状态信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SequenceStateInfo {
+    pub name: String,
+    pub schema: Option<String>,
+    pub last_value: Option<i64>,
+    pub start_value: Option<i64>,
+    pub increment_by: Option<i64>,
+    pub next_value: Option<i64>,
+    pub is_called: Option<bool>,
+}
+
 /// 数据库元数据 - 外键信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyInfo {
@@ -413,6 +434,18 @@ pub trait DatabaseOperations: Send + Sync {
 
     async fn get_extensions(&self, _database: Option<&str>) -> DbResult<Vec<ExtensionInfo>> {
         Ok(Vec::new())
+    }
+
+    async fn get_sequences(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_sequence_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持序列定义".into()))
+    }
+
+    async fn get_sequence_state(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<SequenceStateInfo> {
+        Err(DbError::Other("该数据库类型不支持序列状态".into()))
     }
 
     /// 获取外键信息

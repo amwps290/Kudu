@@ -124,6 +124,18 @@
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'sequence'">
+            <a-menu-item key="view-sequence-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="view-sequence-state"><template #icon><NumberOutlined /></template>{{ $t('tree.sequence_state') }}</a-menu-item>
+            <a-menu-item key="set-sequence-value"><template #icon><EditOutlined /></template>{{ $t('tree.set_sequence_value') }}</a-menu-item>
+            <a-menu-item key="restart-sequence"><template #icon><ReloadOutlined /></template>{{ $t('tree.restart_sequence') }}</a-menu-item>
+            <a-menu-item key="copy-sequence-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="rename-sequence" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_sequence') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="drop-sequence" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_sequence') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <template v-else-if="selectedNode?.type === 'extension'">
             <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
             <a-menu-divider />
@@ -188,6 +200,21 @@
       </a-list>
     </a-modal>
 
+    <a-modal v-model:open="showSequenceStateModal" :title="$t('tree.sequence_state')" :footer="null" width="520px">
+      <div v-if="sequenceState" class="sequence-state-panel">
+        <div class="sequence-state-row"><span>{{ $t('tree.sequence_last_value') }}</span><strong>{{ formatOptionalNumber(sequenceState.last_value) }}</strong></div>
+        <div class="sequence-state-row"><span>{{ $t('tree.sequence_next_value') }}</span><strong>{{ formatOptionalNumber(sequenceState.next_value) }}</strong></div>
+        <div class="sequence-state-row"><span>{{ $t('tree.sequence_start_value') }}</span><strong>{{ formatOptionalNumber(sequenceState.start_value) }}</strong></div>
+        <div class="sequence-state-row"><span>{{ $t('tree.sequence_increment_by') }}</span><strong>{{ formatOptionalNumber(sequenceState.increment_by) }}</strong></div>
+        <div class="sequence-state-row"><span>{{ $t('tree.sequence_is_called') }}</span><strong>{{ sequenceState.is_called ? $t('common.yes') : $t('common.no') }}</strong></div>
+      </div>
+    </a-modal>
+
+    <a-modal v-model:open="showSequenceValueModal" :title="$t('tree.set_sequence_value')" @ok="submitSequenceValue" :confirm-loading="sequenceValueSubmitting">
+      <a-input-number v-model:value="sequenceValueInput" :min="1" :precision="0" style="width: 100%" />
+      <div class="sequence-value-hint">{{ $t('tree.set_sequence_value_hint') }}</div>
+    </a-modal>
+
     <BackupDatabaseDialog
       v-model="showBackupDialog"
       :connection-id="props.connectionId || ''"
@@ -215,6 +242,7 @@ import {
 import { message, Modal } from '@/ui/antd'
 import { metadataApi, workspaceApi, utilsApi, queryApi } from '@/api'
 import { getErrorMessage } from '@/utils/errorHandler'
+import { escapeSqlLiteral } from '@/utils/sqlHelpers'
 import { useConnectionStore } from '@/stores/connection'
 import TreeNodeItem from './TreeNodeItem.vue'
 import BackupDatabaseDialog from './BackupDatabaseDialog.vue'
@@ -243,7 +271,7 @@ const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures', 'schema-sequences']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-columns',
@@ -284,6 +312,11 @@ const menuOpenUpward = ref(false)
 let contextMenuResizeObserver: ResizeObserver | null = null
 
 const showDdlModal = ref(false), ddlEditorContainer = ref<HTMLElement>()
+const showSequenceStateModal = ref(false)
+const sequenceState = ref<import('@/types/database').SequenceStateInfo | null>(null)
+const showSequenceValueModal = ref(false)
+const sequenceValueInput = ref<number | undefined>(undefined)
+const sequenceValueSubmitting = ref(false)
 const hasDefinitionNode = computed(() => Boolean(selectedNode.value?.metadata?.definition))
 const showRenameModal = ref(false)
 const renameValue = ref('')
@@ -293,7 +326,11 @@ const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDd
   language: 'sql',
   readOnly: true,
 })
-const renameModalTitle = computed(() => renameMode.value === 'column' ? t('tree.rename_column') : t('tree.rename_table'))
+const renameModalTitle = computed(() => {
+  if (renameMode.value === 'column') return t('tree.rename_column')
+  if (selectedNode.value?.type === 'sequence') return t('tree.rename_sequence')
+  return t('tree.rename_table')
+})
 const isTableChildObjectNode = computed(() => TABLE_CHILD_OBJECT_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const isConstraintNode = computed(() => ['unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
 const isDroppableTableChildNode = computed(() => ['trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
@@ -498,6 +535,7 @@ async function onLoadData(treeNode: TreeNode) {
       { key: `${treeNode.key}-tables`, title: t('tree.tables'), type: 'schema-tables', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-views`, title: t('tree.views'), type: 'schema-views', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
+      { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
       ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
     ]
@@ -529,10 +567,11 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
+  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
     const isProcedure = treeNode.type === 'schema-procedures' || treeNode.type === 'procedures'
     const isAggregate = treeNode.type === 'schema-aggregates'
+    const isSequence = treeNode.type === 'schema-sequences'
 
     try {
       let res: any[]
@@ -542,6 +581,8 @@ async function onLoadData(treeNode: TreeNode) {
         res = await metadataApi.getSchemaProcedures(connId, treeNode.metadata.database, treeNode.metadata.schema || treeNode.metadata.database)
       } else if (isAggregate) {
         res = await metadataApi.getSchemaAggregateFunctions(connId, treeNode.metadata.database, treeNode.metadata.schema)
+      } else if (isSequence) {
+        res = await metadataApi.getSchemaSequences(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else {
         res = await metadataApi.getDatabaseExtensions(connId, treeNode.metadata.database)
       }
@@ -557,7 +598,7 @@ async function onLoadData(treeNode: TreeNode) {
         return {
           key: `${treeNode.key}-${routineKeyPart}`,
           title,
-          type: isFunction ? 'function' : isProcedure ? 'procedure' : isAggregate ? 'aggregate' : 'extension',
+          type: isFunction ? 'function' : isProcedure ? 'procedure' : isAggregate ? 'aggregate' : isSequence ? 'sequence' : 'extension',
           isLeaf: true,
           metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
         }
@@ -894,8 +935,14 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'add-foreign-key') { openNodeTableDesigner('foreign_keys', 'add_foreign_key') }
   else if (key === 'copy-columns') { await handleCopyColumns() }
   else if (key === 'rename-table') { openRenameModal() }
+  else if (key === 'rename-sequence') { openRenameModal() }
   else if (key === 'copy-column-definition') { await handleCopyColumnDefinition() }
   else if (key === 'copy-view-definition') { await handleCopyViewDefinition() }
+  else if (key === 'view-sequence-definition') { await handleViewSequenceDefinition() }
+  else if (key === 'view-sequence-state') { await handleViewSequenceState() }
+  else if (key === 'set-sequence-value') { await openSetSequenceValueModal() }
+  else if (key === 'restart-sequence') { await handleRestartSequence() }
+  else if (key === 'copy-sequence-definition') { await handleCopySequenceDefinition() }
   else if (key === 'view-routine-definition') { await handleViewRoutineDefinition() }
   else if (key === 'copy-routine-definition') { await handleCopyRoutineDefinition() }
   else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
@@ -912,6 +959,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'open-column-designer') { openNodeTableDesigner() }
   else if (key === 'truncate-table') { await handleTruncateTable() }
   else if (key === 'drop-table') { await handleDropTable() }
+  else if (key === 'drop-sequence') { await handleDropSequence() }
   else if (key === 'view-ddl') {
     const node = selectedNode.value!
     const isView = node.type === 'view'
@@ -1218,7 +1266,7 @@ function openNodeTableDesigner(initialTab?: 'columns' | 'indexes' | 'foreign_key
 function openRenameModal(mode: 'table' | 'column' = 'table') {
   const node = selectedNode.value
   if (!node) return
-  if (mode === 'table' && !['table', 'view'].includes(node.type)) return
+  if (mode === 'table' && !['table', 'view', 'sequence'].includes(node.type)) return
   if (mode === 'column' && node.type !== 'column') return
   renameMode.value = mode
   renameValue.value = mode === 'column' ? metaStr(node, 'name') : (metaStr(node, 'name') || node.title)
@@ -1262,7 +1310,8 @@ async function renameTableLike(node: TreeNode, oldName: string, newName: string)
     if (node.type !== 'table') throw new Error(t('tree.rename_unsupported'))
     sql = `RENAME TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} TO ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(newName)}`
   } else if (props.dbType === 'postgresql') {
-    sql = `${node.type === 'view' ? 'ALTER VIEW' : 'ALTER TABLE'} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+    const objectType = node.type === 'view' ? 'ALTER VIEW' : node.type === 'sequence' ? 'ALTER SEQUENCE' : 'ALTER TABLE'
+    sql = `${objectType} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
   } else if (props.dbType === 'sqlite') {
     if (node.type !== 'table') throw new Error(t('tree.rename_unsupported'))
     sql = `ALTER TABLE ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
@@ -1336,6 +1385,10 @@ function formatColumnDefinition(node: TreeNode) {
   return parts.filter(Boolean).join(' ')
 }
 
+function formatOptionalNumber(value: number | null | undefined) {
+  return value === null || value === undefined ? '-' : String(value)
+}
+
 async function handleCopyColumnDefinition() {
   const node = selectedNode.value
   if (!node || node.type !== 'column') return
@@ -1358,6 +1411,159 @@ async function handleCopyViewDefinition() {
   } catch (e: unknown) {
     message.error(getErrorMessage(e))
   }
+}
+
+async function fetchSequenceDefinition(node: TreeNode) {
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  return metadataApi.getSequenceDefinition({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function fetchSequenceState(node: TreeNode) {
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  return metadataApi.getSequenceState({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function handleViewSequenceDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  try {
+    const definition = await fetchSequenceDefinition(node)
+    selectedNode.value = {
+      ...node,
+      metadata: {
+        ...node.metadata,
+        definition,
+      }
+    }
+    await showMetadataDefinition(selectedNode.value)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleCopySequenceDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  try {
+    const definition = await fetchSequenceDefinition(node)
+    await writeClipboardText(definition)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleViewSequenceState() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  try {
+    sequenceState.value = await fetchSequenceState(node)
+    showSequenceStateModal.value = true
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+function buildSequenceQualifiedName(node: TreeNode) {
+  const name = metaStr(node, 'name') || node.title
+  const schema = metaStr(node, 'schema')
+  return schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name)
+}
+
+async function openSetSequenceValueModal() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  try {
+    const state = await fetchSequenceState(node)
+    sequenceState.value = state
+    sequenceValueInput.value = state.next_value ?? state.last_value ?? state.start_value ?? 1
+    showSequenceValueModal.value = true
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function submitSequenceValue() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  const nextValue = sequenceValueInput.value
+  if (nextValue === undefined || !Number.isFinite(nextValue)) {
+    message.warning(t('tree.sequence_value_invalid'))
+    return
+  }
+
+  sequenceValueSubmitting.value = true
+  try {
+    const sql = `SELECT setval(${escapeSqlLiteral(buildSequenceQualifiedName(node))}, ${Math.trunc(nextValue)}, false);`
+    await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+    showSequenceValueModal.value = false
+    message.success(t('tree.set_sequence_value_success'))
+    sequenceState.value = await fetchSequenceState(node)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  } finally {
+    sequenceValueSubmitting.value = false
+  }
+}
+
+async function handleRestartSequence() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  try {
+    const state = sequenceState.value ?? await fetchSequenceState(node)
+    const restartWith = state.start_value ?? 1
+    Modal.confirm({
+      title: t('tree.restart_sequence'),
+      content: t('tree.restart_sequence_confirm', { value: restartWith }),
+      okText: t('common.ok'),
+      async onOk() {
+        const sql = `ALTER SEQUENCE ${buildSequenceQualifiedName(node)} RESTART WITH ${Math.trunc(restartWith)};`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.restart_sequence_success'))
+        sequenceState.value = await fetchSequenceState(node)
+      }
+    })
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleDropSequence() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'sequence') return
+  const sequenceName = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: t('tree.drop_sequence'),
+    content: t('tree.drop_sequence_confirm', { name: sequenceName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = `DROP SEQUENCE ${buildSequenceQualifiedName(node)}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.drop_sequence_success', { name: sequenceName }))
+        const parentKey = node.key.substring(0, node.key.lastIndexOf('-'))
+        const parentNode = findNodeByKey(treeData.value, parentKey)
+        if (parentNode) await handleRefreshNode(parentNode)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
 }
 
 async function fetchRoutineDefinition(node: TreeNode) {
@@ -1500,6 +1706,9 @@ async function handleCopyObjectDefinition() {
         database: metaStr(node, 'database') || undefined,
         schema: metaStr(node, 'schema') || undefined,
       })
+      await writeClipboardText(definition)
+    } else if (node.type === 'sequence') {
+      const definition = await fetchSequenceDefinition(node)
       await writeClipboardText(definition)
     } else {
       await writeClipboardText(formatObjectDefinition(node))
@@ -1738,4 +1947,9 @@ defineExpose({ refresh: loadDatabases })
 .custom-tree { width: 100%; }
 .script-item { }
 .ddl-preview-editor { height: 500px; border: 1px solid var(--border-color-strong); border-radius: var(--radius-sm); }
+.sequence-state-panel { display: grid; gap: 10px; }
+.sequence-state-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 12px; border: 1px solid var(--border-color-muted); border-radius: var(--radius-sm); background: var(--surface-secondary); }
+.sequence-state-row span { color: var(--app-text-subtle); }
+.sequence-state-row strong { font-variant-numeric: tabular-nums; }
+.sequence-value-hint { margin-top: 10px; color: var(--app-text-subtle); font-size: 12px; }
 </style>

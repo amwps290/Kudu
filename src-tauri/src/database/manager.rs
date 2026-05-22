@@ -441,6 +441,24 @@ impl ConnectionManager {
         db.get_extensions(database).await
     }
 
+    pub async fn get_sequences(&self, composite_id: &str, database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_sequences(database, schema).await
+    }
+
+    pub async fn get_sequence_definition(&self, composite_id: &str, name: &str, schema: Option<&str>, database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_sequence_definition(name, schema, database, oid).await
+    }
+
+    pub async fn get_sequence_state(&self, composite_id: &str, name: &str, schema: Option<&str>, database: Option<&str>, oid: Option<i64>) -> DbResult<SequenceStateInfo> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_sequence_state(name, schema, database, oid).await
+    }
+
     pub async fn alter_table(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

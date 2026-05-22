@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo 
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -73,6 +73,13 @@ export const metadataApi = {
    */
   async getDatabaseExtensions(connectionId: string, database: string): Promise<ExtensionInfo[]> {
     return withAutoReconnect(connectionId, () => invoke<ExtensionInfo[]>('get_database_extensions', { connectionId, database }), true)
+  },
+
+  /**
+   * 获取 Schema 下的序列 (PostgreSQL)
+   */
+  async getSchemaSequences(connectionId: string, database: string, schema: string): Promise<SequenceInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<SequenceInfo[]>('get_schema_sequences', { connectionId, database, schema }), true)
   },
 
   /**
@@ -211,6 +218,48 @@ export const metadataApi = {
         name: params.name,
         routineType: params.routineType,
         identityArguments: params.identityArguments ?? null,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
+  },
+
+  /**
+   * 获取序列定义
+   */
+  async getSequenceDefinition(params: {
+    connectionId: string,
+    name: string,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_sequence_definition', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
+  },
+
+  /**
+   * 获取序列状态
+   */
+  async getSequenceState(params: {
+    connectionId: string,
+    name: string,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<SequenceStateInfo> {
+    return withAutoReconnect(params.connectionId, () => invoke<SequenceStateInfo>('get_sequence_state', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
         oid: params.oid ?? null,
         database: params.database ?? null,
         schema: params.schema ?? null,

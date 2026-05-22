@@ -172,6 +172,23 @@ export interface ExtensionInfo {
   comment?: string
 }
 
+export interface SequenceInfo {
+  oid?: number
+  name: string
+  schema?: string
+  comment?: string
+}
+
+export interface SequenceStateInfo {
+  name: string
+  schema?: string
+  last_value?: number | null
+  start_value?: number | null
+  increment_by?: number | null
+  next_value?: number | null
+  is_called?: boolean | null
+}
+
 /**
  * 查询结果
  */

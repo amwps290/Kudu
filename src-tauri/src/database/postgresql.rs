@@ -86,6 +86,15 @@ impl PostgreSqlDatabase {
         state.client.as_ref().cloned().ok_or(DbError::not_connected())
     }
 
+    fn log_sql_error(context: &str, sql: &str, error: &tokio_postgres::Error) {
+        error!(
+            context = context,
+            sql = %sql.replace('\n', " "),
+            error = %Self::format_pg_error(&error),
+            "SQL 执行失败"
+        );
+    }
+
     async fn get_aggregate_definition(
         &self,
         client: &Client,
@@ -152,7 +161,7 @@ impl PostgreSqlDatabase {
                 rows
             }
             Err(error) => {
-                let formatted = Self::format_pg_error(error);
+                let formatted = Self::format_pg_error(&error);
                 error!(
                     schema = %schema_name,
                     name = %name,
@@ -293,7 +302,7 @@ impl PostgreSqlDatabase {
         }
     }
 
-    fn format_pg_error(error: tokio_postgres::Error) -> String {
+    fn format_pg_error(error: &tokio_postgres::Error) -> String {
         if let Some(db_error) = error.as_db_error() {
             let mut parts = vec![db_error.message().to_string()];
 
@@ -327,7 +336,7 @@ impl PostgreSqlDatabase {
 impl DatabaseOperations for PostgreSqlDatabase {
     async fn test_connection(&self, config: &ConnectionConfig) -> DbResult<bool> {
         let client = Self::create_client(config, Arc::new(StdMutex::new(Vec::new()))).await?;
-        client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(true)
     }
 
@@ -353,7 +362,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn check_health(&self) -> DbResult<bool> {
         let client = self.get_client_arc().await?;
-        client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        client.query("SELECT 1", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(true)
     }
 
@@ -386,7 +395,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             let backend_pid: i32 = client
                 .query_one("SELECT pg_backend_pid()", &[])
                 .await
-                .map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?
+                .map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?
                 .get(0);
             self.set_active_query(query_id, client.cancel_token(), backend_pid).await;
         }
@@ -403,7 +412,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             }
 
             // 1. 执行 simple_query (文本协议)，它能自动处理多条语句
-            let messages = client.simple_query(sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+            let messages = client.simple_query(sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
             
             // 收集数据库通知
             let query_notices: Vec<DbMessage> = {
@@ -487,28 +496,28 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn get_databases(&self) -> DbResult<Vec<DatabaseInfo>> {
         let client = self.get_client_arc().await?;
-        let rows = client.query("SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query("SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| DatabaseInfo { name: r.get(0), charset: None, collation: None }).collect())
     }
 
     async fn get_schemas(&self, _db: Option<&str>) -> DbResult<Vec<SchemaInfo>> {
         let client = self.get_client_arc().await?;
         let sql = "SELECT nspname, pg_catalog.pg_get_userbyid(nspowner) FROM pg_catalog.pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname != 'information_schema' ORDER BY nspname";
-        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| SchemaInfo { name: r.get(0), owner: r.try_get(1).ok(), comment: None }).collect())
     }
 
     async fn get_tables(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
         let sql = "SELECT n.nspname, c.relname, obj_description(c.oid), pg_total_relation_size(c.oid)::float8 / 1024 / 1024 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
-        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "TABLE".into(), engine: None, rows: None, size_mb: r.try_get(3).ok(), comment: r.try_get(2).ok() }).collect())
     }
 
     async fn get_views(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
         let sql = "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'v' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
-        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "VIEW".into(), engine: None, rows: None, size_mb: None, comment: None }).collect())
     }
 
@@ -521,7 +530,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             FROM pg_attribute a JOIN pg_class c ON a.attrelid = c.oid JOIN pg_namespace n ON c.relnamespace = n.oid LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
             WHERE c.relname = $1 AND n.nspname = $2 AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;
         ";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         
         let pk_sql = "SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = ($1::text)::regclass AND i.indisprimary";
         let pk_rows = client.query(pk_sql, &[&format!("{}.{}", schema_name, table)]).await.unwrap_or_default();
@@ -575,7 +584,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             }
             client.execute(&sql, &refs).await
         };
-        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(())
     }
 
@@ -616,7 +625,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             }
             client.execute(&sql, &refs).await
         };
-        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(())
     }
 
@@ -647,7 +656,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             }
             client.execute(&sql, &refs).await
         };
-        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        result.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(())
     }
 
@@ -661,7 +670,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         );
 
         debug!(sql = %sql, "执行 PostgreSQL 清空表");
-        client.batch_execute(&sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        client.batch_execute(&sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(())
     }
 
@@ -669,7 +678,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
@@ -684,7 +693,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
-        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         let mut map: HashMap<String, IndexInfo> = HashMap::new();
         for r in rows {
             let name: String = r.get(0);
@@ -717,7 +726,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             WHERE c.contype = 'f' AND t.relname = $1 AND n.nspname = $2
         ";
         
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         
         Ok(rows.into_iter().map(|r| {
             let u_rule: i8 = r.get(4);
@@ -763,7 +772,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             WHERE NOT tg.tgisinternal AND cls.relname = $1 AND ns.nspname = $2
             ORDER BY tg.tgname
         ";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| {
             let enabled: String = r.get(4);
             TriggerInfo {
@@ -800,7 +809,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             GROUP BY c.oid, c.conname, c.contype
             ORDER BY constraint_type, c.conname
         ";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| TableConstraintInfo {
             name: r.get(0),
             constraint_type: r.get(1),
@@ -830,7 +839,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             WHERE t.relname = $1 AND n.nspname = $2 AND r.rulename <> '_RETURN'
             ORDER BY r.rulename
         ";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| RuleInfo {
             name: r.get(0),
             event: Some(r.get(1)),
@@ -896,7 +905,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         if !sql_parts.is_empty() {
             let alter_sql = format!("ALTER TABLE {}.{} {}", escape_pg_id(schema_name), escape_pg_id(table), sql_parts.join(", "));
             debug!(sql = %alter_sql, "执行 PostgreSQL ALTER TABLE");
-            client.batch_execute(&alter_sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+            client.batch_execute(&alter_sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         }
 
         // 处理独立的 DROP INDEX 变更
@@ -904,7 +913,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             if let TableChange::DropIndex(name) = change {
                 let drop_idx_sql = format!("DROP INDEX {}.{}", escape_pg_id(schema_name), escape_pg_id(name));
                 debug!(sql = %drop_idx_sql, "执行 PostgreSQL DROP INDEX");
-                client.batch_execute(&drop_idx_sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+                client.batch_execute(&drop_idx_sql).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
             }
         }
         
@@ -957,7 +966,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
               AND c.relname = $2
               AND c.relkind IN ('v', 'm')
         ";
-        let rows = client.query(sql, &[&schema_name, &view]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name, &view]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
 
         if let Some(row) = rows.first() {
             let definition: String = row.get(0);
@@ -982,7 +991,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
             WHERE n.nspname = $1
               AND i.relname = $2
         ";
-        let rows = client.query(sql, &[&schema_name, &index]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name, &index]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         if let Some(row) = rows.first() {
             let definition: String = row.get(0);
             return Ok(definition);
@@ -1054,7 +1063,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 rows
             }
             Err(error) => {
-                let formatted = Self::format_pg_error(error);
+                let formatted = Self::format_pg_error(&error);
                 error!(
                     schema = %schema_name,
                     name = %name,
@@ -1080,7 +1089,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'f' ORDER BY p.proname, p.oid";
         
         debug!(sc = %schema_name, "正在查询 PostgreSQL 函数...");
-        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         debug!(count = rows.len(), "已获取函数列表");
         
         Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: r.try_get(6).ok(), function_type: "function".into(), comment: r.try_get(7).ok() }).collect())
@@ -1090,7 +1099,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.prokind = 'a' ORDER BY p.proname, p.oid";
-        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: None, function_type: "aggregate".into(), comment: r.try_get(6).ok() }).collect())
     }
 
@@ -1100,7 +1109,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'p' ORDER BY p.proname, p.oid";
 
         debug!(sc = %schema_name, "正在查询 PostgreSQL 存储过程...");
-        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         debug!(count = rows.len(), "已获取 PostgreSQL 存储过程列表");
 
         Ok(rows.into_iter().map(|r| FunctionInfo {
@@ -1121,10 +1130,165 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let sql = "SELECT extname, extversion, n.nspname, obj_description(e.oid, 'pg_extension') FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY extname";
         
         debug!("正在查询 PostgreSQL 扩展...");
-        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?;
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         debug!(count = rows.len(), "已获取扩展列表");
         
         Ok(rows.into_iter().map(|r| ExtensionInfo { name: r.get(0), version: r.get(1), schema: Some(r.get(2)), comment: r.try_get(3).ok() }).collect())
+    }
+
+    async fn get_sequences(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT c.oid::int8, c.relname, n.nspname, obj_description(c.oid, 'pg_class')
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = $1
+              AND c.relkind = 'S'
+            ORDER BY c.relname
+        ";
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        Ok(rows.into_iter().map(|r| SequenceInfo {
+            oid: r.try_get(0).ok(),
+            name: r.get(1),
+            schema: Some(r.get(2)),
+            comment: r.try_get(3).ok(),
+        }).collect())
+    }
+
+    async fn get_sequence_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let oid_condition = oid
+            .map(|value| format!("c.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let sql = format!(
+            "
+            SELECT
+                n.nspname,
+                c.relname,
+                format_type(s.seqtypid, NULL) AS data_type,
+                s.seqstart,
+                s.seqincrement,
+                s.seqmin,
+                s.seqmax,
+                s.seqcache,
+                s.seqcycle
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_sequence s ON s.seqrelid = c.oid
+            WHERE n.nspname = {schema}
+              AND c.relkind = 'S'
+              AND (
+                    ({oid_condition})
+                 OR (
+                    {oid_is_null}
+                    AND c.relname = {name}
+                 )
+              )
+            ORDER BY c.oid
+            LIMIT 1
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name = escape_string_literal(name),
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 序列定义 SQL");
+        let rows = client.query(&sql, &[]).await.map_err(|e| {
+            Self::log_sql_error("PostgreSQL 序列定义 SQL", &sql, &e);
+            DbError::QueryFailed(Self::format_pg_error(&e))
+        })?;
+        if let Some(row) = rows.first() {
+            let sequence_schema: String = row.get(0);
+            let sequence_name: String = row.get(1);
+            let data_type: String = row.get(2);
+            let start_value: i64 = row.get(3);
+            let increment_by: i64 = row.get(4);
+            let min_value: i64 = row.get(5);
+            let max_value: i64 = row.get(6);
+            let cache_size: i64 = row.get(7);
+            let cycle: bool = row.get(8);
+
+            let definition = format!(
+                "CREATE SEQUENCE {}.{}\n    AS {}\n    START WITH {}\n    INCREMENT BY {}\n    MINVALUE {}\n    MAXVALUE {}\n    CACHE {}\n    {};",
+                escape_pg_id(&sequence_schema),
+                escape_pg_id(&sequence_name),
+                data_type,
+                start_value,
+                increment_by,
+                min_value,
+                max_value,
+                cache_size,
+                if cycle { "CYCLE" } else { "NO CYCLE" }
+            );
+            return Ok(definition);
+        }
+        Err(DbError::Other("无法获取序列定义".into()))
+    }
+
+    async fn get_sequence_state(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<SequenceStateInfo> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let oid_condition = oid
+            .map(|value| format!("c.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let sequence_ref = format!("{}.{}", escape_pg_id(schema_name), escape_pg_id(name));
+        let sql = format!(
+            "
+            SELECT
+                c.relname,
+                n.nspname,
+                seq.last_value,
+                seq.is_called,
+                s.seqstart,
+                s.seqincrement,
+                CASE
+                    WHEN seq.is_called THEN seq.last_value + s.seqincrement
+                    ELSE seq.last_value
+                END AS next_value
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_sequence s ON s.seqrelid = c.oid
+            JOIN LATERAL (
+                SELECT last_value, is_called
+                FROM {sequence_ref}
+            ) AS seq ON TRUE
+            WHERE n.nspname = {schema}
+              AND c.relkind = 'S'
+              AND (
+                    ({oid_condition})
+                 OR (
+                    {oid_is_null}
+                    AND c.relname = {name}
+                 )
+              )
+            ORDER BY c.oid
+            LIMIT 1
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name = escape_string_literal(name),
+            sequence_ref = sequence_ref,
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 序列状态 SQL");
+        let rows = client.query(&sql, &[]).await.map_err(|e| {
+            Self::log_sql_error("PostgreSQL 序列状态 SQL", &sql, &e);
+            DbError::QueryFailed(Self::format_pg_error(&e))
+        })?;
+        if let Some(row) = rows.first() {
+            return Ok(SequenceStateInfo {
+                name: row.get(0),
+                schema: Some(row.get(1)),
+                last_value: row.try_get(2).ok(),
+                is_called: row.try_get(3).ok(),
+                start_value: row.try_get(4).ok(),
+                increment_by: row.try_get(5).ok(),
+                next_value: row.try_get(6).ok(),
+            });
+        }
+        Err(DbError::Other("无法获取序列状态".into()))
     }
 
     async fn explain_query(&self, sql: &str, database: Option<&str>, query_id: Option<u64>) -> DbResult<Vec<QueryResult>> {
@@ -1154,7 +1318,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 .cancel_query(MakeTlsConnector::new(connector))
                 .await
             {
-                warn!(error = %Self::format_pg_error(error), query_id, backend_pid, "PostgreSQL cancel token 取消失败，准备回退到 pg_cancel_backend");
+                warn!(error = %Self::format_pg_error(&error), query_id, backend_pid, "PostgreSQL cancel token 取消失败，准备回退到 pg_cancel_backend");
             } else {
                 info!(query_id = query_id, backend_pid = backend_pid, "PostgreSQL cancel token 已发送");
             }
@@ -1163,7 +1327,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 .cancel_query(NoTls)
                 .await
             {
-                warn!(error = %Self::format_pg_error(error), query_id, backend_pid, "PostgreSQL cancel token 取消失败，准备回退到 pg_cancel_backend");
+                warn!(error = %Self::format_pg_error(&error), query_id, backend_pid, "PostgreSQL cancel token 取消失败，准备回退到 pg_cancel_backend");
             } else {
                 info!(query_id = query_id, backend_pid = backend_pid, "PostgreSQL cancel token 已发送");
             }
@@ -1173,7 +1337,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let cancelled: bool = cancel_client
             .query_one("SELECT pg_cancel_backend($1)", &[&backend_pid])
             .await
-            .map_err(|e| DbError::QueryFailed(Self::format_pg_error(e)))?
+            .map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?
             .get(0);
 
         info!(
