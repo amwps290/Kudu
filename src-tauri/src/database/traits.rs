@@ -398,6 +398,10 @@ pub trait DatabaseOperations: Send + Sync {
     async fn get_views(&self, _database: Option<&str>) -> DbResult<Vec<TableInfo>> {
         Ok(Vec::new())
     }
+
+    async fn get_materialized_views(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<TableInfo>> {
+        Ok(Vec::new())
+    }
     
     /// 切换数据库 - 改为 &self
     async fn switch_database(&self, _database: &str) -> DbResult<()> {

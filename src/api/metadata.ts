@@ -48,6 +48,13 @@ export const metadataApi = {
   },
 
   /**
+   * 获取指定 Schema 下的物化视图
+   */
+  async getSchemaMaterializedViews(connectionId: string, database: string, schema: string): Promise<TableInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_schema_materialized_views', { connectionId, database, schema }), true)
+  },
+
+  /**
    * 获取函数列表
    */
   async getSchemaFunctions(connectionId: string, database: string, schema: string): Promise<FunctionInfo[]> {

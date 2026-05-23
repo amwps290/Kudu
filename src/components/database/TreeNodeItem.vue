@@ -138,8 +138,10 @@ function getIconConfig(node: TreeNode) {
     tables: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     table: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     'schema-views': { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
+    'schema-materialized-views': { icon: 'ph:stack-duotone', color: 'var(--icon-color-sky)' },
     views: { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
     view: { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },
+    'materialized-view': { icon: 'ph:stack-duotone', color: 'var(--icon-color-sky)' },
     'schema-functions': { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
     functions: { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
     function: { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' },
@@ -174,6 +176,7 @@ function getIconConfig(node: TreeNode) {
     if (key.includes('-checks') || key.includes('-check')) return { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' }
     if (key.includes('-excludes') || key.includes('-exclude')) return { icon: 'ph:prohibit-duotone', color: 'var(--icon-color-pink)' }
     if (key.includes('-aggregates')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' }
+    if (key.includes('-materialized-views') || key.includes('-materialized-view')) return { icon: 'ph:stack-duotone', color: 'var(--icon-color-sky)' }
     if (key.includes('-sequences') || key.includes('-sequence')) return { icon: 'ph:rows-duotone', color: 'var(--icon-color-cyan)' }
     if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' }
     if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' }

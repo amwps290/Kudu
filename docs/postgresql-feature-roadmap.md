@@ -41,13 +41,12 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
   - Restart sequence from start value
   - Rename sequence
   - Drop sequence
-
-## Recommended Next
-
-- [ ] Materialized view support
+- [x] Materialized view support
   - Browse materialized views in the object tree
   - View definition
   - Refresh materialized view
+
+## Recommended Next
 
 - [ ] More accurate routine call SQL generation
   - Distinguish scalar functions, set-returning functions, procedures, and aggregates

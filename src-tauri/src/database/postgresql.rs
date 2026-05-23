@@ -521,6 +521,29 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "VIEW".into(), engine: None, rows: None, size_mb: None, comment: None }).collect())
     }
 
+    async fn get_materialized_views(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<TableInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT n.nspname, c.relname, obj_description(c.oid), pg_total_relation_size(c.oid)::float8 / 1024 / 1024
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind = 'm'
+              AND n.nspname = $1
+            ORDER BY n.nspname, c.relname
+        ";
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        Ok(rows.into_iter().map(|r| TableInfo {
+            name: r.get(1),
+            schema: Some(r.get(0)),
+            table_type: "MATERIALIZED VIEW".into(),
+            engine: None,
+            rows: None,
+            size_mb: r.try_get(3).ok(),
+            comment: r.try_get(2).ok(),
+        }).collect())
+    }
+
     async fn get_table_structure(&self, table: &str, schema: Option<&str>, _db: Option<&str>) -> DbResult<Vec<ColumnInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
@@ -959,7 +982,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "
-            SELECT pg_get_viewdef(c.oid, true)
+            SELECT pg_get_viewdef(c.oid, true), c.relkind::text
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = $1
@@ -970,8 +993,15 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
         if let Some(row) = rows.first() {
             let definition: String = row.get(0);
+            let relkind: String = row.get(1);
+            let create_prefix = if relkind == "m" {
+                "CREATE MATERIALIZED VIEW"
+            } else {
+                "CREATE OR REPLACE VIEW"
+            };
             return Ok(format!(
-                "CREATE OR REPLACE VIEW {}.{} AS\n{}",
+                "{} {}.{} AS\n{}",
+                create_prefix,
                 escape_pg_id(schema_name),
                 escape_pg_id(view),
                 definition

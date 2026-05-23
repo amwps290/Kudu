@@ -91,12 +91,25 @@
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'materialized-view'">
+            <a-menu-item v-if="supportProfile.supportsTableDataView" key="view-data"><template #icon><TableOutlined /></template>{{ $t('tree.view_data') }}</a-menu-item>
+            <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="copy-view-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-item key="refresh-materialized-view"><template #icon><ReloadOutlined /></template>{{ $t('tree.refresh_materialized_view') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <template v-else-if="selectedNode?.type === 'column'">
             <a-menu-item key="copy-column-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
-            <a-menu-item key="rename-column" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_column') }}</a-menu-item>
-            <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
-            <a-menu-divider />
-            <a-menu-item key="drop-column" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_column') }}</a-menu-item>
+            <template v-if="selectedNode?.metadata?.object_type === 'table'">
+              <a-menu-item key="rename-column" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_column') }}</a-menu-item>
+              <a-menu-item key="open-column-designer" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.open_table_designer') }}</a-menu-item>
+              <a-menu-divider />
+              <a-menu-item key="drop-column" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_column') }}</a-menu-item>
+            </template>
             <a-menu-divider />
           </template>
 
@@ -271,7 +284,7 @@ const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-functions', 'schema-procedures', 'schema-sequences']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-columns',
@@ -285,6 +298,7 @@ const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-excludes'
 ]
 const TABLE_CHILD_OBJECT_NODE_TYPES = ['index', 'foreign-key', 'trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint']
+const VIRTUAL_GROUP_NODE_TYPES = [...TABLE_OBJECT_GROUP_NODE_TYPES, 'empty']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
 const { contextMenuVisible, contextMenuX, contextMenuY, showContextMenu, hideContextMenu } = useContextMenu()
@@ -380,7 +394,7 @@ const filteredTreeData = computed(() => {
 
     // 搜索列名模式：表/视图节点下检查列节点
     let columnMatch = false
-    if (opts.searchColumns && (node.type === 'table' || node.type === 'view') && node.children) {
+    if (opts.searchColumns && (node.type === 'table' || node.type === 'view' || node.type === 'materialized-view') && node.children) {
       const hasMatchingColumn = (nodes: TreeNode[]): boolean => nodes.some(child =>
         child.type === 'column'
           ? matcher(child.title)
@@ -534,6 +548,7 @@ async function onLoadData(treeNode: TreeNode) {
     const children = [
       { key: `${treeNode.key}-tables`, title: t('tree.tables'), type: 'schema-tables', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-views`, title: t('tree.views'), type: 'schema-views', isLeaf: false, metadata: { database: db, schema } },
+      { key: `${treeNode.key}-materialized-views`, title: t('tree.materialized_views'), type: 'schema-materialized-views', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
       ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
@@ -542,11 +557,15 @@ async function onLoadData(treeNode: TreeNode) {
     updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children)
     treeData.value = [...treeData.value]
   }
-  else if (['schema-tables', 'schema-views', 'tables', 'views'].includes(treeNode.type)) {
-    const isSchema = treeNode.type.startsWith('schema-'), isViews = treeNode.type.includes('views')
+  else if (['schema-tables', 'schema-views', 'schema-materialized-views', 'tables', 'views'].includes(treeNode.type)) {
+    const isSchema = treeNode.type.startsWith('schema-')
+    const isMaterializedViews = treeNode.type === 'schema-materialized-views'
+    const isViews = treeNode.type.includes('views') && !isMaterializedViews
     try {
       let res: any[]
-      if (isViews) {
+      if (isMaterializedViews) {
+        res = await metadataApi.getSchemaMaterializedViews(connId, treeNode.metadata.database, treeNode.metadata.schema)
+      } else if (isViews) {
         res = await metadataApi.getViews(connId, treeNode.metadata.database)
       } else if (isSchema) {
         res = await metadataApi.getSchemaTables(connId, treeNode.metadata.database, treeNode.metadata.schema)
@@ -558,7 +577,7 @@ async function onLoadData(treeNode: TreeNode) {
         return {
           key: `${treeNode.key}-${t.name}`,
           title: sizeLabel ? `${t.name} · ${sizeLabel}` : t.name,
-          type: isViews ? 'view' : 'table',
+          type: isMaterializedViews ? 'materialized-view' : isViews ? 'view' : 'table',
           isLeaf: false,
           metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
         }
@@ -607,7 +626,7 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['table', 'view'].includes(treeNode.type)) {
+  else if (['table', 'view', 'materialized-view'].includes(treeNode.type)) {
     try {
       const [columns, indexes, foreignKeys, triggers, constraints, rules] = await Promise.all([
         metadataApi.getTableStructure({ connectionId: connId, table: treeNode.metadata.name || treeNode.title, database: treeNode.metadata.database, schema: treeNode.metadata.schema }),
@@ -633,7 +652,7 @@ async function onLoadData(treeNode: TreeNode) {
         title: `${c.name}${c.data_type ? ' : ' + c.data_type : ''}${c.is_primary_key ? ' [PK]' : ''}`,
         type: 'column',
         isLeaf: true,
-        metadata: { ...c, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
+        metadata: { ...c, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema, object_type: treeNode.type }
       }))
 
       const indexChildren = indexes.map(index => {
@@ -709,7 +728,7 @@ async function onLoadData(treeNode: TreeNode) {
         {
           key: `${treeNode.key}-columns`,
           title: t('tree.columns'),
-          type: treeNode.type === 'view' ? 'view-columns' : 'table-columns',
+          type: ['view', 'materialized-view'].includes(treeNode.type) ? 'view-columns' : 'table-columns',
           isLeaf: false,
           metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
           children: columnChildren.length ? columnChildren : [{ key: `${treeNode.key}-columns-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
@@ -825,9 +844,9 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
-  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
   else if (node.metadata?.definition) showMetadataDefinition(node)
-  else if (['table', 'view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
+  else if (['table', 'view', 'materialized-view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
 
 async function showMetadataDefinition(node: TreeNode) {
@@ -842,6 +861,7 @@ async function showMetadataDefinition(node: TreeNode) {
 }
 
 function onRightClick({ event, node }: { event: MouseEvent; node: TreeNode }) {
+  if (VIRTUAL_GROUP_NODE_TYPES.includes(node.type)) return
   if (!selectedNodes.value.some(item => item.key === node.key)) {
     selectedNodes.value = [node]
     selectedKeys.value = [node.key]
@@ -938,6 +958,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'rename-sequence') { openRenameModal() }
   else if (key === 'copy-column-definition') { await handleCopyColumnDefinition() }
   else if (key === 'copy-view-definition') { await handleCopyViewDefinition() }
+  else if (key === 'refresh-materialized-view') { await handleRefreshMaterializedView() }
   else if (key === 'view-sequence-definition') { await handleViewSequenceDefinition() }
   else if (key === 'view-sequence-state') { await handleViewSequenceState() }
   else if (key === 'set-sequence-value') { await openSetSequenceValueModal() }
@@ -962,7 +983,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'drop-sequence') { await handleDropSequence() }
   else if (key === 'view-ddl') {
     const node = selectedNode.value!
-    const isView = node.type === 'view'
+    const isView = node.type === 'view' || node.type === 'materialized-view'
     try {
       const name = metaStr(node, 'name') || node.title
       const db = metaStr(node, 'database')
@@ -1398,7 +1419,7 @@ async function handleCopyColumnDefinition() {
 
 async function handleCopyViewDefinition() {
   const node = selectedNode.value
-  if (!node || node.type !== 'view') return
+  if (!node || !['view', 'materialized-view'].includes(node.type)) return
   try {
     const ddl = await metadataApi.getViewDefinition({
       connectionId: props.connectionId!,
@@ -1411,6 +1432,27 @@ async function handleCopyViewDefinition() {
   } catch (e: unknown) {
     message.error(getErrorMessage(e))
   }
+}
+
+async function handleRefreshMaterializedView() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'materialized-view') return
+  const viewName = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: t('tree.refresh_materialized_view'),
+    content: t('tree.refresh_materialized_view_confirm', { name: viewName }),
+    okText: t('common.ok'),
+    async onOk() {
+      try {
+        const schema = metaStr(node, 'schema')
+        const sql = `REFRESH MATERIALIZED VIEW ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(viewName)}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.refresh_materialized_view_success', { name: viewName }))
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
 }
 
 async function fetchSequenceDefinition(node: TreeNode) {

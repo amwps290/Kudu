@@ -41,6 +41,11 @@ pub async fn get_schema_views(connection_id: String, database: String, schema: S
 }
 
 #[tauri::command]
+pub async fn get_schema_materialized_views(connection_id: String, database: String, schema: String, state: State<'_, AppState>) -> Result<Vec<TableInfo>, String> {
+    state.connection_manager.get_materialized_views(&connection_id, Some(&database), Some(&schema)).await.to_cmd_result()
+}
+
+#[tauri::command]
 pub async fn get_schema_functions(connection_id: String, database: String, schema: String, state: State<'_, AppState>) -> Result<Vec<FunctionInfo>, String> {
     tracing::info!(conn = %connection_id, db = %database, sc = %schema, "正在获取 Schema 函数...");
     state.connection_manager.get_functions(&connection_id, Some(&database), Some(&schema)).await.map_err(|e| {

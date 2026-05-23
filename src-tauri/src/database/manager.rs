@@ -296,6 +296,12 @@ impl ConnectionManager {
         db.get_views(database).await
     }
 
+    pub async fn get_materialized_views(&self, composite_id: &str, database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<TableInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_materialized_views(database, schema).await
+    }
+
     pub async fn get_table_structure(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>) -> DbResult<Vec<ColumnInfo>> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;
