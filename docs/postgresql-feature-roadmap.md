@@ -32,9 +32,6 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
 - [x] Function / procedure / aggregate signature copying
 - [x] Extension browsing
 - [x] Common database tree context menu actions
-
-## Recommended Next
-
 - [x] Sequence support
   - Browse sequences in the object tree
   - View sequence definition
@@ -44,6 +41,8 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
   - Restart sequence from start value
   - Rename sequence
   - Drop sequence
+
+## Recommended Next
 
 - [ ] Materialized view support
   - Browse materialized views in the object tree
