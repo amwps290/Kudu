@@ -1667,6 +1667,25 @@ function buildRoutineSignature(node: TreeNode) {
   return `${name}(${args})`
 }
 
+function buildRoutinePlaceholders(node: TreeNode) {
+  const args = metaStr(node, 'arguments') || metaStr(node, 'identity_arguments')
+  if (!args) return ''
+
+  return args
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map((item, index) => {
+      const parts = item.split(/\s+/).filter(Boolean)
+      const filtered = parts.filter(part => !['in', 'out', 'inout', 'variadic'].includes(part.toLowerCase()))
+      const candidate = filtered[0] || parts[0] || `arg${index + 1}`
+      const looksLikeTypeOnly = /^(bigint|smallint|integer|int|int2|int4|int8|numeric|decimal|real|double|precision|text|varchar|character|char|boolean|bool|date|time|timestamp|interval|json|jsonb|uuid|bytea|geometry|geography)$/i.test(candidate)
+      const name = looksLikeTypeOnly ? `arg${index + 1}` : candidate
+      return `/* ${name} */`
+    })
+    .join(', ')
+}
+
 async function handleCopySignature() {
   const node = selectedNode.value
   if (!node || !['function', 'procedure', 'aggregate'].includes(node.type)) return
@@ -1681,14 +1700,21 @@ async function handleGenerateCallSql() {
   const schema = metaStr(node, 'schema')
   const db = metaStr(node, 'database')
   const qualifiedName = schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name)
-  const args = metaStr(node, 'arguments')
-  const argCount = args
-    ? args.split(',').map(item => item.trim()).filter(Boolean).length
-    : 0
-  const placeholders = Array.from({ length: argCount }, () => '/* arg */').join(', ')
-  const sql = node.type === 'procedure'
-    ? `CALL ${qualifiedName}(${placeholders});`
-    : `SELECT * FROM ${qualifiedName}(${placeholders});`
+  const placeholders = buildRoutinePlaceholders(node)
+  const returnType = metaStr(node, 'return_type').toLowerCase()
+
+  let sql = ''
+  if (node.type === 'procedure') {
+    sql = `CALL ${qualifiedName}(${placeholders});`
+  } else if (node.type === 'aggregate') {
+    const aggregateArgs = placeholders || '/* expression */'
+    sql = `SELECT ${qualifiedName}(${aggregateArgs})\nFROM /* source */;`
+  } else if (returnType.startsWith('setof ') || returnType.startsWith('table(')) {
+    sql = `SELECT * FROM ${qualifiedName}(${placeholders});`
+  } else {
+    sql = `SELECT ${qualifiedName}(${placeholders});`
+  }
+
   emit('generate-sql', { sql, database: db, connectionId: props.connectionId })
 }
 

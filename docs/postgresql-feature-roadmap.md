@@ -45,12 +45,11 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
   - Browse materialized views in the object tree
   - View definition
   - Refresh materialized view
-
-## Recommended Next
-
-- [ ] More accurate routine call SQL generation
+- [x] More accurate routine call SQL generation
   - Distinguish scalar functions, set-returning functions, procedures, and aggregates
   - Avoid generic placeholder SQL that is semantically wrong
+
+## Recommended Next
 
 - [ ] Rich PostgreSQL index metadata
   - Expression indexes
