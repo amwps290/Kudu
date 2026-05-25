@@ -1,4 +1,4 @@
-use crate::database::{ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, DatabaseInfo, TableInfo, SchemaInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo, DatabaseType};
+use crate::database::{ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, DatabaseInfo, TableInfo, SchemaInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo, DomainTypeInfo, DatabaseType};
 use crate::AppState;
 use super::error::ToCommandResult;
 use tauri::State;
@@ -91,6 +91,15 @@ pub async fn get_schema_enum_types(connection_id: String, database: String, sche
     tracing::info!(conn = %connection_id, db = %database, sc = %schema, "正在获取 Schema 枚举类型...");
     state.connection_manager.get_enum_types(&connection_id, Some(&database), Some(&schema)).await.map_err(|e| {
         tracing::error!(err = %e, "获取 Schema 枚举类型失败");
+        e.to_string()
+    })
+}
+
+#[tauri::command]
+pub async fn get_schema_domain_types(connection_id: String, database: String, schema: String, state: State<'_, AppState>) -> Result<Vec<DomainTypeInfo>, String> {
+    tracing::info!(conn = %connection_id, db = %database, sc = %schema, "正在获取 Schema 域类型...");
+    state.connection_manager.get_domain_types(&connection_id, Some(&database), Some(&schema)).await.map_err(|e| {
+        tracing::error!(err = %e, "获取 Schema 域类型失败");
         e.to_string()
     })
 }
@@ -293,6 +302,42 @@ pub async fn get_enum_definition(
     state
         .connection_manager
         .get_enum_definition(
+            &request.connection_id,
+            &request.name,
+            request.schema.as_deref(),
+            request.database.as_deref(),
+            request.oid,
+        )
+        .await
+        .to_cmd_result()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DomainDefinitionRequest {
+    pub connection_id: String,
+    pub database: Option<String>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub oid: Option<i64>,
+}
+
+#[tauri::command]
+pub async fn get_domain_definition(
+    request: DomainDefinitionRequest,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    tracing::info!(
+        conn = %request.connection_id,
+        db = ?request.database,
+        sc = ?request.schema,
+        name = %request.name,
+        oid = ?request.oid,
+        "正在获取域类型定义..."
+    );
+    state
+        .connection_manager
+        .get_domain_definition(
             &request.connection_id,
             &request.name,
             request.schema.as_deref(),

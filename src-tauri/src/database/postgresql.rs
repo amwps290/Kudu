@@ -1449,6 +1449,136 @@ impl DatabaseOperations for PostgreSqlDatabase {
         ))
     }
 
+    async fn get_domain_types(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<DomainTypeInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                format_type(t.typbasetype, t.typtypmod) AS base_type,
+                t.typdefault,
+                NOT t.typnotnull AS nullable,
+                c.conname,
+                c.contype,
+                pg_get_constraintdef(c.oid, true) AS constraint_def,
+                obj_description(t.oid, 'pg_type')
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            LEFT JOIN pg_constraint c ON c.contypid = t.oid
+            WHERE n.nspname = $1
+              AND t.typtype = 'd'
+            ORDER BY t.typname, c.conname
+        ";
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        let mut domains: Vec<DomainTypeInfo> = Vec::new();
+        for row in rows {
+            let oid = row.try_get(0).ok();
+            let name: String = row.get(1);
+            let row_schema: String = row.get(2);
+            let base_type: String = row.get(3);
+            let default_value: Option<String> = row.try_get(4).ok();
+            let nullable: bool = row.get(5);
+            let constraint_name: Option<String> = row.try_get(6).ok();
+            let constraint_type: Option<String> = row.try_get(7).ok();
+            let constraint_def: Option<String> = row.try_get(8).ok();
+            let comment: Option<String> = row.try_get(9).ok();
+
+            let constraint = constraint_name.map(|constraint_name| DomainConstraintInfo {
+                name: constraint_name,
+                constraint_type: constraint_type.unwrap_or_else(|| "CHECK".to_string()),
+                definition: constraint_def,
+            });
+
+            if let Some(existing) = domains.last_mut().filter(|item| item.name == name && item.schema.as_deref() == Some(row_schema.as_str())) {
+                if let Some(constraint) = constraint {
+                    existing.constraints.push(constraint);
+                }
+            } else {
+                let mut constraints = Vec::new();
+                if let Some(constraint) = constraint {
+                    constraints.push(constraint);
+                }
+                domains.push(DomainTypeInfo {
+                    oid,
+                    name,
+                    schema: Some(row_schema),
+                    base_type,
+                    default_value,
+                    nullable,
+                    constraints,
+                    comment,
+                });
+            }
+        }
+        Ok(domains)
+    }
+
+    async fn get_domain_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let oid_condition = oid
+            .map(|value| format!("t.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let sql = format!(
+            "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                format_type(t.typbasetype, t.typtypmod) AS base_type,
+                t.typdefault,
+                t.typnotnull,
+                c.conname,
+                pg_get_constraintdef(c.oid, true) AS constraint_def
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            LEFT JOIN pg_constraint c ON c.contypid = t.oid
+            WHERE n.nspname = {schema}
+              AND t.typtype = 'd'
+              AND (({oid_condition}) OR ({oid_is_null} AND t.typname = {name}))
+            ORDER BY t.oid, c.conname
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name = escape_string_literal(name),
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 域类型定义 SQL");
+        let rows = client.query(&sql, &[]).await.map_err(|e| {
+            Self::log_sql_error("PostgreSQL 域类型定义 SQL", &sql, &e);
+            DbError::QueryFailed(Self::format_pg_error(&e))
+        })?;
+        if rows.is_empty() {
+            return Err(DbError::Other("无法获取域类型定义".into()));
+        }
+        let domain_name: String = rows[0].get(1);
+        let domain_schema: String = rows[0].get(2);
+        let base_type: String = rows[0].get(3);
+        let default_value: Option<String> = rows[0].try_get(4).ok();
+        let not_null: bool = rows[0].get(5);
+        let mut parts = vec![format!("CREATE DOMAIN {}.{} AS {}", escape_pg_id(&domain_schema), escape_pg_id(&domain_name), base_type)];
+        if let Some(default_value) = default_value.filter(|v| !v.is_empty()) {
+            parts.push(format!("DEFAULT {}", default_value));
+        }
+        if not_null {
+            parts.push("NOT NULL".to_string());
+        }
+        for row in rows {
+            let constraint_name: Option<String> = row.try_get(6).ok();
+            let constraint_def: Option<String> = row.try_get(7).ok();
+            if let Some(def) = constraint_def {
+                if let Some(name) = constraint_name {
+                    parts.push(format!("CONSTRAINT {} {}", escape_pg_id(&name), def));
+                } else {
+                    parts.push(def);
+                }
+            }
+        }
+        Ok(format!("{};", parts.join("\n    ")))
+    }
+
     async fn get_sequence_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);

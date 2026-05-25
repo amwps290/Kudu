@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo, DomainTypeInfo
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -94,6 +94,13 @@ export const metadataApi = {
    */
   async getSchemaEnumTypes(connectionId: string, database: string, schema: string): Promise<EnumTypeInfo[]> {
     return withAutoReconnect(connectionId, () => invoke<EnumTypeInfo[]>('get_schema_enum_types', { connectionId, database, schema }), true)
+  },
+
+  /**
+   * 获取 Schema 下的域类型 (PostgreSQL)
+   */
+  async getSchemaDomainTypes(connectionId: string, database: string, schema: string): Promise<DomainTypeInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<DomainTypeInfo[]>('get_schema_domain_types', { connectionId, database, schema }), true)
   },
 
   /**
@@ -292,6 +299,27 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<string> {
     return withAutoReconnect(params.connectionId, () => invoke<string>('get_enum_definition', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
+  },
+
+  /**
+   * 获取域类型定义
+   */
+  async getDomainDefinition(params: {
+    connectionId: string,
+    name: string,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_domain_definition', {
       request: {
         connectionId: params.connectionId,
         name: params.name,

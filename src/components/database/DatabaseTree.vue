@@ -155,6 +155,12 @@
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'domain-type'">
+            <a-menu-item key="view-domain-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="copy-domain-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <template v-else-if="selectedNode?.type === 'extension'">
             <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
             <a-menu-divider />
@@ -186,7 +192,7 @@
             <a-menu-divider />
           </template>
 
-          <template v-else-if="isEnumLabelNode">
+          <template v-else-if="isEnumLabelNode || isDomainDetailNode">
             <a-menu-item key="copy-name"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_name') }}</a-menu-item>
             <a-menu-divider />
           </template>
@@ -197,7 +203,7 @@
             <a-menu-divider />
           </template>
 
-          <a-menu-item key="copy-name"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_name') }}</a-menu-item>
+          <a-menu-item v-if="!isEnumLabelNode && !isDomainDetailNode" key="copy-name"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_name') }}</a-menu-item>
         </a-menu>
       </div>
     </div>
@@ -295,7 +301,7 @@ const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types', 'schema-domain-types']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-columns',
@@ -311,6 +317,7 @@ const TABLE_OBJECT_GROUP_NODE_TYPES = [
 ]
 const TABLE_CHILD_OBJECT_NODE_TYPES = ['index', 'foreign-key', 'trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint']
 const ENUM_LABEL_NODE_TYPES = ['enum-label']
+const DOMAIN_DETAIL_NODE_TYPES = ['domain-detail', 'domain-constraint']
 const VIRTUAL_GROUP_NODE_TYPES = [...TABLE_OBJECT_GROUP_NODE_TYPES, 'empty']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
@@ -364,6 +371,7 @@ const isDroppableTableChildNode = computed(() => ['trigger', 'rule', 'unique-con
 const isSelectedNodeReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
 const supportsViewRename = computed(() => props.dbType === 'postgresql')
 const isEnumLabelNode = computed(() => ENUM_LABEL_NODE_TYPES.includes(selectedNode.value?.type || ''))
+const isDomainDetailNode = computed(() => DOMAIN_DETAIL_NODE_TYPES.includes(selectedNode.value?.type || ''))
 
 const filteredTreeData = computed(() => {
   const opts = props.searchOptions
@@ -566,6 +574,7 @@ async function onLoadData(treeNode: TreeNode) {
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
       ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-enum-types`, title: t('tree.enum_types'), type: 'schema-enum-types', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-domain-types`, title: t('tree.domain_types'), type: 'schema-domain-types', isLeaf: false, metadata: { database: db, schema } }] : []),
       ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
     ]
@@ -601,12 +610,13 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'schema-enum-types', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
+  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
     const isProcedure = treeNode.type === 'schema-procedures' || treeNode.type === 'procedures'
     const isAggregate = treeNode.type === 'schema-aggregates'
     const isSequence = treeNode.type === 'schema-sequences'
     const isEnumType = treeNode.type === 'schema-enum-types'
+    const isDomainType = treeNode.type === 'schema-domain-types'
 
     try {
       let res: any[]
@@ -620,6 +630,8 @@ async function onLoadData(treeNode: TreeNode) {
         res = await metadataApi.getSchemaSequences(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else if (isEnumType) {
         res = await metadataApi.getSchemaEnumTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
+      } else if (isDomainType) {
+        res = await metadataApi.getSchemaDomainTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else {
         res = await metadataApi.getDatabaseExtensions(connId, treeNode.metadata.database)
       }
@@ -647,6 +659,49 @@ async function onLoadData(treeNode: TreeNode) {
             type: 'enum-type',
             isLeaf: false,
             children: labelChildren.length ? labelChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
+            metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
+          }
+        }
+
+        if (isDomainType) {
+          const detailChildren = [
+            {
+              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-base-type`,
+              title: `${t('common.type')}: ${item.base_type}`,
+              type: 'domain-detail',
+              isLeaf: true,
+              metadata: { label: t('common.type'), value: item.base_type, database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
+            },
+            {
+              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-default`,
+              title: `${t('designer.default_value')}: ${item.default_value ?? 'NULL'}`,
+              type: 'domain-detail',
+              isLeaf: true,
+              metadata: { label: t('designer.default_value'), value: item.default_value ?? 'NULL', database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
+            },
+            {
+              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-nullable`,
+              title: `${t('designer.nullable')}: ${item.nullable ? t('common.yes') : t('common.no')}`,
+              type: 'domain-detail',
+              isLeaf: true,
+              metadata: { label: t('designer.nullable'), value: item.nullable ? t('common.yes') : t('common.no'), database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
+            },
+            ...(Array.isArray(item.constraints)
+              ? item.constraints.map((constraint: any, index: number) => ({
+                  key: `${treeNode.key}-oid-${item.oid ?? item.name}-constraint-${index}`,
+                  title: `${constraint.name}${constraint.definition ? `: ${constraint.definition}` : ''}`,
+                  type: 'domain-constraint',
+                  isLeaf: true,
+                  metadata: { ...constraint, database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
+                }))
+              : [])
+          ]
+          return {
+            key: `${treeNode.key}-oid-${item.oid ?? item.name}`,
+            title: `${title} : ${item.base_type}`,
+            type: 'domain-type',
+            isLeaf: false,
+            children: detailChildren.length ? detailChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
             metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
           }
         }
@@ -920,8 +975,9 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
-  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-enum-types', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-enum-types', 'schema-domain-types', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
   else if (node.type === 'enum-type') { selectedNode.value = node; await handleViewEnumDefinition() }
+  else if (node.type === 'domain-type') { selectedNode.value = node; await handleViewDomainDefinition() }
   else if (node.metadata?.definition) showMetadataDefinition(node)
   else if (['table', 'view', 'materialized-view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
@@ -1053,6 +1109,8 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'copy-sequence-definition') { await handleCopySequenceDefinition() }
   else if (key === 'view-enum-definition') { await handleViewEnumDefinition() }
   else if (key === 'copy-enum-definition') { await handleCopyEnumDefinition() }
+  else if (key === 'view-domain-definition') { await handleViewDomainDefinition() }
+  else if (key === 'copy-domain-definition') { await handleCopyDomainDefinition() }
   else if (key === 'view-routine-definition') { await handleViewRoutineDefinition() }
   else if (key === 'copy-routine-definition') { await handleCopyRoutineDefinition() }
   else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
@@ -1739,6 +1797,48 @@ async function handleCopyEnumDefinition() {
   }
 }
 
+async function fetchDomainDefinition(node: TreeNode) {
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  return metadataApi.getDomainDefinition({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function handleViewDomainDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'domain-type') return
+  try {
+    const definition = await fetchDomainDefinition(node)
+    selectedNode.value = {
+      ...node,
+      metadata: {
+        ...node.metadata,
+        definition,
+      }
+    }
+    await showMetadataDefinition(selectedNode.value)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleCopyDomainDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'domain-type') return
+  try {
+    const definition = await fetchDomainDefinition(node)
+    await writeClipboardText(definition)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
 async function fetchRoutineDefinition(node: TreeNode) {
   const identityArguments = metaStr(node, 'identity_arguments') || metaStr(node, 'arguments')
   const oidRaw = node.metadata?.oid
@@ -1911,6 +2011,9 @@ async function handleCopyObjectDefinition() {
       await writeClipboardText(definition)
     } else if (node.type === 'enum-type') {
       const definition = await fetchEnumDefinition(node)
+      await writeClipboardText(definition)
+    } else if (node.type === 'domain-type') {
+      const definition = await fetchDomainDefinition(node)
       await writeClipboardText(definition)
     } else {
       await writeClipboardText(formatObjectDefinition(node))

@@ -235,6 +235,7 @@
     "functions": "Functions",
     "sequences": "Sequences",
     "enum_types": "Enum Types",
+    "domain_types": "Domain Types",
     "materialized_views": "Materialized Views",
     "aggregates": "Aggregate Functions",
     "indexes": "Indexes",

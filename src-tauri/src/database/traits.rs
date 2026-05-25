@@ -231,6 +231,27 @@ pub struct EnumTypeInfo {
     pub comment: Option<String>,
 }
 
+/// 数据库元数据 - Domain Type 约束信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainConstraintInfo {
+    pub name: String,
+    pub constraint_type: String,
+    pub definition: Option<String>,
+}
+
+/// 数据库元数据 - Domain Type 信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainTypeInfo {
+    pub oid: Option<i64>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub base_type: String,
+    pub default_value: Option<String>,
+    pub nullable: bool,
+    pub constraints: Vec<DomainConstraintInfo>,
+    pub comment: Option<String>,
+}
+
 /// 数据库元数据 - 外键信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyInfo {
@@ -485,6 +506,14 @@ pub trait DatabaseOperations: Send + Sync {
 
     async fn get_enum_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
         Err(DbError::Other("该数据库类型不支持枚举类型定义".into()))
+    }
+
+    async fn get_domain_types(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<DomainTypeInfo>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_domain_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持域类型定义".into()))
     }
 
     /// 获取外键信息

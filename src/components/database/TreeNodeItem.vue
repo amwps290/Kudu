@@ -158,6 +158,10 @@ function getIconConfig(node: TreeNode) {
     'schema-enum-types': { icon: 'ph:list-bullets-duotone', color: 'var(--icon-color-orange)' },
     'enum-type': { icon: 'ph:list-bullets-duotone', color: 'var(--icon-color-orange)' },
     'enum-label': { icon: 'ph:text-t-bold', color: 'var(--icon-color-gray)' },
+    'schema-domain-types': { icon: 'ph:shield-checkered-duotone', color: 'var(--icon-color-purple)' },
+    'domain-type': { icon: 'ph:shield-checkered-duotone', color: 'var(--icon-color-purple)' },
+    'domain-detail': { icon: 'ph:info-duotone', color: 'var(--icon-color-gray)' },
+    'domain-constraint': { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' },
     'schema-aggregates': { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
     aggregates: { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
     'schema-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
@@ -187,6 +191,7 @@ function getIconConfig(node: TreeNode) {
     if (key.includes('-materialized-views') || key.includes('-materialized-view')) return { icon: 'ph:stack-duotone', color: 'var(--icon-color-sky)' }
     if (key.includes('-sequences') || key.includes('-sequence')) return { icon: 'ph:rows-duotone', color: 'var(--icon-color-cyan)' }
     if (key.includes('-enum-types') || key.includes('-enum-type') || key.includes('-enum-label')) return { icon: 'ph:list-bullets-duotone', color: 'var(--icon-color-orange)' }
+    if (key.includes('-domain-types') || key.includes('-domain-type') || key.includes('-domain-detail') || key.includes('-domain-constraint')) return { icon: 'ph:shield-checkered-duotone', color: 'var(--icon-color-purple)' }
     if (key.includes('-procedures') || key.includes('-procedure')) return { icon: 'ph:terminal-window-duotone', color: 'var(--icon-color-teal)' }
     if (key.includes('-functions') || key.includes('-function')) return { icon: 'ph:function-duotone', color: 'var(--icon-color-pink)' }
     if (key.includes('-extensions') || key.includes('-extension')) return { icon: 'ph:puzzle-piece-duotone', color: 'var(--icon-color-blue)' }

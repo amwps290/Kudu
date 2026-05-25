@@ -65,7 +65,12 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
     - Expand enum types to view ordered labels
     - View enum definition
     - Copy enum definition
-- [ ] Domain type support
+- [x] Domain type support
+    - Browse domain types in the schema object tree
+    - Show base type in domain node titles
+    - Expand domains to view default / nullability / constraint details
+    - View domain definition
+    - Copy domain definition
 - [ ] Composite type support
 - [ ] Row-level security policy support
 - [ ] Publication support

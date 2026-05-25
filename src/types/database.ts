@@ -210,6 +210,23 @@ export interface EnumTypeInfo {
   comment?: string
 }
 
+export interface DomainConstraintInfo {
+  name: string
+  constraint_type: string
+  definition?: string
+}
+
+export interface DomainTypeInfo {
+  oid?: number
+  name: string
+  schema?: string
+  base_type: string
+  default_value?: string | null
+  nullable: boolean
+  constraints: DomainConstraintInfo[]
+  comment?: string
+}
+
 /**
  * 查询结果
  */
@@ -241,6 +258,9 @@ export type DatabaseObjectType =
   | 'index'
   | 'enum-type'
   | 'enum-label'
+  | 'domain-type'
+  | 'domain-detail'
+  | 'domain-constraint'
 
 /**
  * 数据库对象树节点
