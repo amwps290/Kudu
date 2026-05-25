@@ -161,6 +161,12 @@
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'composite-type'">
+            <a-menu-item key="view-composite-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="copy-composite-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <template v-else-if="selectedNode?.type === 'extension'">
             <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
             <a-menu-divider />
@@ -301,7 +307,7 @@ const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types', 'schema-domain-types']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'schema-composite-types']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-columns',
@@ -575,6 +581,7 @@ async function onLoadData(treeNode: TreeNode) {
       { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
       ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-enum-types`, title: t('tree.enum_types'), type: 'schema-enum-types', isLeaf: false, metadata: { database: db, schema } }] : []),
       ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-domain-types`, title: t('tree.domain_types'), type: 'schema-domain-types', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-composite-types`, title: t('tree.composite_types'), type: 'schema-composite-types', isLeaf: false, metadata: { database: db, schema } }] : []),
       ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
     ]
@@ -610,13 +617,14 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
+  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'schema-composite-types', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
     const isProcedure = treeNode.type === 'schema-procedures' || treeNode.type === 'procedures'
     const isAggregate = treeNode.type === 'schema-aggregates'
     const isSequence = treeNode.type === 'schema-sequences'
     const isEnumType = treeNode.type === 'schema-enum-types'
     const isDomainType = treeNode.type === 'schema-domain-types'
+    const isCompositeType = treeNode.type === 'schema-composite-types'
 
     try {
       let res: any[]
@@ -632,6 +640,8 @@ async function onLoadData(treeNode: TreeNode) {
         res = await metadataApi.getSchemaEnumTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else if (isDomainType) {
         res = await metadataApi.getSchemaDomainTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
+      } else if (isCompositeType) {
+        res = await metadataApi.getSchemaCompositeTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else {
         res = await metadataApi.getDatabaseExtensions(connId, treeNode.metadata.database)
       }
@@ -702,6 +712,26 @@ async function onLoadData(treeNode: TreeNode) {
             type: 'domain-type',
             isLeaf: false,
             children: detailChildren.length ? detailChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
+            metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
+          }
+        }
+
+        if (isCompositeType) {
+          const fieldChildren = Array.isArray(item.fields)
+            ? item.fields.map((field: any, index: number) => ({
+                key: `${treeNode.key}-oid-${item.oid ?? item.name}-field-${index}`,
+                title: `${field.name} : ${field.data_type}`,
+                type: 'composite-field',
+                isLeaf: true,
+                metadata: { ...field, database: treeNode.metadata.database, schema: treeNode.metadata.schema, composite_name: item.name, oid: item.oid }
+              }))
+            : []
+          return {
+            key: `${treeNode.key}-oid-${item.oid ?? item.name}`,
+            title,
+            type: 'composite-type',
+            isLeaf: false,
+            children: fieldChildren.length ? fieldChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
             metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
           }
         }
@@ -975,9 +1005,10 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
-  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-enum-types', 'schema-domain-types', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-enum-types', 'schema-domain-types', 'schema-composite-types', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
   else if (node.type === 'enum-type') { selectedNode.value = node; await handleViewEnumDefinition() }
   else if (node.type === 'domain-type') { selectedNode.value = node; await handleViewDomainDefinition() }
+  else if (node.type === 'composite-type') { selectedNode.value = node; await handleViewCompositeDefinition() }
   else if (node.metadata?.definition) showMetadataDefinition(node)
   else if (['table', 'view', 'materialized-view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
@@ -1111,6 +1142,8 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'copy-enum-definition') { await handleCopyEnumDefinition() }
   else if (key === 'view-domain-definition') { await handleViewDomainDefinition() }
   else if (key === 'copy-domain-definition') { await handleCopyDomainDefinition() }
+  else if (key === 'view-composite-definition') { await handleViewCompositeDefinition() }
+  else if (key === 'copy-composite-definition') { await handleCopyCompositeDefinition() }
   else if (key === 'view-routine-definition') { await handleViewRoutineDefinition() }
   else if (key === 'copy-routine-definition') { await handleCopyRoutineDefinition() }
   else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
@@ -1839,6 +1872,48 @@ async function handleCopyDomainDefinition() {
   }
 }
 
+async function fetchCompositeDefinition(node: TreeNode) {
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  return metadataApi.getCompositeDefinition({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function handleViewCompositeDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'composite-type') return
+  try {
+    const definition = await fetchCompositeDefinition(node)
+    selectedNode.value = {
+      ...node,
+      metadata: {
+        ...node.metadata,
+        definition,
+      }
+    }
+    await showMetadataDefinition(selectedNode.value)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleCopyCompositeDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'composite-type') return
+  try {
+    const definition = await fetchCompositeDefinition(node)
+    await writeClipboardText(definition)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
 async function fetchRoutineDefinition(node: TreeNode) {
   const identityArguments = metaStr(node, 'identity_arguments') || metaStr(node, 'arguments')
   const oidRaw = node.metadata?.oid
@@ -2014,6 +2089,9 @@ async function handleCopyObjectDefinition() {
       await writeClipboardText(definition)
     } else if (node.type === 'domain-type') {
       const definition = await fetchDomainDefinition(node)
+      await writeClipboardText(definition)
+    } else if (node.type === 'composite-type') {
+      const definition = await fetchCompositeDefinition(node)
       await writeClipboardText(definition)
     } else {
       await writeClipboardText(formatObjectDefinition(node))

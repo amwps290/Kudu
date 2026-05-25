@@ -1579,6 +1579,120 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(format!("{};", parts.join("\n    ")))
     }
 
+    async fn get_composite_types(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<CompositeTypeInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                a.attname,
+                format_type(a.atttypid, a.atttypmod) AS field_type,
+                obj_description(t.oid, 'pg_type')
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            JOIN pg_class c ON c.oid = t.typrelid
+            LEFT JOIN pg_attribute a ON a.attrelid = c.oid
+                AND a.attnum > 0
+                AND NOT a.attisdropped
+            WHERE n.nspname = $1
+              AND t.typtype = 'c'
+            ORDER BY t.typname, a.attnum
+        ";
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        let mut composites: Vec<CompositeTypeInfo> = Vec::new();
+        for row in rows {
+            let oid = row.try_get(0).ok();
+            let name: String = row.get(1);
+            let row_schema: String = row.get(2);
+            let field_name: Option<String> = row.try_get(3).ok();
+            let field_type: Option<String> = row.try_get(4).ok();
+            let comment: Option<String> = row.try_get(5).ok();
+
+            if let Some(existing) = composites.last_mut().filter(|item| item.name == name && item.schema.as_deref() == Some(row_schema.as_str())) {
+                if let (Some(field_name), Some(data_type)) = (field_name, field_type) {
+                    existing.fields.push(CompositeFieldInfo { name: field_name, data_type });
+                }
+            } else {
+                let mut fields = Vec::new();
+                if let (Some(field_name), Some(data_type)) = (field_name, field_type) {
+                    fields.push(CompositeFieldInfo { name: field_name, data_type });
+                }
+                composites.push(CompositeTypeInfo {
+                    oid,
+                    name,
+                    schema: Some(row_schema),
+                    fields,
+                    comment,
+                });
+            }
+        }
+        Ok(composites)
+    }
+
+    async fn get_composite_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let oid_condition = oid
+            .map(|value| format!("t.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let sql = format!(
+            "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                a.attname,
+                format_type(a.atttypid, a.atttypmod) AS field_type,
+                a.attnum
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            JOIN pg_class c ON c.oid = t.typrelid
+            LEFT JOIN pg_attribute a ON a.attrelid = c.oid
+                AND a.attnum > 0
+                AND NOT a.attisdropped
+            WHERE n.nspname = {schema}
+              AND t.typtype = 'c'
+              AND (({oid_condition}) OR ({oid_is_null} AND t.typname = {name}))
+            ORDER BY t.oid, a.attnum
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name = escape_string_literal(name),
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 复合类型定义 SQL");
+        let rows = client.query(&sql, &[]).await.map_err(|e| {
+            Self::log_sql_error("PostgreSQL 复合类型定义 SQL", &sql, &e);
+            DbError::QueryFailed(Self::format_pg_error(&e))
+        })?;
+        if rows.is_empty() {
+            return Err(DbError::Other("无法获取复合类型定义".into()));
+        }
+        let composite_name: String = rows[0].get(1);
+        let composite_schema: String = rows[0].get(2);
+        let fields = rows.into_iter()
+            .filter_map(|row| {
+                let field_name: Option<String> = row.try_get(3).ok();
+                let field_type: Option<String> = row.try_get(4).ok();
+                match (field_name, field_type) {
+                    (Some(field_name), Some(field_type)) => Some(format!("    {} {}", escape_pg_id(&field_name), field_type)),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>();
+        if fields.is_empty() {
+            return Err(DbError::Other("无法获取复合类型字段定义".into()));
+        }
+        Ok(format!(
+            "CREATE TYPE {}.{} AS (\n{}\n);",
+            escape_pg_id(&composite_schema),
+            escape_pg_id(&composite_name),
+            fields.join(",\n"),
+        ))
+    }
+
     async fn get_sequence_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);

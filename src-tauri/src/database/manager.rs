@@ -489,6 +489,18 @@ impl ConnectionManager {
         db.get_domain_definition(name, schema, database, oid).await
     }
 
+    pub async fn get_composite_types(&self, composite_id: &str, database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<CompositeTypeInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_composite_types(database, schema).await
+    }
+
+    pub async fn get_composite_definition(&self, composite_id: &str, name: &str, schema: Option<&str>, database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_composite_definition(name, schema, database, oid).await
+    }
+
     pub async fn alter_table(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

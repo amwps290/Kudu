@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo, DomainTypeInfo
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo, DomainTypeInfo, CompositeTypeInfo
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -101,6 +101,13 @@ export const metadataApi = {
    */
   async getSchemaDomainTypes(connectionId: string, database: string, schema: string): Promise<DomainTypeInfo[]> {
     return withAutoReconnect(connectionId, () => invoke<DomainTypeInfo[]>('get_schema_domain_types', { connectionId, database, schema }), true)
+  },
+
+  /**
+   * 获取 Schema 下的复合类型 (PostgreSQL)
+   */
+  async getSchemaCompositeTypes(connectionId: string, database: string, schema: string): Promise<CompositeTypeInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<CompositeTypeInfo[]>('get_schema_composite_types', { connectionId, database, schema }), true)
   },
 
   /**
@@ -320,6 +327,27 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<string> {
     return withAutoReconnect(params.connectionId, () => invoke<string>('get_domain_definition', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
+  },
+
+  /**
+   * 获取复合类型定义
+   */
+  async getCompositeDefinition(params: {
+    connectionId: string,
+    name: string,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_composite_definition', {
       request: {
         connectionId: params.connectionId,
         name: params.name,

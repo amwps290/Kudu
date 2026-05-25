@@ -227,6 +227,19 @@ export interface DomainTypeInfo {
   comment?: string
 }
 
+export interface CompositeFieldInfo {
+  name: string
+  data_type: string
+}
+
+export interface CompositeTypeInfo {
+  oid?: number
+  name: string
+  schema?: string
+  fields: CompositeFieldInfo[]
+  comment?: string
+}
+
 /**
  * 查询结果
  */
@@ -261,6 +274,8 @@ export type DatabaseObjectType =
   | 'domain-type'
   | 'domain-detail'
   | 'domain-constraint'
+  | 'composite-type'
+  | 'composite-field'
 
 /**
  * 数据库对象树节点

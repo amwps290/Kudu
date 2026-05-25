@@ -252,6 +252,23 @@ pub struct DomainTypeInfo {
     pub comment: Option<String>,
 }
 
+/// 数据库元数据 - Composite Type 字段信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositeFieldInfo {
+    pub name: String,
+    pub data_type: String,
+}
+
+/// 数据库元数据 - Composite Type 信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompositeTypeInfo {
+    pub oid: Option<i64>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub fields: Vec<CompositeFieldInfo>,
+    pub comment: Option<String>,
+}
+
 /// 数据库元数据 - 外键信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyInfo {
@@ -514,6 +531,14 @@ pub trait DatabaseOperations: Send + Sync {
 
     async fn get_domain_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
         Err(DbError::Other("该数据库类型不支持域类型定义".into()))
+    }
+
+    async fn get_composite_types(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<CompositeTypeInfo>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_composite_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持复合类型定义".into()))
     }
 
     /// 获取外键信息

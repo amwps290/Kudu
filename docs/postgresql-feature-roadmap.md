@@ -71,7 +71,11 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
     - Expand domains to view default / nullability / constraint details
     - View domain definition
     - Copy domain definition
-- [ ] Composite type support
+- [x] Composite type support
+    - Browse composite types in the schema object tree
+    - Expand composite types to view fields
+    - View composite type definition
+    - Copy composite type definition
 - [ ] Row-level security policy support
 - [ ] Publication support
 - [ ] Subscription support
