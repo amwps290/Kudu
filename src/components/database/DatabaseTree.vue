@@ -662,12 +662,14 @@ async function onLoadData(treeNode: TreeNode) {
         ].filter(Boolean)
         const indexBadge = indexFlags.length ? ` [${indexFlags.join(', ')}]` : ''
         const indexColumns = index.columns?.length ? ` (${index.columns.join(', ')})` : ''
+        const includeColumns = index.include_columns?.length ? ` INCLUDE (${index.include_columns.join(', ')})` : ''
+        const predicate = index.predicate ? ` WHERE ${index.predicate}` : ''
 
         const sizeLabel = formatStorageSize(index.size_bytes)
 
         return {
           key: `${treeNode.key}-idx-${index.name}`,
-          title: `${index.name}${indexBadge}${indexColumns}${sizeLabel ? ` · ${sizeLabel}` : ''}`,
+          title: `${index.name}${indexBadge}${indexColumns}${includeColumns}${predicate}${sizeLabel ? ` · ${sizeLabel}` : ''}`,
           type: 'index',
           isLeaf: true,
           metadata: { ...index, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }

@@ -282,7 +282,7 @@ impl DatabaseOperations for SqliteDatabase {
                     indexes.push(IndexInfo { 
                         name, columns, 
                         is_unique: r.get("unique").and_then(|v| v.as_i64()).map(|n| n > 0).or_else(|| r.get("unique").and_then(|v| v.as_str()).map(|s| s == "1")).unwrap_or(false), 
-                        is_primary: false, index_type: "BTREE".to_string(), size_bytes: None 
+                        is_primary: false, index_type: "BTREE".to_string(), size_bytes: None, include_columns: None, predicate: None
                     });
                 }
             }

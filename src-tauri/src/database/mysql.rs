@@ -543,6 +543,8 @@ impl DatabaseOperations for MySqlDatabase {
                     is_primary: r.get("Key_name").and_then(|v| v.as_str()) == Some("PRIMARY"),
                     index_type: r.get("Index_type").and_then(|v| v.as_str()).unwrap_or("BTREE").to_string(),
                     size_bytes: None,
+                    include_columns: None,
+                    predicate: None,
                 });
                 entry.columns.push(col);
             }

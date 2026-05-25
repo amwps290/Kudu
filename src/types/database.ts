@@ -92,6 +92,8 @@ export interface IndexInfo {
   is_primary: boolean
   index_type: string
   size_bytes?: number
+  include_columns?: string[]
+  predicate?: string | null
 }
 
 /**

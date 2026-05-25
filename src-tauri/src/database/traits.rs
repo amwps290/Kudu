@@ -150,6 +150,8 @@ pub struct IndexInfo {
     pub is_primary: bool,
     pub index_type: String,
     pub size_bytes: Option<i64>,
+    pub include_columns: Option<Vec<String>>,
+    pub predicate: Option<String>,
 }
 
 /// 数据库元数据 - Schema 信息

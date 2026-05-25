@@ -48,14 +48,13 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
 - [x] More accurate routine call SQL generation
   - Distinguish scalar functions, set-returning functions, procedures, and aggregates
   - Avoid generic placeholder SQL that is semantically wrong
-
-## Recommended Next
-
-- [ ] Rich PostgreSQL index metadata
+- [x] Rich PostgreSQL index metadata
   - Expression indexes
   - Partial indexes
   - Included columns
   - Sort direction and null ordering
+
+## Recommended Next
 
 - [ ] Partitioned table support
   - Distinguish partitioned tables from regular tables

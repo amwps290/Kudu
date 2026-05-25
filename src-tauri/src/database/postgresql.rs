@@ -700,32 +700,109 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_indexes(&self, table: &str, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = $1 AND n.nspname = $2";
-        let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        let mut map: HashMap<String, IndexInfo> = HashMap::new();
-        for r in rows {
-            let name: String = r.get(0);
-            let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: r.get::<_, String>(4).to_uppercase(), size_bytes: Some(r.get(5)) });
-            entry.columns.push(col);
-        }
-        Ok(map.into_values().collect())
+        let sql = "
+            SELECT
+                i.relname AS index_name,
+                ix.indisunique,
+                ix.indisprimary,
+                am.amname,
+                pg_relation_size(i.oid)::int8,
+                COALESCE((
+                    SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
+                    FROM generate_series(1, ix.indnkeyatts) AS pos
+                ), ARRAY[]::text[]) AS key_columns,
+                CASE
+                    WHEN ix.indnatts > ix.indnkeyatts THEN COALESCE((
+                        SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
+                        FROM generate_series(ix.indnkeyatts + 1, ix.indnatts) AS pos
+                    ), ARRAY[]::text[])
+                    ELSE ARRAY[]::text[]
+                END AS include_columns,
+                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate
+            FROM pg_class t
+            JOIN pg_index ix ON t.oid = ix.indrelid
+            JOIN pg_class i ON i.oid = ix.indexrelid
+            JOIN pg_am am ON am.oid = i.relam
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            WHERE t.relname = $1
+              AND n.nspname = $2
+            ORDER BY i.relname
+        ";
+        let rows = client
+            .query(sql, &[&table, &schema_name])
+            .await
+            .map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| IndexInfo {
+                name: r.get(0),
+                is_unique: r.get(1),
+                is_primary: r.get(2),
+                index_type: r.get::<_, String>(3).to_uppercase(),
+                size_bytes: Some(r.get(4)),
+                columns: r.get::<_, Vec<String>>(5),
+                include_columns: {
+                    let cols: Vec<String> = r.get(6);
+                    if cols.is_empty() { None } else { Some(cols) }
+                },
+                predicate: r.get(7),
+            })
+            .collect())
     }
 
     async fn get_schema_indexes(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<IndexInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT i.relname, a.attname, ix.indisunique, ix.indisprimary, am.amname, pg_relation_size(i.oid)::int8 FROM pg_index ix JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_am am ON am.oid = i.relam JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) JOIN pg_namespace n ON n.oid = i.relnamespace WHERE n.nspname = $1";
-        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        let mut map: HashMap<String, IndexInfo> = HashMap::new();
-        for r in rows {
-            let name: String = r.get(0);
-            let col: String = r.get(1);
-            let entry = map.entry(name.clone()).or_insert(IndexInfo { name, columns: vec![], is_unique: r.get(2), is_primary: r.get(3), index_type: r.get::<_, String>(4).to_uppercase(), size_bytes: Some(r.get(5)) });
-            entry.columns.push(col);
-        }
-        debug!(count = map.len(), sc = %schema_name, "已获取 PostgreSQL 索引");
-        Ok(map.into_values().collect())
+        let sql = "
+            SELECT
+                i.relname AS index_name,
+                ix.indisunique,
+                ix.indisprimary,
+                am.amname,
+                pg_relation_size(i.oid)::int8,
+                COALESCE((
+                    SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
+                    FROM generate_series(1, ix.indnkeyatts) AS pos
+                ), ARRAY[]::text[]) AS key_columns,
+                CASE
+                    WHEN ix.indnatts > ix.indnkeyatts THEN COALESCE((
+                        SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
+                        FROM generate_series(ix.indnkeyatts + 1, ix.indnatts) AS pos
+                    ), ARRAY[]::text[])
+                    ELSE ARRAY[]::text[]
+                END AS include_columns,
+                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate
+            FROM pg_index ix
+            JOIN pg_class i ON i.oid = ix.indexrelid
+            JOIN pg_am am ON am.oid = i.relam
+            JOIN pg_class t ON t.oid = ix.indrelid
+            JOIN pg_namespace n ON n.oid = i.relnamespace
+            WHERE n.nspname = $1
+            ORDER BY i.relname
+        ";
+        let rows = client
+            .query(sql, &[&schema_name])
+            .await
+            .map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        let indexes: Vec<IndexInfo> = rows
+            .into_iter()
+            .map(|r| IndexInfo {
+                name: r.get(0),
+                is_unique: r.get(1),
+                is_primary: r.get(2),
+                index_type: r.get::<_, String>(3).to_uppercase(),
+                size_bytes: Some(r.get(4)),
+                columns: r.get::<_, Vec<String>>(5),
+                include_columns: {
+                    let cols: Vec<String> = r.get(6);
+                    if cols.is_empty() { None } else { Some(cols) }
+                },
+                predicate: r.get(7),
+            })
+            .collect();
+        debug!(count = indexes.len(), sc = %schema_name, "已获取 PostgreSQL 索引");
+        Ok(indexes)
     }
 
     async fn get_foreign_keys(&self, table: &str, schema: Option<&str>) -> DbResult<Vec<ForeignKeyInfo>> {
