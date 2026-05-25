@@ -1347,6 +1347,108 @@ impl DatabaseOperations for PostgreSqlDatabase {
         }).collect())
     }
 
+    async fn get_enum_types(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<EnumTypeInfo>> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let sql = "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                e.enumlabel,
+                obj_description(t.oid, 'pg_type')
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            LEFT JOIN pg_enum e ON e.enumtypid = t.oid
+            WHERE n.nspname = $1
+              AND t.typtype = 'e'
+            ORDER BY t.typname, e.enumsortorder
+        ";
+        let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        let mut enums: Vec<EnumTypeInfo> = Vec::new();
+        for row in rows {
+            let oid = row.try_get(0).ok();
+            let name: String = row.get(1);
+            let row_schema: String = row.get(2);
+            let label: Option<String> = row.try_get(3).ok();
+            let comment: Option<String> = row.try_get(4).ok();
+
+            if let Some(existing) = enums.last_mut().filter(|item| item.name == name && item.schema.as_deref() == Some(row_schema.as_str())) {
+                if let Some(label) = label {
+                    existing.labels.push(label);
+                }
+            } else {
+                let mut labels = Vec::new();
+                if let Some(label) = label {
+                    labels.push(label);
+                }
+                enums.push(EnumTypeInfo {
+                    oid,
+                    name,
+                    schema: Some(row_schema),
+                    labels,
+                    comment,
+                });
+            }
+        }
+        Ok(enums)
+    }
+
+    async fn get_enum_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let client = self.get_client_arc().await?;
+        let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
+        let oid_condition = oid
+            .map(|value| format!("t.oid = {}::oid", value))
+            .unwrap_or_else(|| "FALSE".to_string());
+        let sql = format!(
+            "
+            SELECT
+                t.oid::int8,
+                t.typname,
+                n.nspname,
+                e.enumlabel
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            LEFT JOIN pg_enum e ON e.enumtypid = t.oid
+            WHERE n.nspname = {schema}
+              AND t.typtype = 'e'
+              AND (
+                    ({oid_condition})
+                 OR (
+                    {oid_is_null}
+                    AND t.typname = {name}
+                 )
+              )
+            ORDER BY t.oid, e.enumsortorder
+            ",
+            schema = escape_string_literal(schema_name),
+            oid_condition = oid_condition,
+            oid_is_null = if oid.is_none() { "TRUE" } else { "FALSE" },
+            name = escape_string_literal(name),
+        );
+        info!(sql = %sql.replace('\n', " "), "执行 PostgreSQL 枚举类型定义 SQL");
+        let rows = client.query(&sql, &[]).await.map_err(|e| {
+            Self::log_sql_error("PostgreSQL 枚举类型定义 SQL", &sql, &e);
+            DbError::QueryFailed(Self::format_pg_error(&e))
+        })?;
+        if rows.is_empty() {
+            return Err(DbError::Other("无法获取枚举类型定义".into()));
+        }
+        let enum_name: String = rows[0].get(1);
+        let enum_schema: String = rows[0].get(2);
+        let labels = rows.into_iter()
+            .filter_map(|row| row.try_get::<_, String>(3).ok())
+            .map(|label| escape_string_literal(&label))
+            .collect::<Vec<_>>()
+            .join(", ");
+        Ok(format!(
+            "CREATE TYPE {}.{} AS ENUM ({});",
+            escape_pg_id(&enum_schema),
+            escape_pg_id(&enum_name),
+            labels,
+        ))
+    }
+
     async fn get_sequence_definition(&self, name: &str, schema: Option<&str>, _database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);

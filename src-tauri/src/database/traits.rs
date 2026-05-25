@@ -221,6 +221,16 @@ pub struct SequenceStateInfo {
     pub is_called: Option<bool>,
 }
 
+/// 数据库元数据 - Enum Type 信息 (PostgreSQL 专用)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumTypeInfo {
+    pub oid: Option<i64>,
+    pub name: String,
+    pub schema: Option<String>,
+    pub labels: Vec<String>,
+    pub comment: Option<String>,
+}
+
 /// 数据库元数据 - 外键信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyInfo {
@@ -467,6 +477,14 @@ pub trait DatabaseOperations: Send + Sync {
 
     async fn get_sequence_state(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<SequenceStateInfo> {
         Err(DbError::Other("该数据库类型不支持序列状态".into()))
+    }
+
+    async fn get_enum_types(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<EnumTypeInfo>> {
+        Ok(Vec::new())
+    }
+
+    async fn get_enum_definition(&self, _name: &str, _schema: Option<&str>, _database: Option<&str>, _oid: Option<i64>) -> DbResult<String> {
+        Err(DbError::Other("该数据库类型不支持枚举类型定义".into()))
     }
 
     /// 获取外键信息

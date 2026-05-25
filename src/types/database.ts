@@ -202,6 +202,14 @@ export interface SequenceStateInfo {
   is_called?: boolean | null
 }
 
+export interface EnumTypeInfo {
+  oid?: number
+  name: string
+  schema?: string
+  labels: string[]
+  comment?: string
+}
+
 /**
  * 查询结果
  */
@@ -231,6 +239,8 @@ export type DatabaseObjectType =
   | 'sequence'
   | 'collection'
   | 'index'
+  | 'enum-type'
+  | 'enum-label'
 
 /**
  * 数据库对象树节点

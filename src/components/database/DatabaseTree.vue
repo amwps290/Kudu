@@ -149,6 +149,12 @@
             <a-menu-divider />
           </template>
 
+          <template v-else-if="selectedNode?.type === 'enum-type'">
+            <a-menu-item key="view-enum-definition"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
+            <a-menu-item key="copy-enum-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
           <template v-else-if="selectedNode?.type === 'extension'">
             <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
             <a-menu-divider />
@@ -177,6 +183,11 @@
             <a-menu-item key="gen-create-view"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_view') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="isEnumLabelNode">
+            <a-menu-item key="copy-name"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_name') }}</a-menu-item>
             <a-menu-divider />
           </template>
 
@@ -284,7 +295,7 @@ const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
-const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences']
+const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types']
 const isRefreshableNode = computed(() => REFRESHABLE_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-columns',
@@ -299,6 +310,7 @@ const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-partitions'
 ]
 const TABLE_CHILD_OBJECT_NODE_TYPES = ['index', 'foreign-key', 'trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint']
+const ENUM_LABEL_NODE_TYPES = ['enum-label']
 const VIRTUAL_GROUP_NODE_TYPES = [...TABLE_OBJECT_GROUP_NODE_TYPES, 'empty']
 
 const loading = ref(false), treeData = ref<TreeNode[]>([]), expandedKeys = ref<string[]>([]), selectedKeys = ref<string[]>([]), loadingNodes = ref<Set<string>>(new Set())
@@ -351,6 +363,7 @@ const isConstraintNode = computed(() => ['unique-constraint', 'check-constraint'
 const isDroppableTableChildNode = computed(() => ['trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
 const isSelectedNodeReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
 const supportsViewRename = computed(() => props.dbType === 'postgresql')
+const isEnumLabelNode = computed(() => ENUM_LABEL_NODE_TYPES.includes(selectedNode.value?.type || ''))
 
 const filteredTreeData = computed(() => {
   const opts = props.searchOptions
@@ -552,6 +565,7 @@ async function onLoadData(treeNode: TreeNode) {
       { key: `${treeNode.key}-materialized-views`, title: t('tree.materialized_views'), type: 'schema-materialized-views', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
+      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-enum-types`, title: t('tree.enum_types'), type: 'schema-enum-types', isLeaf: false, metadata: { database: db, schema } }] : []),
       ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
     ]
@@ -587,11 +601,12 @@ async function onLoadData(treeNode: TreeNode) {
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }
   }
-  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
+  else if (['schema-functions', 'schema-procedures', 'schema-aggregates', 'schema-sequences', 'schema-enum-types', 'database-extensions', 'functions', 'procedures'].includes(treeNode.type)) {
     const isFunction = treeNode.type === 'schema-functions' || treeNode.type === 'functions'
     const isProcedure = treeNode.type === 'schema-procedures' || treeNode.type === 'procedures'
     const isAggregate = treeNode.type === 'schema-aggregates'
     const isSequence = treeNode.type === 'schema-sequences'
+    const isEnumType = treeNode.type === 'schema-enum-types'
 
     try {
       let res: any[]
@@ -603,6 +618,8 @@ async function onLoadData(treeNode: TreeNode) {
         res = await metadataApi.getSchemaAggregateFunctions(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else if (isSequence) {
         res = await metadataApi.getSchemaSequences(connId, treeNode.metadata.database, treeNode.metadata.schema)
+      } else if (isEnumType) {
+        res = await metadataApi.getSchemaEnumTypes(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else {
         res = await metadataApi.getDatabaseExtensions(connId, treeNode.metadata.database)
       }
@@ -610,9 +627,28 @@ async function onLoadData(treeNode: TreeNode) {
         let title = item.name || item.index_name
         const routineKeyPart = item.oid != null ? `oid-${item.oid}` : `${item.name || item.index_name}-${item.identity_arguments || item.arguments || ''}`
 
-        // 针对函数和聚合函数，拼接参数列表
         if ((isFunction || isProcedure || isAggregate) && item.arguments) {
           title = `${item.name}(${item.arguments})`
+        }
+
+        if (isEnumType) {
+          const labelChildren = Array.isArray(item.labels)
+            ? item.labels.map((label: string, index: number) => ({
+                key: `${treeNode.key}-oid-${item.oid ?? item.name}-label-${index}`,
+                title: label,
+                type: 'enum-label',
+                isLeaf: true,
+                metadata: { label, database: treeNode.metadata.database, schema: treeNode.metadata.schema, enum_name: item.name, oid: item.oid }
+              }))
+            : []
+          return {
+            key: `${treeNode.key}-oid-${item.oid ?? item.name}`,
+            title,
+            type: 'enum-type',
+            isLeaf: false,
+            children: labelChildren.length ? labelChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
+            metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
+          }
         }
 
         return {
@@ -884,7 +920,8 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
 }
 async function handleDoubleClick(node: TreeNode) {
   if (node.type === 'database' && !supportProfile.value.supportsDatabaseTreeChildren) return
-  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  if (['database', 'schema', 'schemas', 'tables', 'views', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-enum-types', ...TABLE_OBJECT_GROUP_NODE_TYPES].includes(node.type)) handleToggle(node)
+  else if (node.type === 'enum-type') { selectedNode.value = node; await handleViewEnumDefinition() }
   else if (node.metadata?.definition) showMetadataDefinition(node)
   else if (['table', 'view', 'materialized-view'].includes(node.type) && supportProfile.value.supportsTableDataView) { emit('table-selected', { database: node.metadata.database, table: node.metadata.name || node.title, schema: node.metadata.schema, metadata: node.metadata }) }
 }
@@ -1014,6 +1051,8 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'set-sequence-value') { await openSetSequenceValueModal() }
   else if (key === 'restart-sequence') { await handleRestartSequence() }
   else if (key === 'copy-sequence-definition') { await handleCopySequenceDefinition() }
+  else if (key === 'view-enum-definition') { await handleViewEnumDefinition() }
+  else if (key === 'copy-enum-definition') { await handleCopyEnumDefinition() }
   else if (key === 'view-routine-definition') { await handleViewRoutineDefinition() }
   else if (key === 'copy-routine-definition') { await handleCopyRoutineDefinition() }
   else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
@@ -1658,6 +1697,48 @@ async function handleDropSequence() {
   })
 }
 
+async function fetchEnumDefinition(node: TreeNode) {
+  const oidRaw = node.metadata?.oid
+  const oid = typeof oidRaw === 'number' ? oidRaw : Number.isFinite(Number(oidRaw)) ? Number(oidRaw) : null
+  return metadataApi.getEnumDefinition({
+    connectionId: props.connectionId!,
+    name: metaStr(node, 'name') || node.title,
+    oid,
+    database: metaStr(node, 'database') || undefined,
+    schema: metaStr(node, 'schema') || undefined,
+  })
+}
+
+async function handleViewEnumDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'enum-type') return
+  try {
+    const definition = await fetchEnumDefinition(node)
+    selectedNode.value = {
+      ...node,
+      metadata: {
+        ...node.metadata,
+        definition,
+      }
+    }
+    await showMetadataDefinition(selectedNode.value)
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
+async function handleCopyEnumDefinition() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'enum-type') return
+  try {
+    const definition = await fetchEnumDefinition(node)
+    await writeClipboardText(definition)
+    message.success(t('common.copy'))
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
+}
+
 async function fetchRoutineDefinition(node: TreeNode) {
   const identityArguments = metaStr(node, 'identity_arguments') || metaStr(node, 'arguments')
   const oidRaw = node.metadata?.oid
@@ -1827,6 +1908,9 @@ async function handleCopyObjectDefinition() {
       await writeClipboardText(definition)
     } else if (node.type === 'sequence') {
       const definition = await fetchSequenceDefinition(node)
+      await writeClipboardText(definition)
+    } else if (node.type === 'enum-type') {
+      const definition = await fetchEnumDefinition(node)
       await writeClipboardText(definition)
     } else {
       await writeClipboardText(formatObjectDefinition(node))

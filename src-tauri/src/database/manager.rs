@@ -465,6 +465,18 @@ impl ConnectionManager {
         db.get_sequence_state(name, schema, database, oid).await
     }
 
+    pub async fn get_enum_types(&self, composite_id: &str, database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<EnumTypeInfo>> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_enum_types(database, schema).await
+    }
+
+    pub async fn get_enum_definition(&self, composite_id: &str, name: &str, schema: Option<&str>, database: Option<&str>, oid: Option<i64>) -> DbResult<String> {
+        let db = self.get_db_ref(composite_id).await?;
+        self.ensure_db_context(db.clone(), database).await?;
+        db.get_enum_definition(name, schema, database, oid).await
+    }
+
     pub async fn alter_table(&self, composite_id: &str, table: &str, schema: Option<&str>, database: Option<&str>, changes: Vec<TableChange>) -> DbResult<()> {
         let db = self.get_db_ref(composite_id).await?;
         self.ensure_db_context(db.clone(), database).await?;

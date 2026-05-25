@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { 
-  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo
+  DatabaseInfo, TableInfo, SchemaInfo, ColumnInfo, IndexInfo, ForeignKeyInfo, TriggerInfo, TableConstraintInfo, RuleInfo, FunctionInfo, ExtensionInfo, SequenceInfo, SequenceStateInfo, EnumTypeInfo
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
@@ -87,6 +87,13 @@ export const metadataApi = {
    */
   async getSchemaSequences(connectionId: string, database: string, schema: string): Promise<SequenceInfo[]> {
     return withAutoReconnect(connectionId, () => invoke<SequenceInfo[]>('get_schema_sequences', { connectionId, database, schema }), true)
+  },
+
+  /**
+   * 获取 Schema 下的枚举类型 (PostgreSQL)
+   */
+  async getSchemaEnumTypes(connectionId: string, database: string, schema: string): Promise<EnumTypeInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<EnumTypeInfo[]>('get_schema_enum_types', { connectionId, database, schema }), true)
   },
 
   /**
@@ -264,6 +271,27 @@ export const metadataApi = {
     schema?: string | null
   }): Promise<SequenceStateInfo> {
     return withAutoReconnect(params.connectionId, () => invoke<SequenceStateInfo>('get_sequence_state', {
+      request: {
+        connectionId: params.connectionId,
+        name: params.name,
+        oid: params.oid ?? null,
+        database: params.database ?? null,
+        schema: params.schema ?? null,
+      }
+    }), true)
+  },
+
+  /**
+   * 获取枚举类型定义
+   */
+  async getEnumDefinition(params: {
+    connectionId: string,
+    name: string,
+    oid?: number | null,
+    database?: string | null,
+    schema?: string | null
+  }): Promise<string> {
+    return withAutoReconnect(params.connectionId, () => invoke<string>('get_enum_definition', {
       request: {
         connectionId: params.connectionId,
         name: params.name,

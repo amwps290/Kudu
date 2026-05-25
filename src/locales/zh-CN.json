@@ -234,6 +234,7 @@
     "schemas": "Schemas",
     "functions": "函数",
     "sequences": "序列",
+    "enum_types": "枚举类型",
     "materialized_views": "物化视图",
     "aggregates": "聚合函数",
     "indexes": "索引",

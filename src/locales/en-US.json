@@ -234,6 +234,7 @@
     "schemas": "Schemas",
     "functions": "Functions",
     "sequences": "Sequences",
+    "enum_types": "Enum Types",
     "materialized_views": "Materialized Views",
     "aggregates": "Aggregate Functions",
     "indexes": "Indexes",

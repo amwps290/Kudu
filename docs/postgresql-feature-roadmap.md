@@ -60,7 +60,11 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
 
 ## Important Gaps
 
-- [ ] Enum type support
+- [x] Enum type support
+    - Browse enum types in the schema object tree
+    - Expand enum types to view ordered labels
+    - View enum definition
+    - Copy enum definition
 - [ ] Domain type support
 - [ ] Composite type support
 - [ ] Row-level security policy support
