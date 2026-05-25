@@ -295,7 +295,8 @@ const TABLE_OBJECT_GROUP_NODE_TYPES = [
   'table-rules',
   'table-uniques',
   'table-checks',
-  'table-excludes'
+  'table-excludes',
+  'table-partitions'
 ]
 const TABLE_CHILD_OBJECT_NODE_TYPES = ['index', 'foreign-key', 'trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint']
 const VIRTUAL_GROUP_NODE_TYPES = [...TABLE_OBJECT_GROUP_NODE_TYPES, 'empty']
@@ -576,7 +577,7 @@ async function onLoadData(treeNode: TreeNode) {
         const sizeLabel = typeof t.size_mb === 'number' ? formatStorageSize(Math.max(0, t.size_mb * 1024 * 1024)) : ''
         return {
           key: `${treeNode.key}-${t.name}`,
-          title: sizeLabel ? `${t.name} · ${sizeLabel}` : t.name,
+          title: formatTableNodeTitle(t, sizeLabel),
           type: isMaterializedViews ? 'materialized-view' : isViews ? 'view' : 'table',
           isLeaf: false,
           metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
@@ -726,6 +727,30 @@ async function onLoadData(treeNode: TreeNode) {
         }
       })
 
+      const partitionInfoChildren: TreeNode[] = []
+      if (treeNode.metadata?.partition_key) {
+        partitionInfoChildren.push({
+          key: `${treeNode.key}-partition-key`,
+          title: `${t('tree.partition_key')}: ${treeNode.metadata.partition_key}`,
+          type: 'partition-key',
+          isLeaf: true,
+          metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema, partition_key: treeNode.metadata.partition_key }
+        })
+      }
+      const partitionChildren = (treeNode.metadata?.partitions || []).map((partition: any) => ({
+        key: `${treeNode.key}-partition-${partition.schema || treeNode.metadata.schema || ''}-${partition.name}`,
+        title: partition.bound ? `${partition.name} · ${partition.bound}` : partition.name,
+        type: 'table',
+        isLeaf: false,
+        metadata: {
+          ...partition,
+          database: treeNode.metadata.database,
+          schema: partition.schema || treeNode.metadata.schema,
+          table_type: 'PARTITION',
+          partition_parent: `${treeNode.metadata.schema ? `${treeNode.metadata.schema}.` : ''}${treeNode.metadata.name}`,
+        }
+      }))
+
       const groupNodes: TreeNode[] = [
         {
           key: `${treeNode.key}-columns`,
@@ -738,6 +763,19 @@ async function onLoadData(treeNode: TreeNode) {
       ]
 
       if (treeNode.type === 'table') {
+        if (treeNode.metadata?.is_partitioned || treeNode.metadata?.partition_key || partitionChildren.length) {
+          groupNodes.push({
+            key: `${treeNode.key}-partitions`,
+            title: t('tree.partitions'),
+            type: 'table-partitions',
+            isLeaf: false,
+            metadata: { database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema },
+            children: [...partitionInfoChildren, ...partitionChildren].length
+              ? [...partitionInfoChildren, ...partitionChildren]
+              : [{ key: `${treeNode.key}-partitions-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }]
+          })
+        }
+
         groupNodes.push(
           {
             key: `${treeNode.key}-indexes`,
@@ -885,6 +923,16 @@ function getNodeDatabaseName(node: TreeNode) {
 /** 安全地从节点 metadata 中提取字符串值 */
 function metaStr(node: TreeNode, key: string): string {
   return String((node.metadata as Record<string, unknown>)?.[key] || '')
+}
+
+function formatTableNodeTitle(table: any, sizeLabel = ''): string {
+  const badges = []
+  if (table.is_partitioned) badges.push(t('tree.partitioned_table'))
+  else if (table.partition_parent) badges.push(t('tree.partition'))
+
+  const details = [...badges]
+  if (sizeLabel) details.push(sizeLabel)
+  return details.length ? `${table.name} · ${details.join(' · ')}` : table.name
 }
 
 function formatStorageSize(sizeInBytes?: number | null): string {

@@ -103,7 +103,7 @@ impl DatabaseOperations for MongoDatabase {
         let client = state.client.as_ref().ok_or(DbError::not_connected())?;
         let db_name = database.ok_or(DbError::QueryFailed("未指定数据库".into()))?;
         let names = client.database(db_name).list_collection_names().await.map_err(|e| DbError::QueryFailed(e.to_string()))?;
-        Ok(names.into_iter().map(|n| TableInfo { name: n, schema: None, table_type: "COLLECTION".into(), engine: None, rows: None, size_mb: None, comment: None }).collect())
+        Ok(names.into_iter().map(|n| TableInfo { name: n, schema: None, table_type: "COLLECTION".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] }).collect())
     }
 
     async fn get_table_structure(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<ColumnInfo>> {

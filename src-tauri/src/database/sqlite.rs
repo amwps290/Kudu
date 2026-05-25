@@ -181,7 +181,7 @@ impl DatabaseOperations for SqliteDatabase {
         let state = self.state.lock().await;
         let conn = state.conn.as_ref().ok_or(DbError::not_connected())?;
         let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").map_err(|e| DbError::QueryFailed(e.to_string()))?;
-        let rows = stmt.query_map([], |row| Ok(TableInfo { name: row.get(0)?, schema: None, table_type: "TABLE".into(), engine: None, rows: None, size_mb: None, comment: None })).map_err(|e| DbError::QueryFailed(e.to_string()))?;
+        let rows = stmt.query_map([], |row| Ok(TableInfo { name: row.get(0)?, schema: None, table_type: "TABLE".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] })).map_err(|e| DbError::QueryFailed(e.to_string()))?;
         Ok(rows.map(|r| r.unwrap()).collect())
     }
 

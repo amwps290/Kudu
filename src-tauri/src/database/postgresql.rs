@@ -509,16 +509,95 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn get_tables(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
-        let sql = "SELECT n.nspname, c.relname, obj_description(c.oid), pg_total_relation_size(c.oid)::float8 / 1024 / 1024 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
+        let sql = "
+            SELECT
+                c.oid::int8,
+                n.nspname,
+                c.relname,
+                c.relkind::text,
+                obj_description(c.oid),
+                pg_total_relation_size(c.oid)::float8 / 1024 / 1024,
+                CASE WHEN c.relkind = 'p' THEN pg_get_partkeydef(c.oid) END AS partition_key,
+                CASE WHEN pc.relkind = 'p' THEN pn.nspname END AS parent_schema,
+                CASE WHEN pc.relkind = 'p' THEN pc.relname END AS parent_name,
+                CASE WHEN pc.relkind = 'p' THEN pg_get_expr(c.relpartbound, c.oid, true) END AS partition_bound
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_inherits inh ON inh.inhrelid = c.oid
+            LEFT JOIN pg_class pc ON pc.oid = inh.inhparent
+            LEFT JOIN pg_namespace pn ON pn.oid = pc.relnamespace
+            WHERE c.relkind IN ('r', 'p')
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM pg_inherits inh2
+                  JOIN pg_class parent2 ON parent2.oid = inh2.inhparent
+                  WHERE inh2.inhrelid = c.oid
+                    AND parent2.relkind = 'p'
+              )
+            ORDER BY n.nspname, c.relname
+        ";
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "TABLE".into(), engine: None, rows: None, size_mb: r.try_get(3).ok(), comment: r.try_get(2).ok() }).collect())
+
+        let partitions_sql = "
+            SELECT
+                inh.inhparent::int8 AS parent_oid,
+                cn.nspname AS child_schema,
+                child.relname AS child_name,
+                pg_get_expr(child.relpartbound, child.oid, true) AS partition_bound
+            FROM pg_inherits inh
+            JOIN pg_class child ON child.oid = inh.inhrelid
+            JOIN pg_namespace cn ON cn.oid = child.relnamespace
+            JOIN pg_class parent ON parent.oid = inh.inhparent
+            JOIN pg_namespace pn ON pn.oid = parent.relnamespace
+            WHERE parent.relkind = 'p'
+              AND child.relkind IN ('r', 'p')
+              AND pn.nspname NOT IN ('pg_catalog', 'information_schema')
+            ORDER BY cn.nspname, child.relname
+        ";
+        let partition_rows = client.query(partitions_sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        let mut partitions_by_parent: HashMap<i64, Vec<TablePartitionInfo>> = HashMap::new();
+        for row in partition_rows {
+            let parent_oid: i64 = row.get(0);
+            partitions_by_parent.entry(parent_oid).or_default().push(TablePartitionInfo {
+                schema: Some(row.get(1)),
+                name: row.get(2),
+                bound: row.try_get(3).ok(),
+            });
+        }
+
+        Ok(rows.into_iter().map(|r| {
+            let oid: i64 = r.get(0);
+            let relkind: String = r.get(3);
+            let parent_schema: Option<String> = r.try_get(7).ok();
+            let parent_name: Option<String> = r.try_get(8).ok();
+            let partition_parent = match (parent_schema, parent_name) {
+                (Some(schema), Some(name)) => Some(format!("{}.{}", schema, name)),
+                _ => None,
+            };
+
+            TableInfo {
+                name: r.get(2),
+                schema: Some(r.get(1)),
+                table_type: if relkind == "p" { "PARTITIONED TABLE".into() } else if partition_parent.is_some() { "PARTITION".into() } else { "TABLE".into() },
+                engine: None,
+                rows: None,
+                size_mb: r.try_get(5).ok(),
+                comment: r.try_get(4).ok(),
+                is_partitioned: relkind == "p",
+                partition_key: r.try_get(6).ok(),
+                partition_parent,
+                partition_bound: r.try_get(9).ok(),
+                partitions: partitions_by_parent.remove(&oid).unwrap_or_default(),
+            }
+        }).collect())
     }
 
     async fn get_views(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
         let sql = "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'v' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "VIEW".into(), engine: None, rows: None, size_mb: None, comment: None }).collect())
+        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "VIEW".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] }).collect())
     }
 
     async fn get_materialized_views(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<TableInfo>> {
@@ -541,6 +620,11 @@ impl DatabaseOperations for PostgreSqlDatabase {
             rows: None,
             size_mb: r.try_get(3).ok(),
             comment: r.try_get(2).ok(),
+            is_partitioned: false,
+            partition_key: None,
+            partition_parent: None,
+            partition_bound: None,
+            partitions: vec![],
         }).collect())
     }
 

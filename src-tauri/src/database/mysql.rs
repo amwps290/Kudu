@@ -398,6 +398,11 @@ impl DatabaseOperations for MySqlDatabase {
                 rows: r.get("TABLE_ROWS").and_then(|v| v.as_u64()),
                 size_mb: r.get("TOTAL_LENGTH").and_then(|v| v.as_f64()).map(|s| s / 1024.0 / 1024.0),
                 comment: r.get("TABLE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                is_partitioned: false,
+                partition_key: None,
+                partition_parent: None,
+                partition_bound: None,
+                partitions: vec![],
             }).collect())
         } else {
             Ok(vec![])
@@ -421,6 +426,11 @@ impl DatabaseOperations for MySqlDatabase {
                 rows: None,
                 size_mb: None,
                 comment: r.get("TABLE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                is_partitioned: false,
+                partition_key: None,
+                partition_parent: None,
+                partition_bound: None,
+                partitions: vec![],
             }).collect())
         } else {
             Ok(vec![])

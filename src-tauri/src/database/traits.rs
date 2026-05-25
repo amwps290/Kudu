@@ -114,6 +114,14 @@ pub struct DatabaseInfo {
     pub collation: Option<String>,
 }
 
+/// PostgreSQL partition child metadata.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TablePartitionInfo {
+    pub name: String,
+    pub schema: Option<String>,
+    pub bound: Option<String>,
+}
+
 /// 数据库元数据 - 表信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableInfo {
@@ -124,6 +132,13 @@ pub struct TableInfo {
     pub rows: Option<u64>,
     pub size_mb: Option<f64>,
     pub comment: Option<String>,
+    #[serde(default)]
+    pub is_partitioned: bool,
+    pub partition_key: Option<String>,
+    pub partition_parent: Option<String>,
+    pub partition_bound: Option<String>,
+    #[serde(default)]
+    pub partitions: Vec<TablePartitionInfo>,
 }
 
 /// 数据库元数据 - 列信息

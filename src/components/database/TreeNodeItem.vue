@@ -121,6 +121,9 @@ function getIconConfig(node: TreeNode) {
     return { icon: 'ph:text-t-bold', color: 'var(--icon-color-gray)' }
   }
 
+  if (type === 'table' && metadata.is_partitioned) return { icon: 'ph:git-branch-duotone', color: 'var(--icon-color-purple)' }
+  if (type === 'table' && metadata.partition_parent) return { icon: 'ph:tree-structure-duotone', color: 'var(--icon-color-cyan)' }
+
   const configMap: Record<string, any> = {
     database: { icon: 'ph:database-duotone', color: 'var(--icon-color-orange)' },
     schemas: { icon: 'ph:folders-duotone', color: 'var(--icon-color-gray)' },
@@ -135,6 +138,8 @@ function getIconConfig(node: TreeNode) {
     'table-uniques': { icon: 'ph:seal-check-duotone', color: 'var(--icon-color-green)' },
     'table-checks': { icon: 'ph:check-square-duotone', color: 'var(--icon-color-blue)' },
     'table-excludes': { icon: 'ph:prohibit-duotone', color: 'var(--icon-color-pink)' },
+    'table-partitions': { icon: 'ph:git-branch-duotone', color: 'var(--icon-color-purple)' },
+    'partition-key': { icon: 'ph:key-duotone', color: 'var(--icon-color-yellow)' },
     tables: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     table: { icon: 'ph:table-duotone', color: 'var(--icon-color-green)' },
     'schema-views': { icon: 'ph:eye-duotone', color: 'var(--icon-color-teal)' },

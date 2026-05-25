@@ -53,6 +53,12 @@ export interface DatabaseInfo {
   collation?: string
 }
 
+export interface TablePartitionInfo {
+  name: string
+  schema?: string
+  bound?: string
+}
+
 /**
  * 表信息
  */
@@ -64,6 +70,11 @@ export interface TableInfo {
   rows?: number
   size_mb?: number
   comment?: string
+  is_partitioned?: boolean
+  partition_key?: string
+  partition_parent?: string
+  partition_bound?: string
+  partitions?: TablePartitionInfo[]
 }
 
 /**
