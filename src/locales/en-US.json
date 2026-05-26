@@ -994,6 +994,7 @@
       "level": "Level",
       "scope": "Scope",
       "message": "Message",
+      "badges": "Badges",
       "include_columns": "Include Columns",
       "labels": "Labels",
       "constraints": "Constraints"

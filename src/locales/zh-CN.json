@@ -994,6 +994,7 @@
       "level": "级别",
       "scope": "范围",
       "message": "消息",
+      "badges": "标记",
       "include_columns": "包含列",
       "labels": "标签",
       "constraints": "约束"
