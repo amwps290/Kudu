@@ -1074,6 +1074,10 @@ onMounted(async () => {
     readOnly: false, domReadOnly: false, fontSize: appStore.editorSettings.fontSize,
     fontFamily: appStore.editorSettings.fontFamily, minimap: { enabled: appStore.editorSettings.minimap },
     scrollBeyondLastLine: false, lineNumbers: appStore.editorSettings.lineNumbers,
+    scrollbar: {
+      verticalScrollbarSize: 8,
+      horizontalScrollbarSize: 8,
+    },
     renderLineHighlight: 'all', quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true, acceptSuggestionOnCommitCharacter: true,
     acceptSuggestionOnEnter: 'on', tabCompletion: 'on', emptySelectionClipboard: false, selectionClipboard: false,
