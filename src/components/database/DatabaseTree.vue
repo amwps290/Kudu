@@ -597,7 +597,9 @@ async function onLoadData(treeNode: TreeNode) {
       if (isMaterializedViews) {
         res = await metadataApi.getSchemaMaterializedViews(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else if (isViews) {
-        res = await metadataApi.getViews(connId, treeNode.metadata.database)
+        res = isSchema
+          ? await metadataApi.getSchemaViews(connId, treeNode.metadata.database, treeNode.metadata.schema)
+          : await metadataApi.getViews(connId, treeNode.metadata.database)
       } else if (isSchema) {
         res = await metadataApi.getSchemaTables(connId, treeNode.metadata.database, treeNode.metadata.schema)
       } else {
