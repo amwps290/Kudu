@@ -930,5 +930,82 @@
     "no_connection": "No connection",
     "not_available": "Not set",
     "default_schema": "Default"
+  },
+  "right_panel": {
+    "title": "Object Panel",
+    "show": "Show Panel",
+    "hide": "Hide Panel",
+    "empty": "Select an object first",
+    "panels": {
+      "cell": "Cell Viewer",
+      "output": "Database Output",
+      "object": "Object Info"
+    },
+    "sections": {
+      "overview": "Overview",
+      "details": "Details"
+    },
+    "actions": {
+      "copy_name": "Copy Name",
+      "copy_json": "Copy JSON"
+    },
+    "fields": {
+      "connection": "Connection",
+      "schema": "Schema",
+      "path": "Path",
+      "tab_type": "Tab Type",
+      "read_only": "Read Only",
+      "table_type": "Table Type",
+      "engine": "Engine",
+      "rows": "Rows",
+      "size": "Size",
+      "table_size": "Table Size",
+      "index_size": "Index Size",
+      "data_type": "Data Type",
+      "default_value": "Default Value",
+      "nullable": "Nullable",
+      "return_type": "Return Type",
+      "language": "Language",
+      "function_type": "Function Type",
+      "arguments": "Arguments",
+      "column_name": "Column Name",
+      "referenced_table": "Referenced Table",
+      "referenced_column": "Referenced Column",
+      "update_rule": "Update Rule",
+      "delete_rule": "Delete Rule",
+      "event": "Event",
+      "timing": "Timing",
+      "index_type": "Index Type",
+      "predicate": "Predicate",
+      "version": "Version",
+      "base_type": "Base Type",
+      "partition_key": "Partition Key",
+      "partition_parent": "Parent Table",
+      "partition_bound": "Partition Bound",
+      "instead_rule": "Instead Rule",
+      "constraint_count": "Constraint Count",
+      "field_count": "Field Count",
+      "last_value": "Current Value",
+      "next_value": "Next Value",
+      "start_value": "Start Value",
+      "increment_by": "Increment By",
+      "is_called": "Is Called",
+      "time": "Time",
+      "level": "Level",
+      "scope": "Scope",
+      "message": "Message",
+      "include_columns": "Include Columns",
+      "labels": "Labels",
+      "constraints": "Constraints"
+    },
+    "cell_viewer": {
+      "default_target": "Current Table",
+      "no_row_label": "Current Cell",
+      "empty": "Select a cell first"
+    },
+    "output": {
+      "title": "Database Output",
+      "subtitle": "{count} messages"
+    }
   }
 }

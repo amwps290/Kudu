@@ -1,6 +1,7 @@
 import { nextTick, type ComputedRef, type Ref } from 'vue'
 import { message } from '@/ui/antd'
 import { TabType } from '@/types/workspace'
+import type { RightPanelObjectType } from '@/types/rightPanel'
 import type { DataTab } from '@/composables/useTabManager'
 import { supportsDataCompare, supportsQueryBuilder } from '@/utils/databaseSupport'
 import type { ReturnTypeUseConnectionStore } from '@/types/internal'
@@ -29,6 +30,13 @@ export interface DatabaseEventData {
   name?: string
 }
 
+export interface ObjectSelectedEventData {
+  connectionId?: string
+  type?: string
+  title?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface QueryBuilderExecutePayload {
   sql: string
   database?: string
@@ -46,12 +54,68 @@ interface WorkspaceTabActionsOptions {
   tabExists: (key: string) => boolean
   addTab: (tab: DataTab) => void
   openOrCreateQueryTab: (data: SqlDocumentInput) => Promise<boolean>
+  onInspectObject?: (data: {
+    connectionId?: string
+    database?: string
+    schema?: string
+    objectName?: string
+    objectType?: RightPanelObjectType
+    tabKey?: string
+    tabType?: string
+    readOnly?: boolean
+    metadata?: Record<string, unknown>
+  }) => void
 }
 
 export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
+  function handleObjectSelected(data: ObjectSelectedEventData) {
+    const metadata = data.metadata || {}
+    const objectType = ((): RightPanelObjectType | undefined => {
+      if (data.type === 'database') return 'database'
+      if (data.type === 'schema') return 'schema'
+      if (data.type === 'table') return 'table'
+      if (data.type === 'view') return 'view'
+      if (data.type === 'materialized-view') return 'materialized-view'
+      if (data.type === 'column') return 'column'
+      if (data.type === 'index') return 'index'
+      if (data.type === 'foreign-key') return 'foreign-key'
+      if (data.type === 'trigger') return 'trigger'
+      if (data.type === 'rule') return 'rule'
+      if (data.type === 'function') return 'function'
+      if (data.type === 'procedure') return 'procedure'
+      if (data.type === 'aggregate') return 'aggregate'
+      if (data.type === 'sequence') return 'sequence'
+      if (data.type === 'enum-type') return 'enum-type'
+      if (data.type === 'domain-type') return 'domain-type'
+      if (data.type === 'composite-type') return 'composite-type'
+      if (data.type === 'extension') return 'extension'
+      return undefined
+    })()
+
+    options.onInspectObject?.({
+      connectionId: data.connectionId,
+      database: String(metadata.database || metadata.name || ''),
+      schema: typeof metadata.schema === 'string' ? metadata.schema : undefined,
+      objectName: String(metadata.name || data.title || ''),
+      objectType,
+      metadata,
+    })
+  }
+
   function handleTableSelected(data: TableEventData) {
     const connectionId = data.connectionId || options.connectionStore.activeConnectionId
     const key = `table-${connectionId}-${data.database}-${data.table}`
+    options.onInspectObject?.({
+      connectionId: connectionId || undefined,
+      database: data.database,
+      schema: data.schema || data.metadata?.schema,
+      objectName: data.table,
+      objectType: 'table',
+      tabKey: key,
+      tabType: TabType.Data,
+      readOnly: false,
+      metadata: data.metadata,
+    })
     if (options.tabExists(key)) {
       options.mainTabKey.value = key
       return
@@ -69,6 +133,14 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
   }
 
   async function handleDatabaseSelected(data: DatabaseEventData) {
+    options.onInspectObject?.({
+      connectionId: data.connectionId,
+      database: data.name,
+      objectName: data.name,
+      objectType: 'database',
+      metadata: data as Record<string, unknown>,
+    })
+
     if (data.connectionId) {
       options.connectionStore.setActiveConnection(data.connectionId)
     }
@@ -105,6 +177,17 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
 
   function handleViewStructure(data: TableEventData) {
     const key = `structure-${data.connectionId}-${data.database}-${data.table}`
+    options.onInspectObject?.({
+      connectionId: data.connectionId,
+      database: data.database,
+      schema: data.schema,
+      objectName: data.table,
+      objectType: 'table',
+      tabKey: key,
+      tabType: TabType.Design,
+      readOnly: true,
+      metadata: data.metadata,
+    })
     if (options.tabExists(key)) {
       options.mainTabKey.value = key
       return
@@ -125,6 +208,17 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
 
   function handleDesignTable(data: TableEventData) {
     const key = `design-${data.connectionId}-${data.database}-${data.table}`
+    options.onInspectObject?.({
+      connectionId: data.connectionId,
+      database: data.database,
+      schema: data.schema,
+      objectName: data.table,
+      objectType: 'table',
+      tabKey: key,
+      tabType: TabType.Design,
+      readOnly: false,
+      metadata: data.metadata,
+    })
     if (options.tabExists(key)) {
       const tab = options.dataTabs.value.find(item => item.key === key)
       if (tab) {
@@ -219,6 +313,7 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
   }
 
   return {
+    handleObjectSelected,
     handleTableSelected,
     handleDatabaseSelected,
     handleNewQuery,

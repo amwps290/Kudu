@@ -9,7 +9,6 @@
       :selected-database="selectedDatabase"
       :databases="availableDatabases"
       :result-panel-visible="resultPanelVisible"
-      :messages-panel-visible="messagesPanelVisible"
       :show-search-path="supportsSearchPath"
       :search-path="searchPath"
       @action="handleToolbarAction"
@@ -166,27 +165,6 @@
       </div>
     </div>
 
-    <a-drawer
-      :title="$t('editor.messages_panel')"
-      placement="right"
-      v-model:open="messagesPanelVisible"
-      width="360"
-      class="sql-messages-drawer"
-    >
-      <template #extra>
-        <a-button size="small" type="text" :disabled="dbMessages.length === 0" @click="clearDbMessages">
-          {{ $t('common.clear') }}
-        </a-button>
-      </template>
-      <div class="messages-drawer-content">
-        <div v-for="(msg, index) in dbMessages" :key="index" class="message-line">
-          <span class="message-time">{{ formatMessageTime(index) }}</span>
-          <span class="message-body">{{ msg.text }}</span>
-        </div>
-        <a-empty v-if="dbMessages.length === 0" :description="$t('editor.messages_hint')" />
-      </div>
-    </a-drawer>
-
     <!-- 历史记录 -->
     <a-drawer :title="$t('editor.history_title')" placement="right" v-model:open="showHistory" width="400">
       <div class="history-panel">
@@ -226,6 +204,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRightPanelStore } from '@/stores/rightPanel'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
 import { loadMonaco, type MonacoModule } from '@/utils/monacoLoader'
 import { message } from '@/ui/antd'
@@ -249,6 +228,7 @@ const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRunti
 
 // ── 基础设置 ──
 const { t } = useI18n()
+const rightPanelStore = useRightPanelStore()
 const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string }>()
 const emit = defineEmits(['contentChange', 'requestSave', 'requestSaveAs', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
 const connectionStore = useConnectionStore()
@@ -317,7 +297,6 @@ const currentDatabaseLabel = computed(() => {
 // ── 结果管理 ──
 const queryResults = ref<QueryResult[]>([])
 const resultTabKey = ref('result-0')
-const dbMessages = ref<{ severity: string; text: string; time: number }[]>([])
 const resultPanelVisible = ref(getStorageItem(RESULT_PANEL_VISIBLE_KEY, false))
 const resultPanelHeight = ref(getStorageItem(RESULT_PANEL_HEIGHT_KEY, 260))
 
@@ -396,34 +375,22 @@ function formatElapsed(ms: number): string {
   return `${minutes}m ${seconds}s`
 }
 
-// ── 消息面板 ──
-const MESSAGES_PANEL_VISIBLE_KEY = 'sql_messages_panel_visible'
-const messagesPanelVisible = ref(getStorageItem(MESSAGES_PANEL_VISIBLE_KEY, false))
-
 const isSplitResizing = ref(false)
 
 const queryResultStates = reactive<Record<number, { pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>>({})
 
 function addDbMessage(severity: string, text: string) {
-  dbMessages.value.unshift({ severity, text, time: Date.now() })
-  if (dbMessages.value.length > 500) dbMessages.value = dbMessages.value.slice(0, 500)
-}
-
-function formatMessageTime(index: number): string {
-  const msg = dbMessages.value[index]
-  if (!msg || !msg.time) return ''
-  const d = new Date(msg.time)
-  const h = d.getHours().toString().padStart(2, '0')
-  const m = d.getMinutes().toString().padStart(2, '0')
-  const s = d.getSeconds().toString().padStart(2, '0')
-  const ms = d.getMilliseconds().toString().padStart(3, '0')
-  return `${h}:${m}:${s}.${ms}`
+  rightPanelStore.pushDbMessage({
+    severity,
+    text,
+    time: Date.now(),
+    connectionName: currentConnection.value?.name,
+    database: selectedDatabase.value || currentConnection.value?.database,
+  })
 }
 
 function revealResultPanel() { resultPanelVisible.value = true }
 function toggleResultPanel() { resultPanelVisible.value = !resultPanelVisible.value; setStorageItem(RESULT_PANEL_VISIBLE_KEY, resultPanelVisible.value) }
-function toggleMessagesPanel() { messagesPanelVisible.value = !messagesPanelVisible.value; setStorageItem(MESSAGES_PANEL_VISIBLE_KEY, messagesPanelVisible.value) }
-function clearDbMessages() { dbMessages.value = [] }
 
 function appendQueryResults(results: QueryResult[], states: Array<{ pagination: { current: number; pageSize: number }; loading: boolean; hasMore: boolean; sql: string }>) {
   const startIndex = queryResults.value.length
@@ -726,7 +693,7 @@ function startResultResize(e: PointerEvent) {
 // ── 编辑器操作 ──
 function focusEditor() { if (!editor) return; editor.layout(); editor.focus() }
 async function formatSql() { if (!editor) return; try { const f = await queryApi.beautifySql(sessionConnectionId.value, editor.getValue()); editor.setValue(f); message.success(t('editor.format_success')) } catch (e: unknown) { message.error(getErrorMessage(e)) } }
-function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'result-0'; errorTabs.value = []; resultTabCreatedAt.value = {}; dbMessages.value = []; Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
+function clearEditor() { editor?.setValue(''); queryResults.value = []; resultTabKey.value = 'result-0'; errorTabs.value = []; resultTabCreatedAt.value = {}; rightPanelStore.clearDbMessages(); Object.keys(queryResultStates).forEach(k => delete queryResultStates[Number(k)]); Object.keys(resultClipboardSelections).forEach(k => delete resultClipboardSelections[Number(k)]); hideResultContextMenu(); execution.hideSummary() }
 function handleQuerySaved() { message.success(t('common.save')) }
 
 async function refreshAutocomplete() { const bid = props.connectionId || connectionStore.activeConnectionId; if (!bid || !autocompleteManager) return; autocompleteManager.clearCache(bid); updateAutocompleteContext(); message.success(t('editor.refresh_cache_success')) }
@@ -1063,7 +1030,6 @@ function handleToolbarAction(method: string) {
     openSnippets,
     refreshAutocomplete,
     toggleResultPanel,
-    toggleMessagesPanel,
   }
   actions[method]?.()
 }
@@ -1197,7 +1163,6 @@ watch(() => {
   }
 })
 watch(resultPanelVisible, v => setStorageItem(RESULT_PANEL_VISIBLE_KEY, v))
-watch(messagesPanelVisible, v => setStorageItem(MESSAGES_PANEL_VISIBLE_KEY, v))
 watch(resultPanelHeight, v => {
   if (!isSplitResizing.value) setStorageItem(RESULT_PANEL_HEIGHT_KEY, v)
 })

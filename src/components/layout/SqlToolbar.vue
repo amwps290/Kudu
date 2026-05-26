@@ -69,11 +69,6 @@
             <template #icon><TableOutlined /></template>
           </a-button>
         </a-tooltip>
-        <a-tooltip :title="$t('editor.messages')">
-          <a-button type="text" size="small" class="result-toggle-btn" :class="{ active: messagesPanelVisible }" @click="$emit('action', 'toggleMessagesPanel')">
-            <template #icon><MessageOutlined /></template>
-          </a-button>
-        </a-tooltip>
       </template>
 
       <!-- 水平布局 -->
@@ -147,11 +142,6 @@
             <template #icon><TableOutlined /></template>
           </a-button>
         </a-tooltip>
-        <a-tooltip :title="$t('editor.messages')">
-          <a-button type="text" size="small" class="result-toggle-btn" :class="{ active: messagesPanelVisible }" @click="$emit('action', 'toggleMessagesPanel')">
-            <template #icon><MessageOutlined /></template>
-          </a-button>
-        </a-tooltip>
       </template>
     </div>
   </div>
@@ -162,7 +152,7 @@ import { ref, computed, nextTick } from 'vue'
 import {
   PlayCircleFilled, StopOutlined, SaveOutlined, FileAddOutlined,
   FormatPainterOutlined, ClearOutlined, HistoryOutlined, CodeOutlined, SyncOutlined,
-  SearchOutlined, DatabaseOutlined, TableOutlined, MessageOutlined, ApartmentOutlined, PlusOutlined
+  SearchOutlined, DatabaseOutlined, TableOutlined, ApartmentOutlined, PlusOutlined
 } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import type { DatabaseInfo } from '@/types/database'
@@ -172,13 +162,11 @@ const props = withDefaults(defineProps<{
   selectedDatabase: string
   databases: DatabaseInfo[]
   resultPanelVisible?: boolean
-  messagesPanelVisible?: boolean
   vertical?: boolean
   showSearchPath?: boolean
   searchPath?: string
 }>(), {
   resultPanelVisible: false,
-  messagesPanelVisible: false,
   vertical: false,
   showSearchPath: false,
   searchPath: '',

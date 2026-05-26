@@ -25,6 +25,7 @@
             @edit-connection="handleEditConnection"
             @table-selected="handleTableSelected"
             @database-selected="handleDatabaseSelected"
+            @object-selected="handleObjectSelected"
             @new-query="handleNewQuery"
             @design-table="handleDesignTable"
             @view-structure="handleViewStructure"
@@ -76,6 +77,8 @@
           </a-empty>
         </div>
       </div>
+
+      <RightPanelHost />
     </a-layout-content>
 
     <div
@@ -134,6 +137,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useConnectionStore } from '@/stores/connection'
+import { useRightPanelStore } from '@/stores/rightPanel'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useSidebarResize } from '@/composables/useSidebarResize'
 import { useTabManager } from '@/composables/useTabManager'
@@ -165,10 +169,12 @@ const QueryBuilder = defineAsyncComponent(() => import('@/components/tools/Query
 const DataCompare = defineAsyncComponent(() => import('@/components/tools/DataCompare.vue'))
 const SettingsContent = defineAsyncComponent(() => import('@/components/settings/SettingsContent.vue'))
 const AppStatusBar = defineAsyncComponent(() => import('@/components/layout/AppStatusBar.vue'))
+const RightPanelHost = defineAsyncComponent(() => import('@/components/right-panel/RightPanelHost.vue'))
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const connectionStore = useConnectionStore()
+const rightPanelStore = useRightPanelStore()
 const workspaceStore = useWorkspaceStore()
 
 // Composables
@@ -227,11 +233,29 @@ const tabActions = useWorkspaceTabActions({
   tabExists,
   addTab,
   openOrCreateQueryTab,
+  onInspectObject: (payload) => {
+    const connection = payload.connectionId
+      ? connectionStore.connections.find(item => item.id === payload.connectionId)
+      : null
+    rightPanelStore.setContext({
+      connectionId: payload.connectionId,
+      connectionName: connection?.name,
+      database: payload.database,
+      schema: payload.schema,
+      objectName: payload.objectName,
+      objectType: payload.objectType,
+      tabKey: payload.tabKey,
+      tabType: payload.tabType,
+      readOnly: payload.readOnly,
+      metadata: payload.metadata,
+    })
+  },
 })
 
 const {
   handleTableSelected,
   handleDatabaseSelected,
+  handleObjectSelected,
   handleNewQuery,
   handleOpenSavedScript,
   handleGeneratedSql,
@@ -286,6 +310,29 @@ const { restoreSession } = sessionLifecycle
 
 watch(dataTabs, sessionLifecycle.scheduleSessionSave, { deep: true })
 watch(mainTabKey, sessionLifecycle.scheduleSessionSave)
+
+watch(
+  [activeTab, () => connectionStore.connections],
+  ([tab]) => {
+    if (!tab) return
+    const connection = tab.connectionId
+      ? connectionStore.connections.find(item => item.id === tab.connectionId)
+      : null
+    rightPanelStore.setContext({
+      connectionId: tab.connectionId,
+      connectionName: connection?.name,
+      database: tab.database,
+      schema: tab.schema,
+      objectName: tab.table || tab.title,
+      objectType: tab.table ? 'table' : 'unknown',
+      tabKey: tab.key,
+      tabType: tab.type,
+      readOnly: tab.readOnly,
+      metadata: tab as unknown as Record<string, unknown>,
+    })
+  },
+  { deep: true, immediate: true }
+)
 
 const { setupClipboardRouting, cleanupClipboardRouting } = useWorkspaceClipboardRouting({
   activeTabType,

@@ -113,6 +113,7 @@
               @update-matches-count="handleUpdateMatchesCount"
               @table-selected="(data: TableTreeEventData) => emit('table-selected', { ...data, connectionId: conn.id })"
               @database-selected="(data: DatabaseTreeEventData) => emit('database-selected', { ...data, connectionId: conn.id })"
+              @object-selected="(data: any) => emit('object-selected', { ...data, connectionId: conn.id })"
               @new-query="(data: QueryTreeEventData) => emit('new-query', data)"
               @design-table="(data: TableTreeEventData) => emit('design-table', { ...data, connectionId: conn.id })"
               @view-structure="(data: TableTreeEventData) => emit('view-structure', { ...data, connectionId: conn.id })"
@@ -188,7 +189,7 @@ import { useContextMenu } from '@/composables/useContextMenu'
 import { createStartupTimer, logStartupStage } from '@/utils/startupProfiler'
 
 const { t } = useI18n()
-const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
+const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
 
 const connectionStore = useConnectionStore()
 const searchText = ref('')

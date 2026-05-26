@@ -21,6 +21,15 @@
     </div>
 
     <div class="status-group status-group--right">
+      <button
+        type="button"
+        class="status-toggle status-toggle--icon"
+        :title="rightPanelStore.collapsed ? $t('right_panel.show') : $t('right_panel.hide')"
+        @click="rightPanelStore.toggleCollapsed()"
+      >
+        i
+      </button>
+      <span class="status-divider"></span>
       <span class="status-item">
         <span class="status-label">{{ $t('status_bar.connection_status') }}</span>
         <span class="status-badge" :class="connectionStatusClass">{{ connectionStatusLabel }}</span>
@@ -39,6 +48,7 @@ import { computed } from 'vue'
 import type { ConnectionStatus } from '@/types/database'
 import type { SqlExecutionState } from '@/types/sqlExecution'
 import { useI18n } from 'vue-i18n'
+import { useRightPanelStore } from '@/stores/rightPanel'
 
 const props = defineProps<{
   connectionName: string
@@ -50,6 +60,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const rightPanelStore = useRightPanelStore()
 
 const connectionStatusLabel = computed(() => {
   switch (props.connectionStatus) {
@@ -114,6 +125,38 @@ const taskStatusLabel = computed(() => {
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--app-text-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.status-toggle--icon {
+  width: 22px;
+  min-width: 22px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.status-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--app-text);
 }
 
 .status-label {

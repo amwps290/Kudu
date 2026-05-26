@@ -1,6 +1,7 @@
 import type { EditorSettings, InterfaceSettings, ThemeMode, Language, DatabaseSettings, LogLevel } from '@/stores/app'
+import type { RightPanelSettings } from '@/types/rightPanel'
 
-type StorageKey = 'theme' | 'language' | 'log_level' | 'sidebar_collapsed' | 'sql_history' | 'editor_settings' | 'interface_settings' | 'database_settings'
+type StorageKey = 'theme' | 'language' | 'log_level' | 'sidebar_collapsed' | 'sql_history' | 'editor_settings' | 'interface_settings' | 'database_settings' | 'right_panel_settings'
 
 interface StorageSchema {
   theme: ThemeMode
@@ -11,6 +12,7 @@ interface StorageSchema {
   editor_settings: EditorSettings
   interface_settings: InterfaceSettings
   database_settings: DatabaseSettings
+  right_panel_settings: RightPanelSettings
 }
 
 /**

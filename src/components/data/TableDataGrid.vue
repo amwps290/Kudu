@@ -54,10 +54,6 @@
             {{ $t('data.export') }}
           </a-button>
         </a-dropdown>
-        <a-divider type="vertical" />
-        <a-button :type="showViewer ? 'primary' : 'default'" @click="showViewer = !showViewer">
-          {{ $t('data.cell_viewer') }}
-        </a-button>
       </a-space>
       
       <div class="toolbar-right">
@@ -96,46 +92,6 @@
         </template>
       </vxe-grid>
     </div>
-
-    <!-- 单元格查看器 Drawer -->
-    <a-drawer
-      v-model:open="showViewer"
-      :title="$t('data.cell_viewer')"
-      placement="right"
-      :width="500"
-      :mask="false"
-      class="cell-viewer-drawer"
-    >
-      <template #extra>
-        <a-space>
-          <a-button size="small" @click="formatJsonInViewer">{{ $t('data.format_json') }}</a-button>
-          <a-dropdown-button size="small" @click="copyViewerContent">
-            {{ $t('data.copy_content') }}
-            <template #overlay>
-              <a-menu @click="handleViewerCopyAction">
-                <a-menu-item key="cell">{{ $t('data.copy_content') }}</a-menu-item>
-                <a-menu-item key="row-json">{{ $t('data.copy_row_json') }}</a-menu-item>
-                <a-menu-item key="row-insert">{{ $t('data.copy_row_insert_sql') }}</a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown-button>
-        </a-space>
-      </template>
-      <div v-if="selectedCell" class="viewer-container">
-        <div class="viewer-header">
-          <a-tag color="blue">{{ selectedCell.column.title }}</a-tag>
-          <a-checkbox v-model:checked="isViewerSetNull" @change="handleViewerNullChange" :disabled="isReadOnly">{{ $t('data.set_null') }}</a-checkbox>
-        </div>
-        <a-textarea
-          v-model:value="viewerValue"
-          :rows="20"
-          :disabled="isReadOnly || isViewerSetNull"
-          class="viewer-textarea"
-          @change="handleViewerValueChange"
-        />
-      </div>
-      <a-empty v-else :description="$t('data.select_cell_prompt')" />
-    </a-drawer>
 
     <!-- 筛选对话框 -->
     <a-modal v-model:open="showFilterDialog" :title="$t('data.data_filter')" @ok="applyFilter">
@@ -196,6 +152,7 @@ import { message, Modal } from '@/ui/antd'
 import { queryApi, metadataApi, dataApi, exportApi } from '@/api'
 import { save } from '@tauri-apps/plugin-dialog'
 import { useConnectionStore } from '@/stores/connection'
+import { useRightPanelStore } from '@/stores/rightPanel'
 import InsertRecordDialog from '@/components/database/InsertRecordDialog.vue'
 import ImportDataDialog from '@/components/database/ImportDataDialog.vue'
 import { writeClipboardText } from '@/utils/clipboard'
@@ -251,6 +208,7 @@ const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRunti
 const { t } = useI18n()
 const props = defineProps<{ connectionId: string; database: string; table: string; schema?: string }>()
 const connectionStore = useConnectionStore()
+const rightPanelStore = useRightPanelStore()
 const gridRef = ref<VxeGridInstance>()
 
 const loading = ref(false)
@@ -279,7 +237,6 @@ const changeCount = computed(() => {
 })
 
 // 查看器状态
-const showViewer = ref(false)
 const selectedCell = ref<GridCell | null>(null)
 const viewerValue = ref('')
 const isViewerSetNull = ref(false)
@@ -377,6 +334,8 @@ function handleCellClick(params: Record<string, unknown>) {
   selectedCell.value = { row, column: { field, title, type: column.type as string | undefined } }
   viewerValue.value = row[field] === null ? '' : String(row[field])
   isViewerSetNull.value = row[field] === null
+  syncRightPanelCellViewer()
+  rightPanelStore.setActivePanel('cell')
 }
 
 function applyViewerSelection(row: GridRow, field: string) {
@@ -388,7 +347,8 @@ function applyViewerSelection(row: GridRow, field: string) {
   selectedCell.value = { row, column: { field: colField, title: colTitle, type: (gridColumn as Record<string, unknown>).type as string | undefined } }
   viewerValue.value = row[field] === null ? '' : String(row[field])
   isViewerSetNull.value = row[field] === null
-  showViewer.value = true
+  syncRightPanelCellViewer()
+  rightPanelStore.setActivePanel('cell')
 }
 
 function handleViewerValueChange() {
@@ -399,6 +359,7 @@ function handleViewerValueChange() {
   if (row._isDeletedPending) return
   row[colField] = viewerValue.value
   recordChange(row, colField, viewerValue.value)
+  syncRightPanelCellViewer()
 }
 
 function handleViewerNullChange() {
@@ -411,6 +372,7 @@ function handleViewerNullChange() {
   row[colField] = newVal
   viewerValue.value = newVal === null ? '' : ''
   recordChange(row, colField, newVal)
+  syncRightPanelCellViewer()
 }
 
 function formatJsonInViewer() {
@@ -463,21 +425,6 @@ async function copySelectedRowAsInsertSql() {
   message.success(t('data.copy_row_insert_sql_success'))
 }
 
-async function handleViewerCopyAction({ key }: { key: string | number }) {
-  const action = String(key)
-  if (action === 'cell') {
-    await copyViewerContent()
-    return
-  }
-  if (action === 'row-json') {
-    await copySelectedRowAsJson()
-    return
-  }
-  if (action === 'row-insert') {
-    await copySelectedRowAsInsertSql()
-  }
-}
-
 function clearPendingEdits() {
   Object.keys(pendingEdits).forEach(k => delete pendingEdits[Number(k)])
 }
@@ -514,7 +461,37 @@ function clearViewerIfNeeded(rowIndexes?: Set<number>) {
     selectedCell.value = null
     viewerValue.value = ''
     isViewerSetNull.value = false
+    rightPanelStore.clearCellViewer()
   }
+}
+
+function syncRightPanelCellViewer() {
+  if (!selectedCell.value) {
+    rightPanelStore.clearCellViewer()
+    return
+  }
+
+  rightPanelStore.setCellViewer({
+    columnTitle: selectedCell.value.column.title || selectedCell.value.column.field || '',
+    field: selectedCell.value.column.field || '',
+    rowLabel: `Row #${selectedCell.value.row.__rowIndex}`,
+    value: viewerValue.value,
+    isNull: isViewerSetNull.value,
+    readOnly: isReadOnly.value,
+    objectName: props.table,
+    onChange: (value: string) => {
+      viewerValue.value = value
+      handleViewerValueChange()
+    },
+    onToggleNull: (checked: boolean) => {
+      isViewerSetNull.value = checked
+      handleViewerNullChange()
+    },
+    onFormatJson: formatJsonInViewer,
+    onCopyCell: () => { void copyViewerContent() },
+    onCopyRowJson: () => { void copySelectedRowAsJson() },
+    onCopyRowInsert: () => { void copySelectedRowAsInsertSql() },
+  })
 }
 
 function createGridRow(rowData: Record<string, unknown>, options: { isNew?: boolean } = {}): GridRow {
@@ -863,7 +840,8 @@ async function focusNewRow(row: GridRow) {
   selectedCell.value = { row, column: targetColumn }
   viewerValue.value = row[fieldName] === null ? '' : String(row[fieldName])
   isViewerSetNull.value = row[fieldName] === null
-  showViewer.value = true
+  syncRightPanelCellViewer()
+  rightPanelStore.setActivePanel('cell')
   ;(gridRef.value as any)?.setCurrentRow?.(row)
   ;(gridRef.value as any)?.scrollToRow?.(row)
 }
@@ -996,8 +974,5 @@ watch(
 :deep(.cell-new-row) { background-color: var(--color-primary-soft-bg) !important; }
 :deep(.cell-pending-delete) { background-color: var(--color-danger-soft-bg) !important; color: var(--color-danger); text-decoration: line-through; pointer-events: none; opacity: 0.75; }
 
-.viewer-container { padding: 12px; height: 100%; display: flex; flex-direction: column; background: var(--surface); color: var(--app-text); }
-.viewer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.viewer-textarea { flex: 1; font-family: monospace; }
 .preview-sql :deep(textarea) { font-family: monospace; }
 </style>

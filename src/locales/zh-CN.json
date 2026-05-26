@@ -930,5 +930,82 @@
     "no_connection": "未选择连接",
     "not_available": "未指定",
     "default_schema": "默认"
+  },
+  "right_panel": {
+    "title": "对象面板",
+    "show": "显示面板",
+    "hide": "隐藏面板",
+    "empty": "请选择一个对象",
+    "panels": {
+      "cell": "单元格查看器",
+      "output": "数据库输出",
+      "object": "对象信息"
+    },
+    "sections": {
+      "overview": "概览",
+      "details": "详细信息"
+    },
+    "actions": {
+      "copy_name": "复制名称",
+      "copy_json": "复制 JSON"
+    },
+    "fields": {
+      "connection": "连接",
+      "schema": "Schema",
+      "path": "路径",
+      "tab_type": "标签类型",
+      "read_only": "只读",
+      "table_type": "表类型",
+      "engine": "引擎",
+      "rows": "行数",
+      "size": "大小",
+      "table_size": "表大小",
+      "index_size": "索引大小",
+      "data_type": "数据类型",
+      "default_value": "默认值",
+      "nullable": "可为空",
+      "return_type": "返回类型",
+      "language": "语言",
+      "function_type": "函数类型",
+      "arguments": "参数",
+      "column_name": "列名",
+      "referenced_table": "引用表",
+      "referenced_column": "引用列",
+      "update_rule": "更新规则",
+      "delete_rule": "删除规则",
+      "event": "事件",
+      "timing": "时机",
+      "index_type": "索引类型",
+      "predicate": "过滤条件",
+      "version": "版本",
+      "base_type": "基础类型",
+      "partition_key": "分区键",
+      "partition_parent": "父表",
+      "partition_bound": "分区范围",
+      "instead_rule": "替代规则",
+      "constraint_count": "约束数量",
+      "field_count": "字段数量",
+      "last_value": "当前值",
+      "next_value": "下一个值",
+      "start_value": "起始值",
+      "increment_by": "步长",
+      "is_called": "已调用",
+      "time": "时间",
+      "level": "级别",
+      "scope": "范围",
+      "message": "消息",
+      "include_columns": "包含列",
+      "labels": "标签",
+      "constraints": "约束"
+    },
+    "cell_viewer": {
+      "default_target": "当前表",
+      "no_row_label": "当前单元格",
+      "empty": "请选择一个单元格"
+    },
+    "output": {
+      "title": "数据库输出",
+      "subtitle": "共 {count} 条消息"
+    }
   }
 }

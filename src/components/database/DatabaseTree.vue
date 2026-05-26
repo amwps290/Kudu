@@ -302,7 +302,7 @@ interface SearchOptions {
 }
 
 const props = defineProps<{ connectionId: string | null; dbType?: string; searchOptions?: SearchOptions }>()
-const emit = defineEmits(['table-selected', 'database-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'updateMatchesCount'])
+const emit = defineEmits(['table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'updateMatchesCount'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
@@ -604,10 +604,9 @@ async function onLoadData(treeNode: TreeNode) {
         res = await metadataApi.getTables(connId, treeNode.metadata.database)
       }
       const children = res.map(t => {
-        const sizeLabel = typeof t.size_mb === 'number' ? formatStorageSize(Math.max(0, t.size_mb * 1024 * 1024)) : ''
         return {
           key: `${treeNode.key}-${t.name}`,
-          title: formatTableNodeTitle(t, sizeLabel),
+          title: formatTableNodeTitle(t),
           type: isMaterializedViews ? 'materialized-view' : isViews ? 'view' : 'table',
           isLeaf: false,
           metadata: { ...t, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
@@ -674,44 +673,11 @@ async function onLoadData(treeNode: TreeNode) {
         }
 
         if (isDomainType) {
-          const detailChildren = [
-            {
-              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-base-type`,
-              title: `${t('common.type')}: ${item.base_type}`,
-              type: 'domain-detail',
-              isLeaf: true,
-              metadata: { label: t('common.type'), value: item.base_type, database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
-            },
-            {
-              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-default`,
-              title: `${t('designer.default_value')}: ${item.default_value ?? 'NULL'}`,
-              type: 'domain-detail',
-              isLeaf: true,
-              metadata: { label: t('designer.default_value'), value: item.default_value ?? 'NULL', database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
-            },
-            {
-              key: `${treeNode.key}-oid-${item.oid ?? item.name}-detail-nullable`,
-              title: `${t('designer.nullable')}: ${item.nullable ? t('common.yes') : t('common.no')}`,
-              type: 'domain-detail',
-              isLeaf: true,
-              metadata: { label: t('designer.nullable'), value: item.nullable ? t('common.yes') : t('common.no'), database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
-            },
-            ...(Array.isArray(item.constraints)
-              ? item.constraints.map((constraint: any, index: number) => ({
-                  key: `${treeNode.key}-oid-${item.oid ?? item.name}-constraint-${index}`,
-                  title: `${constraint.name}${constraint.definition ? `: ${constraint.definition}` : ''}`,
-                  type: 'domain-constraint',
-                  isLeaf: true,
-                  metadata: { ...constraint, database: treeNode.metadata.database, schema: treeNode.metadata.schema, domain_name: item.name, oid: item.oid }
-                }))
-              : [])
-          ]
           return {
             key: `${treeNode.key}-oid-${item.oid ?? item.name}`,
-            title: `${title} : ${item.base_type}`,
+            title,
             type: 'domain-type',
-            isLeaf: false,
-            children: detailChildren.length ? detailChildren : [{ key: `${treeNode.key}-oid-${item.oid ?? item.name}-empty`, title: t('tree.empty'), type: 'empty', isLeaf: true }],
+            isLeaf: true,
             metadata: { ...item, database: treeNode.metadata.database, schema: treeNode.metadata.schema }
           }
         }
@@ -787,11 +753,9 @@ async function onLoadData(treeNode: TreeNode) {
         const includeColumns = index.include_columns?.length ? ` INCLUDE (${index.include_columns.join(', ')})` : ''
         const predicate = index.predicate ? ` WHERE ${index.predicate}` : ''
 
-        const sizeLabel = formatStorageSize(index.size_bytes)
-
         return {
           key: `${treeNode.key}-idx-${index.name}`,
-          title: `${index.name}${indexBadge}${indexColumns}${includeColumns}${predicate}${sizeLabel ? ` · ${sizeLabel}` : ''}`,
+          title: `${index.name}${indexBadge}${indexColumns}${includeColumns}${predicate}`,
           type: 'index',
           isLeaf: true,
           metadata: { ...index, database: treeNode.metadata.database, table: treeNode.metadata.name, schema: treeNode.metadata.schema }
@@ -1001,6 +965,16 @@ function handleSelect(payload: TreeNode | { node: TreeNode; event?: MouseEvent }
     selectedKeys.value = [node.key]
   }
 
+  selectedNode.value = node
+
+  if (!VIRTUAL_GROUP_NODE_TYPES.includes(node.type)) {
+    emit('object-selected', {
+      type: node.type,
+      title: node.title,
+      metadata: node.metadata || {},
+    })
+  }
+
   if (node.type === 'database') emit('database-selected', node.metadata)
 }
 async function handleDoubleClick(node: TreeNode) {
@@ -1049,27 +1023,13 @@ function metaStr(node: TreeNode, key: string): string {
   return String((node.metadata as Record<string, unknown>)?.[key] || '')
 }
 
-function formatTableNodeTitle(table: any, sizeLabel = ''): string {
+function formatTableNodeTitle(table: any) {
   const badges = []
   if (table.is_partitioned) badges.push(t('tree.partitioned_table'))
   else if (table.partition_parent) badges.push(t('tree.partition'))
 
   const details = [...badges]
-  if (sizeLabel) details.push(sizeLabel)
   return details.length ? `${table.name} · ${details.join(' · ')}` : table.name
-}
-
-function formatStorageSize(sizeInBytes?: number | null): string {
-  if (!sizeInBytes || sizeInBytes < 0) return ''
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let value = sizeInBytes
-  let unitIndex = 0
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-  const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
-  return `${displayValue}${units[unitIndex]}`
 }
 
 async function refreshDatabaseNode(databaseName: string) {
