@@ -83,6 +83,13 @@ export const metadataApi = {
   },
 
   /**
+   * 获取可安装扩展列表 (PostgreSQL)
+   */
+  async getAvailableExtensions(connectionId: string, database: string): Promise<string[]> {
+    return withAutoReconnect(connectionId, () => invoke<string[]>('get_available_extensions', { connectionId, database }), true)
+  },
+
+  /**
    * 获取 Schema 下的序列 (PostgreSQL)
    */
   async getSchemaSequences(connectionId: string, database: string, schema: string): Promise<SequenceInfo[]> {

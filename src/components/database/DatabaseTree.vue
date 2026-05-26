@@ -270,15 +270,20 @@
 
     <a-modal v-model:open="showInstallExtensionModal" :title="$t('tree.install_extension')" @ok="submitInstallExtension" :confirm-loading="installExtensionSubmitting">
       <div class="rename-form">
-        <a-input
+        <a-select
           v-model:value="installExtensionName"
+          show-search
+          :options="availableExtensionOptions"
           :placeholder="$t('tree.install_extension_placeholder')"
-          @pressEnter="submitInstallExtension"
+          :filter-option="filterSelectOption"
         />
-        <a-input
+        <a-select
           v-model:value="installExtensionSchema"
+          allow-clear
+          show-search
+          :options="installExtensionSchemaOptions"
           :placeholder="$t('tree.install_extension_schema_placeholder')"
-          @pressEnter="submitInstallExtension"
+          :filter-option="filterSelectOption"
         />
       </div>
     </a-modal>
@@ -431,6 +436,8 @@ const renameSubmitting = ref(false)
 const installExtensionName = ref('')
 const installExtensionSchema = ref('')
 const installExtensionSubmitting = ref(false)
+const availableExtensionOptions = ref<Array<{ label: string; value: string; disabled?: boolean }>>([])
+const installExtensionSchemaOptions = ref<Array<{ label: string; value: string }>>([])
 const renameMode = ref<'table' | 'column' | 'schema' | 'create-schema'>('table')
 const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDdlEditor } = useMonacoEditor(ddlEditorContainer, {
   language: 'sql',
@@ -1554,12 +1561,32 @@ function openRenameModal(mode: 'table' | 'column' | 'schema' | 'create-schema' =
   showRenameModal.value = true
 }
 
-function openInstallExtensionModal() {
+async function openInstallExtensionModal() {
   const node = selectedNode.value
-  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  if (!node || node.type !== 'database' || props.dbType !== 'postgresql' || !props.connectionId) return
   installExtensionName.value = ''
   installExtensionSchema.value = ''
+  availableExtensionOptions.value = []
+  installExtensionSchemaOptions.value = []
   showInstallExtensionModal.value = true
+  try {
+    const database = metaStr(node, 'name') || metaStr(node, 'database') || ''
+    const [extensions, schemas, installedExtensions] = await Promise.all([
+      metadataApi.getAvailableExtensions(props.connectionId, database),
+      metadataApi.getSchemas(props.connectionId, database),
+      metadataApi.getDatabaseExtensions(props.connectionId, database),
+    ])
+    const installedNames = new Set(installedExtensions.map(item => item.name))
+    availableExtensionOptions.value = extensions.map(item => ({
+      label: installedNames.has(item) ? `${item} (${t('tree.installed')})` : item,
+      value: item,
+      disabled: installedNames.has(item),
+    }))
+    installExtensionSchemaOptions.value = schemas.map(item => ({ label: item.name, value: item.name }))
+    installExtensionSchema.value = schemas.find(item => item.name === 'public')?.name || schemas[0]?.name || ''
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  }
 }
 
 async function submitRename() {
@@ -1632,6 +1659,11 @@ async function submitInstallExtension() {
   } finally {
     installExtensionSubmitting.value = false
   }
+}
+
+function filterSelectOption(input: string, option?: { label?: string; value?: string | number }) {
+  const label = String(option?.label ?? option?.value ?? '').toLowerCase()
+  return label.includes(input.toLowerCase())
 }
 
 async function refreshSchemaParent(node: TreeNode, targetSchemaName?: string) {

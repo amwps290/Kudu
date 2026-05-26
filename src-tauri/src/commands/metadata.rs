@@ -78,6 +78,15 @@ pub async fn get_database_extensions(connection_id: String, database: String, st
 }
 
 #[tauri::command]
+pub async fn get_available_extensions(connection_id: String, database: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    tracing::info!(conn = %connection_id, db = %database, "正在获取可安装扩展...");
+    state.connection_manager.get_available_extensions(&connection_id, Some(&database)).await.map_err(|e| {
+        tracing::error!(err = %e, "获取可安装扩展失败");
+        e.to_string()
+    })
+}
+
+#[tauri::command]
 pub async fn get_schema_sequences(connection_id: String, database: String, schema: String, state: State<'_, AppState>) -> Result<Vec<SequenceInfo>, String> {
     tracing::info!(conn = %connection_id, db = %database, sc = %schema, "正在获取 Schema 序列...");
     state.connection_manager.get_sequences(&connection_id, Some(&database), Some(&schema)).await.map_err(|e| {

@@ -546,6 +546,10 @@ pub trait DatabaseOperations: Send + Sync {
         Ok(Vec::new())
     }
 
+    async fn get_available_extensions(&self, _database: Option<&str>) -> DbResult<Vec<String>> {
+        Ok(Vec::new())
+    }
+
     async fn get_sequences(&self, _database: Option<&str>, _schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
         Ok(Vec::new())
     }

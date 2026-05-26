@@ -167,6 +167,7 @@ function getIconConfig(node: TreeNode) {
     'composite-field': { icon: 'ph:text-t-bold', color: 'var(--icon-color-gray)' },
     'schema-aggregates': { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
     aggregates: { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
+    aggregate: { icon: 'ph:function-duotone', color: 'var(--icon-color-purple)' },
     'schema-indexes': { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     index: { icon: 'ph:list-numbers-duotone', color: 'var(--icon-color-orange)' },
     'foreign-key': { icon: 'ph:link-duotone', color: 'var(--icon-color-teal)' },

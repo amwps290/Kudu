@@ -75,6 +75,7 @@ fn main() {
             commands::metadata::get_procedures,
             commands::metadata::get_schema_indexes,
             commands::metadata::get_database_extensions,
+            commands::metadata::get_available_extensions,
             commands::metadata::get_sequence_definition,
             commands::metadata::get_sequence_state,
             commands::metadata::get_enum_definition,

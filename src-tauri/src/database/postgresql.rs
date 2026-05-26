@@ -1481,6 +1481,17 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(rows.into_iter().map(|r| ExtensionInfo { oid: r.try_get(0).ok(), name: r.get(1), version: r.get(2), schema: Some(r.get(3)), relocatable: r.try_get(4).ok(), comment: r.try_get(5).ok() }).collect())
     }
 
+    async fn get_available_extensions(&self, _database: Option<&str>) -> DbResult<Vec<String>> {
+        let client = self.get_client_arc().await?;
+        let sql = "
+            SELECT name
+            FROM pg_available_extensions
+            ORDER BY name
+        ";
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        Ok(rows.into_iter().map(|row| row.get::<_, String>(0)).collect())
+    }
+
     async fn get_sequences(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
@@ -1771,6 +1782,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 AND NOT a.attisdropped
             WHERE n.nspname = $1
               AND t.typtype = 'c'
+              AND c.relkind = 'c'
             ORDER BY t.typname, a.attnum
         ";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
@@ -1827,6 +1839,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 AND NOT a.attisdropped
             WHERE n.nspname = {schema}
               AND t.typtype = 'c'
+              AND c.relkind = 'c'
               AND (({oid_condition}) OR ({oid_is_null} AND t.typname = {name}))
             ORDER BY t.oid, a.attnum
             ",

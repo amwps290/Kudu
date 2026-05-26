@@ -161,7 +161,7 @@
 
       <!-- 空状态 -->
       <div v-else class="result-content">
-        <a-empty :description="$t('editor.no_result')" />
+        <div class="result-empty-state"></div>
       </div>
     </div>
 
@@ -1219,6 +1219,7 @@ defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, exp
 .resizer-handle { display: none; }
 /* ── 无数据结果 (DDL 等) ── */
 .result-empty-ddl { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
+.result-empty-state { flex: 1; min-height: 120px; }
 .ddl-success-icon { font-size: 28px; color: var(--color-success); }
 .ddl-success-text { font-size: 14px; font-weight: 600; color: var(--app-text); }
 .ddl-elapsed { font-size: 12px; color: var(--app-text-subtle); font-variant-numeric: tabular-nums; }

@@ -264,6 +264,7 @@
     "install_extension_schema_placeholder": "目标 Schema，可选",
     "install_extension_empty": "请输入扩展名称",
     "install_extension_success": "扩展 {name} 已安装",
+    "installed": "已安装",
     "uninstall_extension": "卸载扩展",
     "uninstall_extension_confirm": "确定要卸载扩展 {name} 吗？",
     "uninstall_extension_success": "扩展 {name} 已卸载",

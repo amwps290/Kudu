@@ -264,6 +264,7 @@
     "install_extension_schema_placeholder": "Target schema, optional",
     "install_extension_empty": "Please enter an extension name",
     "install_extension_success": "Extension {name} installed",
+    "installed": "Installed",
     "uninstall_extension": "Uninstall Extension",
     "uninstall_extension_confirm": "Are you sure you want to uninstall extension {name}?",
     "uninstall_extension_success": "Extension {name} uninstalled",

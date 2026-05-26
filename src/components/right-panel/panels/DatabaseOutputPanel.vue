@@ -29,7 +29,7 @@
       </div>
     </div>
 
-    <a-empty v-else :description="$t('editor.messages_hint')" />
+    <div v-else class="panel-empty-state"></div>
   </div>
 </template>
 
@@ -161,5 +161,8 @@ function formatScope(connectionName?: string, database?: string) {
 .message-cell {
   user-select: text !important;
   -webkit-user-select: text !important;
+}
+.panel-empty-state {
+  min-height: 120px;
 }
 </style>
