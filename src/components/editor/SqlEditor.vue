@@ -202,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, watch, ref, computed, onActivated, reactive, h, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRightPanelStore } from '@/stores/rightPanel'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
