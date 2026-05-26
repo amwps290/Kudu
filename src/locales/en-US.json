@@ -283,6 +283,7 @@
     "inspect_blocking": "Inspect Blocking",
     "inspect_object_grants": "Inspect Grants",
     "view_data": "View Data",
+    "view_er_diagram": "View ER Diagram",
     "view_ddl": "View DDL",
     "design_table": "Design Table",
     "copy_name": "Copy Name",
@@ -437,6 +438,8 @@
     "manual_stop": "Manually stopped",
     "format_success": "Format complete",
     "refresh_cache_success": "Autocomplete cache refreshed",
+    "open_sql_file": "Open SQL File",
+    "sql_file": "SQL File",
     "save_as": "Save As",
     "discard_changes": "Discard",
     "unsaved_close_title": "You have unsaved changes",
@@ -911,6 +914,14 @@
       "diff_missing_column_msg": "Target is missing column: {column}",
       "diff_type_mismatch": "Type Mismatch",
       "diff_type_mismatch_msg": "Column {column} type differs: {source} vs {target}"
+    },
+    "er_diagram": {
+      "title": "ER Diagram",
+      "summary": "{tables} tables, {relations} relations",
+      "zoom_in": "Zoom In",
+      "zoom_out": "Zoom Out",
+      "fit_view": "Fit View",
+      "empty": "No ER relations are available for the selected table"
     }
   },
   "search": {

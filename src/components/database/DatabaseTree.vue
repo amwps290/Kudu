@@ -60,6 +60,7 @@
           <!-- 表节点（完整菜单） -->
           <template v-else-if="selectedNode?.type === 'table'">
             <a-menu-item v-if="supportProfile.supportsTableDataView" key="view-data"><template #icon><TableOutlined /></template>{{ $t('tree.view_data') }}</a-menu-item>
+            <a-menu-item key="view-er-diagram"><template #icon><NumberOutlined /></template>{{ $t('tree.view_er_diagram') }}</a-menu-item>
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_ddl') }}</a-menu-item>
             <a-menu-item v-if="supportProfile.supportsTableDesign" key="design-table" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.design_table') }}</a-menu-item>
             <a-menu-divider />
@@ -372,7 +373,7 @@ interface SearchOptions {
 }
 
 const props = defineProps<{ connectionId: string | null; dbType?: string; searchOptions?: SearchOptions }>()
-const emit = defineEmits(['table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'updateMatchesCount'])
+const emit = defineEmits(['table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'open-er-diagram', 'updateMatchesCount'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
@@ -1167,6 +1168,14 @@ async function handleMenuClick({ key }: { key: string | number }) {
       table: selectedNode.value.metadata.name || selectedNode.value.title, 
       schema: selectedNode.value.metadata.schema, 
       metadata: selectedNode.value.metadata 
+    })
+  }
+  else if (key === 'view-er-diagram') {
+    emit('open-er-diagram', {
+      database: selectedNode.value.metadata.database,
+      table: selectedNode.value.metadata.name || selectedNode.value.title,
+      schema: selectedNode.value.metadata.schema,
+      metadata: selectedNode.value.metadata
     })
   }
   else if (key === 'design-table') {

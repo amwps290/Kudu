@@ -14,6 +14,7 @@ const SESSION_PERSISTABLE_TAB_TYPES = new Set<TabType>([
   TabType.Design,
   TabType.Builder,
   TabType.Compare,
+  TabType.ErDiagram,
   TabType.Settings,
 ])
 

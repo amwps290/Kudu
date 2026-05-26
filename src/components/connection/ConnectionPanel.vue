@@ -117,6 +117,7 @@
               @new-query="(data: QueryTreeEventData) => emit('new-query', data)"
               @design-table="(data: TableTreeEventData) => emit('design-table', { ...data, connectionId: conn.id })"
               @view-structure="(data: TableTreeEventData) => emit('view-structure', { ...data, connectionId: conn.id })"
+              @open-er-diagram="(data: TableTreeEventData) => emit('open-er-diagram', { ...data, connectionId: conn.id })"
               @open-scripts="(data: QueryTreeEventData) => emit('open-scripts', data)"
               @generate-sql="(data: any) => emit('generate-sql', data)"
             />
@@ -189,7 +190,7 @@ import { useContextMenu } from '@/composables/useContextMenu'
 import { createStartupTimer, logStartupStage } from '@/utils/startupProfiler'
 
 const { t } = useI18n()
-const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql'])
+const emit = defineEmits(['add-connection', 'edit-connection', 'table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-er-diagram', 'open-scripts', 'generate-sql'])
 
 const connectionStore = useConnectionStore()
 const searchText = ref('')

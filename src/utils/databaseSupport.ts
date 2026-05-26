@@ -8,6 +8,7 @@ export interface DatabaseSupportProfile {
   supportsSqlWorkspace: boolean
   supportsQueryBuilder: boolean
   supportsDataCompare: boolean
+  supportsErDiagram: boolean
   supportsConnectionScripts: boolean
   supportsBackupRestore: boolean
   supportsDatabaseTreeChildren: boolean
@@ -22,6 +23,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsSqlWorkspace: true,
     supportsQueryBuilder: true,
     supportsDataCompare: true,
+    supportsErDiagram: true,
     supportsConnectionScripts: true,
     supportsBackupRestore: true,
     supportsDatabaseTreeChildren: true,
@@ -34,6 +36,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsSqlWorkspace: true,
     supportsQueryBuilder: true,
     supportsDataCompare: true,
+    supportsErDiagram: true,
     supportsConnectionScripts: true,
     supportsBackupRestore: true,
     supportsDatabaseTreeChildren: true,
@@ -46,6 +49,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsSqlWorkspace: true,
     supportsQueryBuilder: true,
     supportsDataCompare: true,
+    supportsErDiagram: true,
     supportsConnectionScripts: true,
     supportsBackupRestore: true,
     supportsDatabaseTreeChildren: true,
@@ -58,6 +62,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsSqlWorkspace: false,
     supportsQueryBuilder: false,
     supportsDataCompare: false,
+    supportsErDiagram: false,
     supportsConnectionScripts: false,
     supportsBackupRestore: false,
     supportsDatabaseTreeChildren: false,
@@ -70,6 +75,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsSqlWorkspace: false,
     supportsQueryBuilder: false,
     supportsDataCompare: false,
+    supportsErDiagram: false,
     supportsConnectionScripts: false,
     supportsBackupRestore: false,
     supportsDatabaseTreeChildren: false,
@@ -101,4 +107,8 @@ export function supportsQueryBuilder(dbType?: DatabaseType | string | null): boo
 
 export function supportsDataCompare(dbType?: DatabaseType | string | null): boolean {
   return getDatabaseSupportProfile(dbType).supportsDataCompare
+}
+
+export function supportsErDiagram(dbType?: DatabaseType | string | null): boolean {
+  return getDatabaseSupportProfile(dbType).supportsErDiagram
 }

@@ -37,6 +37,25 @@ export function useWorkspaceViewActions(options: WorkspaceViewActionsOptions) {
     })
   }
 
+  function openErDiagram(connectionId?: string, database?: string, table?: string, schema?: string) {
+    if (!connectionId || !table) return
+    const key = `er-${connectionId}-${database || ''}-${schema || ''}-${table}`
+    if (options.tabExists(key)) {
+      options.mainTabKey.value = key
+      return
+    }
+
+    options.addTab({
+      key,
+      title: options.t('tools.er_diagram.title'),
+      type: TabType.ErDiagram,
+      connectionId,
+      database,
+      table,
+      schema,
+    })
+  }
+
   function handleEditConnection(connection: ConnectionConfig) {
     editingConnection.value = connection
     showConnectionDialog.value = true
@@ -53,6 +72,7 @@ export function useWorkspaceViewActions(options: WorkspaceViewActionsOptions) {
     openConnectionDialog,
     openGlobalSearch,
     openSettings,
+    openErDiagram,
     handleEditConnection,
     handleConnectionDialogClose,
   }

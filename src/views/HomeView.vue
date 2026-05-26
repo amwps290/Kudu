@@ -29,6 +29,7 @@
             @new-query="handleNewQuery"
             @design-table="handleDesignTable"
             @view-structure="handleViewStructure"
+            @open-er-diagram="handleTreeOpenErDiagram"
             @open-scripts="handleOpenSavedScript"
             @generate-sql="handleGeneratedSql"
           />
@@ -53,6 +54,7 @@
                 <EditOutlined v-else-if="tab.type === 'design'" />
                 <BuildOutlined v-else-if="tab.type === 'builder'" />
                 <RetweetOutlined v-else-if="tab.type === 'compare'" />
+                <ApartmentOutlined v-else-if="tab.type === 'er-diagram'" />
                 <SettingOutlined v-else-if="tab.type === 'settings'" />
                 <span class="title-text">{{ tab.title }}<span v-if="tab.type === 'query' && tab.dirty" class="tab-dirty-indicator"> •</span></span>
               </span>
@@ -64,6 +66,7 @@
                 <TableDesigner v-else-if="tab.type === 'design'" :key="tab.key" :connection-id="tab.connectionId!" :database="tab.database!" :table="tab.table!" :schema="tab.schema" :read-only="tab.readOnly" :initial-tab="tab.designTab" :initial-action="tab.designAction" />
                 <QueryBuilder v-else-if="tab.type === 'builder'" :key="tab.key" :connection-id="tab.connectionId || null" :initial-database="tab.database || null" @execute-query="(payload: QueryBuilderExecutePayload | string) => handleQueryBuilderExecute(tab, payload)" />
                 <DataCompare v-else-if="tab.type === 'compare'" :key="tab.key" :connection-id="tab.connectionId || null" :initial-database="tab.database || null" />
+                <ErDiagram v-else-if="tab.type === 'er-diagram'" :key="tab.key" :connection-id="tab.connectionId || null" :database="tab.database || null" :table="tab.table || null" :schema="tab.schema || null" />
                 <SettingsContent v-else-if="tab.type === 'settings'" :key="tab.key" embedded />
                 <RedisEditor v-else-if="tab.type === 'redis'" :key="tab.key" :ref="redisEditorRef" />
               </KeepAlive>
@@ -133,7 +136,7 @@ import { defineAsyncComponent, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   FileTextOutlined,
-  TableOutlined, EditOutlined, RetweetOutlined, BuildOutlined, SettingOutlined,
+  TableOutlined, EditOutlined, RetweetOutlined, BuildOutlined, SettingOutlined, ApartmentOutlined,
 } from '@ant-design/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { useConnectionStore } from '@/stores/connection'
@@ -167,6 +170,7 @@ const TableDesigner = defineAsyncComponent(() => import('@/components/database/T
 const GlobalSearch = defineAsyncComponent(() => import('@/components/search/GlobalSearch.vue'))
 const QueryBuilder = defineAsyncComponent(() => import('@/components/tools/QueryBuilder.vue'))
 const DataCompare = defineAsyncComponent(() => import('@/components/tools/DataCompare.vue'))
+const ErDiagram = defineAsyncComponent(() => import('@/components/tools/ErDiagram.vue'))
 const SettingsContent = defineAsyncComponent(() => import('@/components/settings/SettingsContent.vue'))
 const AppStatusBar = defineAsyncComponent(() => import('@/components/layout/AppStatusBar.vue'))
 const RightPanelHost = defineAsyncComponent(() => import('@/components/right-panel/RightPanelHost.vue'))
@@ -274,6 +278,7 @@ const {
   openConnectionDialog,
   openGlobalSearch,
   openSettings,
+  openErDiagram,
   handleEditConnection,
   handleConnectionDialogClose,
 } = useWorkspaceViewActions({
@@ -282,6 +287,11 @@ const {
   addTab,
   t,
 })
+
+function handleTreeOpenErDiagram(data: { connectionId?: string; database?: string; table?: string; schema?: string }) {
+  if (!data.connectionId || !data.table) return
+  openErDiagram(data.connectionId, data.database, data.table, data.schema)
+}
 
 const {
   contextMenuVisible,

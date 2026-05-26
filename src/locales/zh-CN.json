@@ -283,6 +283,7 @@
     "inspect_blocking": "查看阻塞关系",
     "inspect_object_grants": "查看授权",
     "view_data": "查看数据",
+    "view_er_diagram": "查看 ER 图",
     "view_ddl": "查看 DDL",
     "design_table": "设计表",
     "copy_name": "复制名称",
@@ -437,6 +438,8 @@
     "manual_stop": "已手动停止",
     "format_success": "格式化完成",
     "refresh_cache_success": "已刷新提示缓存",
+    "open_sql_file": "打开 SQL 文件",
+    "sql_file": "SQL文件",
     "save_as": "另存为",
     "discard_changes": "不保存",
     "unsaved_close_title": "关闭前还有未保存内容",
@@ -911,6 +914,14 @@
       "diff_missing_column_msg": "目标表缺少列: {column}",
       "diff_type_mismatch": "类型不同",
       "diff_type_mismatch_msg": "列 {column} 类型不同: {source} vs {target}"
+    },
+    "er_diagram": {
+      "title": "ER 图",
+      "summary": "{tables} 张表，{relations} 条关系",
+      "zoom_in": "放大",
+      "zoom_out": "缩小",
+      "fit_view": "适应视图",
+      "empty": "当前选中表没有可显示的关系图"
     }
   },
   "search": {

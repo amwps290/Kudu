@@ -19,7 +19,7 @@
               <FileAddOutlined /> {{ $t('tree.new_query') }}
             </a-menu-item>
             <a-menu-item key="open-sql-file" @click="$emit('openSqlFile')">
-              <FolderOpenOutlined /> {{ $t('editor.sql_file') }}
+              <FolderOpenOutlined /> {{ $t('editor.open_sql_file') }}
             </a-menu-item>
             <a-menu-item key="save-query" :disabled="!canSaveQuery" @click="$emit('saveQuery')">
               <SaveOutlined /> {{ $t('common.save') }}

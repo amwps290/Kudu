@@ -5,6 +5,7 @@ export enum TabType {
   Redis = 'redis',
   Compare = 'compare',
   Builder = 'builder',
+  ErDiagram = 'er-diagram',
   Settings = 'settings'
 }
 
