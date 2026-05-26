@@ -102,6 +102,13 @@ const detailDefinitions = computed(() => {
     )
   }
 
+  if (objectType === 'schema') {
+    definitions.push(
+      { key: 'owner', label: t('right_panel.fields.owner') },
+      { key: 'comment', label: t('common.description') },
+    )
+  }
+
   if (objectType === 'column') {
     definitions.push(
       { key: 'data_type', label: t('right_panel.fields.data_type') },
@@ -248,7 +255,7 @@ const definitionText = computed(() => {
   return ''
 })
 
-const commentText = computed(() => normalizeDisplayValue(metadata.value.comment) || '')
+const commentText = computed(() => props.context?.objectType === 'schema' ? '' : normalizeDisplayValue(metadata.value.comment) || '')
 
 function resolveValue(key: string) {
   if (key === '__object_type') return objectTypeLabel.value

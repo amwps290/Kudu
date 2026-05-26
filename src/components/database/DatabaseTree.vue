@@ -191,8 +191,20 @@
 
           <template v-else-if="selectedNode?.type === 'schema'">
             <a-menu-item key="new-query"><template #icon><FileTextOutlined /></template>{{ $t('tree.new_query') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="rename-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_schema') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema-cascade" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema_cascade') }}</a-menu-item>
+            <a-menu-divider v-if="props.dbType === 'postgresql'" />
             <a-menu-item key="gen-create-table"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_table') }}</a-menu-item>
             <a-menu-item key="gen-create-view"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_view') }}</a-menu-item>
+            <a-menu-divider />
+            <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
+            <a-menu-divider />
+          </template>
+
+          <template v-else-if="selectedNode?.type === 'schemas' && props.dbType === 'postgresql'">
+            <a-menu-item key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
             <a-menu-divider />
@@ -215,7 +227,15 @@
     </div>
 
     <a-modal v-model:open="showRenameModal" :title="renameModalTitle" @ok="submitRename" :confirm-loading="renameSubmitting">
-      <a-input v-model:value="renameValue" :placeholder="$t('tree.rename_placeholder')" @pressEnter="submitRename" />
+      <div class="rename-form">
+        <a-input v-model:value="renameValue" :placeholder="$t('tree.rename_placeholder')" @pressEnter="submitRename" />
+        <a-textarea
+          v-if="renameMode === 'create-schema'"
+          v-model:value="renameComment"
+          :placeholder="$t('tree.schema_comment_placeholder')"
+          :auto-size="{ minRows: 2, maxRows: 4 }"
+        />
+      </div>
     </a-modal>
 
     <!-- DDL 预览弹窗 -->
@@ -360,13 +380,16 @@ const sequenceValueSubmitting = ref(false)
 const hasDefinitionNode = computed(() => Boolean(selectedNode.value?.metadata?.definition))
 const showRenameModal = ref(false)
 const renameValue = ref('')
+const renameComment = ref('')
 const renameSubmitting = ref(false)
-const renameMode = ref<'table' | 'column'>('table')
+const renameMode = ref<'table' | 'column' | 'schema' | 'create-schema'>('table')
 const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDdlEditor } = useMonacoEditor(ddlEditorContainer, {
   language: 'sql',
   readOnly: true,
 })
 const renameModalTitle = computed(() => {
+  if (renameMode.value === 'create-schema') return t('tree.create_schema')
+  if (renameMode.value === 'schema') return t('tree.rename_schema')
   if (renameMode.value === 'column') return t('tree.rename_column')
   if (selectedNode.value?.type === 'sequence') return t('tree.rename_sequence')
   return t('tree.rename_table')
@@ -1086,10 +1109,12 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'gen-delete') { await handleGenerateSql('DELETE') }
   else if (key === 'gen-create-table') { await handleGenerateSchemaSql('table') }
   else if (key === 'gen-create-view') { await handleGenerateSchemaSql('view') }
+  else if (key === 'create-schema') { openRenameModal('create-schema') }
   else if (key === 'add-column') { openNodeTableDesigner('columns', 'add_column') }
   else if (key === 'add-index') { openNodeTableDesigner('indexes', 'add_index') }
   else if (key === 'add-foreign-key') { openNodeTableDesigner('foreign_keys', 'add_foreign_key') }
   else if (key === 'copy-columns') { await handleCopyColumns() }
+  else if (key === 'rename-schema') { openRenameModal('schema') }
   else if (key === 'rename-table') { openRenameModal() }
   else if (key === 'rename-sequence') { openRenameModal() }
   else if (key === 'copy-column-definition') { await handleCopyColumnDefinition() }
@@ -1119,6 +1144,8 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'drop-trigger') { await handleDropTrigger() }
   else if (key === 'drop-rule') { await handleDropRule() }
   else if (key === 'drop-constraint') { await handleDropConstraint() }
+  else if (key === 'drop-schema') { await handleDropSchema(false) }
+  else if (key === 'drop-schema-cascade') { await handleDropSchema(true) }
   else if (key === 'open-column-designer') { openNodeTableDesigner() }
   else if (key === 'truncate-table') { await handleTruncateTable() }
   else if (key === 'drop-table') { await handleDropTable() }
@@ -1340,6 +1367,13 @@ function findNodeByKey(nodes: TreeNode[], key: string): TreeNode | null {
   return null
 }
 
+function findNodeByTitle(nodes: TreeNode[], title: string): TreeNode | null {
+  for (const node of nodes) {
+    if ((metaStr(node, 'name') || node.title) === title) return node
+  }
+  return null
+}
+
 const selectedTableNodes = computed(() => selectedNodes.value.filter(node => node.type === 'table'))
 
 function sameTableScope(a: TreeNode, b: TreeNode) {
@@ -1426,42 +1460,93 @@ function openNodeTableDesigner(initialTab?: 'columns' | 'indexes' | 'foreign_key
   })
 }
 
-function openRenameModal(mode: 'table' | 'column' = 'table') {
+function openRenameModal(mode: 'table' | 'column' | 'schema' | 'create-schema' = 'table') {
   const node = selectedNode.value
   if (!node) return
   if (mode === 'table' && !['table', 'view', 'sequence'].includes(node.type)) return
   if (mode === 'column' && node.type !== 'column') return
+  if (mode === 'schema' && node.type !== 'schema') return
+  if (mode === 'create-schema' && !['database', 'schemas', 'schema'].includes(node.type)) return
   renameMode.value = mode
-  renameValue.value = mode === 'column' ? metaStr(node, 'name') : (metaStr(node, 'name') || node.title)
+  renameValue.value = mode === 'create-schema'
+    ? ''
+    : mode === 'column'
+      ? metaStr(node, 'name')
+      : (metaStr(node, 'name') || node.title)
+  renameComment.value = ''
   showRenameModal.value = true
 }
 
 async function submitRename() {
   const node = selectedNode.value
   if (!node) return
-  const oldName = renameMode.value === 'column' ? metaStr(node, 'name') : (metaStr(node, 'name') || node.title)
+  const oldName = renameMode.value === 'column'
+    ? metaStr(node, 'name')
+    : renameMode.value === 'create-schema'
+      ? ''
+      : (metaStr(node, 'name') || node.title)
   const newName = renameValue.value.trim()
   if (!newName) return message.warning(t('tree.rename_empty'))
-  if (newName === oldName) return message.warning(t('tree.rename_same'))
+  if (renameMode.value !== 'create-schema' && newName === oldName) return message.warning(t('tree.rename_same'))
 
   renameSubmitting.value = true
   try {
     if (renameMode.value === 'column') {
       await renameColumn(node, oldName, newName)
+    } else if (renameMode.value === 'schema') {
+      await renameSchema(node, oldName, newName)
+    } else if (renameMode.value === 'create-schema') {
+      await createSchema(node, newName, renameComment.value.trim())
     } else {
       await renameTableLike(node, oldName, newName)
     }
     showRenameModal.value = false
-    message.success(t('tree.rename_success', { oldName, newName }))
-    const parentKey = renameMode.value === 'column'
-      ? node.key.split('-col-')[0]
-      : node.key.substring(0, node.key.lastIndexOf('-'))
-    const parentNode = findNodeByKey(treeData.value, parentKey)
-    if (parentNode) await handleRefreshNode(parentNode)
+    if (renameMode.value === 'create-schema') {
+      message.success(t('tree.create_schema_success', { name: newName }))
+      await refreshSchemaParent(node, newName)
+    } else {
+      message.success(t('tree.rename_success', { oldName, newName }))
+      if (renameMode.value === 'schema') {
+        await refreshSchemaParent(node, newName)
+      } else {
+        const parentKey = renameMode.value === 'column'
+          ? node.key.split('-col-')[0]
+          : node.key.substring(0, node.key.lastIndexOf('-'))
+        const parentNode = findNodeByKey(treeData.value, parentKey)
+        if (parentNode) await handleRefreshNode(parentNode)
+      }
+    }
   } catch (e: unknown) {
     message.error(getErrorMessage(e))
   } finally {
     renameSubmitting.value = false
+  }
+}
+
+async function refreshSchemaParent(node: TreeNode, targetSchemaName?: string) {
+  const parentNode = node.type === 'schemas'
+    ? node
+    : findNodeByKey(treeData.value, node.key.substring(0, node.key.lastIndexOf('-')))
+  if (!parentNode) {
+    await refreshDatabaseNode(metaStr(node, 'database'))
+    return
+  }
+
+  updateNodeInTree(treeData.value, parentNode.key, current => {
+    current.children = []
+  })
+  treeData.value = [...treeData.value]
+  await handleRefreshNode(parentNode)
+
+  if (targetSchemaName) {
+    const targetNode = findNodeByTitle(parentNode.children || [], targetSchemaName)
+    if (targetNode) {
+      selectedNode.value = targetNode
+      selectedKeys.value = [targetNode.key]
+      if (!expandedKeys.value.includes(parentNode.key)) {
+        expandedKeys.value = [...expandedKeys.value, parentNode.key]
+      }
+    }
   }
 }
 
@@ -1482,6 +1567,50 @@ async function renameTableLike(node: TreeNode, oldName: string, newName: string)
     throw new Error(t('tree.rename_unsupported'))
   }
   await queryApi.executeQuery(props.connectionId!, sql, database)
+}
+
+async function createSchema(node: TreeNode, schemaName: string, comment?: string) {
+  if (props.dbType !== 'postgresql') throw new Error(t('tree.schema_ddl_unsupported'))
+  const database = metaStr(node, 'database') || metaStr(node, 'name') || null
+  const statements = [`CREATE SCHEMA ${quoteIdent(schemaName)}`]
+  if (comment) {
+    statements.push(`COMMENT ON SCHEMA ${quoteIdent(schemaName)} IS ${escapeSqlLiteral(comment)}`)
+  }
+  const sql = statements.join(';\n')
+  await queryApi.executeQuery(props.connectionId!, sql, database)
+}
+
+async function renameSchema(node: TreeNode, oldName: string, newName: string) {
+  if (props.dbType !== 'postgresql') throw new Error(t('tree.schema_ddl_unsupported'))
+  const database = metaStr(node, 'database') || null
+  const sql = `ALTER SCHEMA ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
+  await queryApi.executeQuery(props.connectionId!, sql, database)
+}
+
+async function handleDropSchema(cascade = false) {
+  const node = selectedNode.value
+  if (!node || node.type !== 'schema') return
+  if (props.dbType !== 'postgresql') {
+    message.warning(t('tree.schema_ddl_unsupported'))
+    return
+  }
+  const schemaName = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: cascade ? t('tree.drop_schema_cascade') : t('tree.drop_schema'),
+    content: t(cascade ? 'tree.drop_schema_cascade_confirm' : 'tree.drop_schema_confirm', { name: schemaName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = `DROP SCHEMA ${quoteIdent(schemaName)}${cascade ? ' CASCADE' : ''}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t(cascade ? 'tree.drop_schema_cascade_success' : 'tree.drop_schema_success', { name: schemaName }))
+        await refreshSchemaParent(node)
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
 }
 
 async function renameColumn(node: TreeNode, oldName: string, newName: string) {
@@ -2292,6 +2421,7 @@ defineExpose({ refresh: loadDatabases })
 .custom-tree { width: 100%; }
 .script-item { }
 .ddl-preview-editor { height: 500px; border: 1px solid var(--border-color-strong); border-radius: var(--radius-sm); }
+.rename-form { display: grid; gap: 10px; }
 .sequence-state-panel { display: grid; gap: 10px; }
 .sequence-state-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 12px; border: 1px solid var(--border-color-muted); border-radius: var(--radius-sm); background: var(--surface-secondary); }
 .sequence-state-row span { color: var(--app-text-subtle); }

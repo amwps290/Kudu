@@ -76,10 +76,7 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
     - Expand composite types to view fields
     - View composite type definition
     - Copy composite type definition
-- [ ] Row-level security policy support
-- [ ] Publication support
-- [ ] Subscription support
-- [ ] Schema DDL management
+- [x] Schema DDL management
     - Create schema
     - Rename schema
     - Drop schema
