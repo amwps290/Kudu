@@ -229,7 +229,7 @@ const VxeGrid = defineAsyncComponent(() => import('@/components/vxe/VxeGridRunti
 // ── 基础设置 ──
 const { t } = useI18n()
 const rightPanelStore = useRightPanelStore()
-const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string }>()
+const props = defineProps<{ connectionId?: string; initialDatabase?: string; initialValue?: string; filePath?: string; tabId?: string; autoExecuteNonce?: string }>()
 const emit = defineEmits(['contentChange', 'requestSave', 'requestSaveAs', 'databasesLoaded', 'databaseChange', 'executionStateChange'])
 const connectionStore = useConnectionStore()
 const appStore = useAppStore()
@@ -255,6 +255,7 @@ let monacoInstance: MonacoModule | null = null
 let editor: any = null
 let editorAutoLayoutSuspendCount = 0
 let editorLayoutResumeRaf = 0
+const lastAutoExecuteNonce = ref('')
 
 // ── 数据库上下文 ──
 const availableDatabases = ref<DatabaseInfo[]>([])
@@ -1009,6 +1010,14 @@ async function executeQuery() {
   if (!connId) return
   await execution.executeQuery(connId, selectedDatabase.value || null)
 }
+
+function triggerAutoExecuteIfReady() {
+  const nonce = props.autoExecuteNonce || ''
+  if (!nonce || nonce === lastAutoExecuteNonce.value) return
+  if (!editor) return
+  lastAutoExecuteNonce.value = nonce
+  void nextTick(() => executeQuery())
+}
 async function explainQuery() {
   const connId = sessionConnectionId.value
   if (!connId) return
@@ -1134,6 +1143,7 @@ onMounted(async () => {
   loadHistory()
   loadAvailableDatabases()
   loadSearchPath()
+  triggerAutoExecuteIfReady()
   requestAnimationFrame(() => focusEditor())
 })
 onActivated(() => { requestAnimationFrame(() => focusEditor()); updateAutocompleteContext(); loadAvailableDatabases(); loadSearchPath() })
@@ -1171,6 +1181,11 @@ watch(resultPanelHeight, v => {
   if (!isSplitResizing.value) setStorageItem(RESULT_PANEL_HEIGHT_KEY, v)
 })
 watch(() => execution.executionState.value, (s) => emit('executionStateChange', { ...s }), { deep: true })
+watch(
+  () => props.autoExecuteNonce,
+  () => triggerAutoExecuteIfReady(),
+  { immediate: true }
+)
 
 defineExpose({ setSelectedDatabase, executing, executionState, executeQuery, explainQuery, stopExecution: stopExec, handleDatabaseChange, focusEditor, handleSystemClipboardAction, formatSql, clearEditor, openHistory, openSnippets, refreshAutocomplete })
 </script>

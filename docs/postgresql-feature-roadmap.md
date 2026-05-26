@@ -87,15 +87,15 @@ Update the checklist whenever a feature is completed, adjusted, or intentionally
 
 ## Nice To Have
 
-- [ ] Role and privilege inspection
-- [ ] Grant display on database objects
-- [ ] Extension install / uninstall actions
-- [ ] Maintenance actions
+- [x] Role and privilege inspection
+- [x] Grant display on database objects
+- [x] Extension install / uninstall actions
+- [x] Maintenance actions
     - `VACUUM`
     - `ANALYZE`
     - `REINDEX`
 
-- [ ] Session / lock / blocking inspection
+- [x] Session / lock / blocking inspection
     - `pg_stat_activity`
     - lock wait visibility
     - blocking session identification

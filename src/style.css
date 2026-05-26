@@ -383,18 +383,18 @@ body {
 
 .app-context-menu {
   position: absolute;
-  min-width: 140px;
+  min-width: 186px;
   background: var(--overlay-bg);
   border: 1px solid var(--overlay-border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   box-shadow: var(--shadow-overlay), var(--shadow-soft);
   overflow: hidden;
-  padding: 2px;
+  padding: 4px;
   z-index: 10000;
 }
 
 .app-context-menu--scrollable {
-  max-width: min(320px, calc(100vw - 16px));
+  max-width: min(360px, calc(100vw - 16px));
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -415,9 +415,9 @@ body {
 .app-context-menu .ant-menu-submenu-title {
   height: var(--menu-item-height) !important;
   line-height: var(--menu-item-height) !important;
-  padding-inline: var(--space-2) !important;
-  border-radius: 3px;
-  color: var(--app-text-muted);
+  padding-inline: 10px !important;
+  border-radius: 7px;
+  color: var(--app-text);
 }
 
 .app-context-menu .ant-menu-item:hover,
@@ -435,7 +435,7 @@ body {
 
 .app-context-menu .ant-divider,
 .app-context-menu .ant-menu-item-divider {
-  margin: 3px 0 !important;
+  margin: 5px 4px !important;
 }
 
 .app-context-menu .ant-menu-title-content {
@@ -445,7 +445,8 @@ body {
 
 .app-context-menu .anticon {
   font-size: var(--font-sm);
-  margin-inline-end: 6px;
+  margin-inline-end: 8px;
+  color: var(--app-text-subtle);
 }
 
 .app-context-menu::-webkit-scrollbar {
@@ -458,7 +459,7 @@ body {
 }
 
 .app-context-menu .ant-menu-submenu-arrow {
-  inset-inline-end: var(--space-2);
+  inset-inline-end: 10px;
 }
 
 .app-context-menu .ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
@@ -466,20 +467,24 @@ body {
 }
 
 .app-context-menu .ant-menu-inline .ant-menu-sub.ant-menu-inline {
-  background: var(--surface-hover);
-  margin: 2px 0 4px 14px;
-  padding: 2px 0;
-  border-left: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--surface-hover) 82%, white 6%);
+  margin: 4px 0 6px 10px;
+  padding: 4px;
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 34%, var(--border-color));
+  border-radius: 0 8px 8px 0;
 }
 
 .app-context-menu .ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item {
-  height: 26px !important;
-  line-height: 26px !important;
-  padding-inline-start: 14px !important;
-  padding-inline-end: var(--space-2) !important;
-  border-radius: 0;
+  min-height: 28px !important;
+  height: auto !important;
+  line-height: 1.45 !important;
+  padding-block: 4px !important;
+  padding-inline-start: 12px !important;
+  padding-inline-end: 10px !important;
+  border-radius: 6px;
+  white-space: normal;
 }
 
 .app-context-menu .ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover {
-  background: var(--surface-hover) !important;
+  background: color-mix(in srgb, var(--surface-hover) 92%, white 4%) !important;
 }

@@ -23,6 +23,7 @@ export interface TabState {
   designAction?: 'add_column' | 'add_index' | 'add_foreign_key'
   dirty?: boolean
   isUntitled?: boolean
+  autoExecuteNonce?: string
 }
 
 export interface SessionState {

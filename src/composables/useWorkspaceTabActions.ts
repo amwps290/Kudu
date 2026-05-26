@@ -23,6 +23,7 @@ export interface QueryEventData {
   filePath?: string
   title?: string
   content?: string
+  autoExecuteNonce?: string
 }
 
 export interface DatabaseEventData {
@@ -167,11 +168,13 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
     void handleNewQuery(data)
   }
 
-  function handleGeneratedSql(data: { sql: string; database: string; connectionId: string }) {
+  function handleGeneratedSql(data: { sql: string; database: string; connectionId: string; title?: string; autoExecuteNonce?: string }) {
     void handleNewQuery({
       connectionId: data.connectionId,
       database: data.database,
       content: data.sql,
+      title: data.title,
+      autoExecuteNonce: data.autoExecuteNonce,
     })
   }
 

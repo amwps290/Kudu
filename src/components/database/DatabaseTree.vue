@@ -33,6 +33,26 @@
               <a-menu-item v-if="supportProfile.supportsBackupRestore" key="restore-database"><template #icon><UploadOutlined /></template>{{ $t('tree.restore_database') }}</a-menu-item>
               <a-menu-divider v-if="supportProfile.supportsBackupRestore" />
             </template>
+            <template v-if="props.dbType === 'postgresql'">
+              <a-sub-menu key="sub-postgres-admin" :disabled="isSelectedNodeReadOnly">
+                <template #icon><EditOutlined /></template>
+                <template #title>{{ $t('tree.postgres_admin') }}</template>
+                <a-menu-item key="install-extension">{{ $t('tree.install_extension') }}</a-menu-item>
+                <a-menu-divider />
+                <a-menu-item key="vacuum-database">{{ $t('tree.vacuum_database') }}</a-menu-item>
+                <a-menu-item key="analyze-database">{{ $t('tree.analyze_database') }}</a-menu-item>
+                <a-menu-item key="reindex-database">{{ $t('tree.reindex_database') }}</a-menu-item>
+              </a-sub-menu>
+              <a-sub-menu key="sub-postgres-inspect">
+                <template #icon><NumberOutlined /></template>
+                <template #title>{{ $t('tree.postgres_inspect') }}</template>
+                <a-menu-item key="inspect-roles">{{ $t('tree.inspect_roles') }}</a-menu-item>
+                <a-menu-item key="inspect-sessions">{{ $t('tree.inspect_sessions') }}</a-menu-item>
+                <a-menu-item key="inspect-locks">{{ $t('tree.inspect_locks') }}</a-menu-item>
+                <a-menu-item key="inspect-blocking">{{ $t('tree.inspect_blocking') }}</a-menu-item>
+              </a-sub-menu>
+              <a-menu-divider />
+            </template>
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('tree.refresh_db') }}</a-menu-item>
             <a-menu-divider />
           </template>
@@ -64,6 +84,11 @@
               <a-menu-item key="gen-update">{{ $t('tree.gen_update') }}</a-menu-item>
               <a-menu-item key="gen-delete">{{ $t('tree.gen_delete') }}</a-menu-item>
             </a-sub-menu>
+            <a-sub-menu v-if="props.dbType === 'postgresql'" key="sub-object-inspect">
+              <template #icon><NumberOutlined /></template>
+              <template #title>{{ $t('tree.postgres_inspect') }}</template>
+              <a-menu-item key="inspect-object-grants">{{ $t('tree.inspect_object_grants') }}</a-menu-item>
+            </a-sub-menu>
             <a-menu-divider />
             <a-menu-item key="copy-columns"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_columns') }}</a-menu-item>
             <a-menu-item key="rename-table" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_table') }}</a-menu-item>
@@ -81,6 +106,7 @@
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="copy-view-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
             <a-menu-item key="rename-table" :disabled="isSelectedNodeReadOnly || !supportsViewRename"><template #icon><EditOutlined /></template>{{ $t('tree.rename_view') }}</a-menu-item>
@@ -96,6 +122,7 @@
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
+            <a-menu-item key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="copy-view-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
             <a-menu-item key="refresh-materialized-view"><template #icon><ReloadOutlined /></template>{{ $t('tree.refresh_materialized_view') }}</a-menu-item>
@@ -142,6 +169,7 @@
             <a-menu-item key="view-sequence-state"><template #icon><NumberOutlined /></template>{{ $t('tree.sequence_state') }}</a-menu-item>
             <a-menu-item key="set-sequence-value"><template #icon><EditOutlined /></template>{{ $t('tree.set_sequence_value') }}</a-menu-item>
             <a-menu-item key="restart-sequence"><template #icon><ReloadOutlined /></template>{{ $t('tree.restart_sequence') }}</a-menu-item>
+            <a-menu-item key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             <a-menu-item key="copy-sequence-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
             <a-menu-item key="rename-sequence" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_sequence') }}</a-menu-item>
             <a-menu-divider />
@@ -169,6 +197,7 @@
 
           <template v-else-if="selectedNode?.type === 'extension'">
             <a-menu-item key="copy-extension-info"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_extension_info') }}</a-menu-item>
+            <a-menu-item key="uninstall-extension" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.uninstall_extension') }}</a-menu-item>
             <a-menu-divider />
           </template>
 
@@ -193,6 +222,7 @@
             <a-menu-item key="new-query"><template #icon><FileTextOutlined /></template>{{ $t('tree.new_query') }}</a-menu-item>
             <a-menu-item v-if="props.dbType === 'postgresql'" key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
             <a-menu-item v-if="props.dbType === 'postgresql'" key="rename-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_schema') }}</a-menu-item>
+            <a-menu-item v-if="props.dbType === 'postgresql'" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema') }}</a-menu-item>
             <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema-cascade" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema_cascade') }}</a-menu-item>
             <a-menu-divider v-if="props.dbType === 'postgresql'" />
@@ -234,6 +264,21 @@
           v-model:value="renameComment"
           :placeholder="$t('tree.schema_comment_placeholder')"
           :auto-size="{ minRows: 2, maxRows: 4 }"
+        />
+      </div>
+    </a-modal>
+
+    <a-modal v-model:open="showInstallExtensionModal" :title="$t('tree.install_extension')" @ok="submitInstallExtension" :confirm-loading="installExtensionSubmitting">
+      <div class="rename-form">
+        <a-input
+          v-model:value="installExtensionName"
+          :placeholder="$t('tree.install_extension_placeholder')"
+          @pressEnter="submitInstallExtension"
+        />
+        <a-input
+          v-model:value="installExtensionSchema"
+          :placeholder="$t('tree.install_extension_schema_placeholder')"
+          @pressEnter="submitInstallExtension"
         />
       </div>
     </a-modal>
@@ -379,9 +424,13 @@ const sequenceValueInput = ref<number | undefined>(undefined)
 const sequenceValueSubmitting = ref(false)
 const hasDefinitionNode = computed(() => Boolean(selectedNode.value?.metadata?.definition))
 const showRenameModal = ref(false)
+const showInstallExtensionModal = ref(false)
 const renameValue = ref('')
 const renameComment = ref('')
 const renameSubmitting = ref(false)
+const installExtensionName = ref('')
+const installExtensionSchema = ref('')
+const installExtensionSubmitting = ref(false)
 const renameMode = ref<'table' | 'column' | 'schema' | 'create-schema'>('table')
 const { setValue: setDdlValue, createEditor: createDdlEditor, dispose: disposeDdlEditor } = useMonacoEditor(ddlEditorContainer, {
   language: 'sql',
@@ -1072,6 +1121,24 @@ async function refreshDatabaseNode(databaseName: string) {
   }
 }
 
+async function refreshDatabaseChildNode(databaseName: string, childType: string) {
+  const node = treeData.value.find(item => item.type === 'database' && getNodeDatabaseName(item) === databaseName)
+  if (!node) {
+    await refreshDatabaseNode(databaseName)
+    return
+  }
+  const childNode = node.children?.find(item => item.type === childType)
+  if (!childNode) {
+    await refreshDatabaseNode(databaseName)
+    return
+  }
+  const wasExpanded = expandedKeys.value.includes(childNode.key)
+  await handleRefreshNode(childNode)
+  if (wasExpanded) {
+    await handleToggle(childNode)
+  }
+}
+
 async function handleMenuClick({ key }: { key: string | number }) {
   hideContextMenu(); if (!selectedNode.value) return
   if (key === 'new-query') emit('new-query', { database: selectedNode.value.metadata.name || selectedNode.value.metadata.database, connectionId: props.connectionId })
@@ -1110,6 +1177,7 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'gen-create-table') { await handleGenerateSchemaSql('table') }
   else if (key === 'gen-create-view') { await handleGenerateSchemaSql('view') }
   else if (key === 'create-schema') { openRenameModal('create-schema') }
+  else if (key === 'install-extension') { openInstallExtensionModal() }
   else if (key === 'add-column') { openNodeTableDesigner('columns', 'add_column') }
   else if (key === 'add-index') { openNodeTableDesigner('indexes', 'add_index') }
   else if (key === 'add-foreign-key') { openNodeTableDesigner('foreign_keys', 'add_foreign_key') }
@@ -1136,6 +1204,15 @@ async function handleMenuClick({ key }: { key: string | number }) {
   else if (key === 'gen-call-sql') { await handleGenerateCallSql() }
   else if (key === 'copy-signature') { await handleCopySignature() }
   else if (key === 'copy-extension-info') { await handleCopyExtensionInfo() }
+  else if (key === 'uninstall-extension') { await handleUninstallExtension() }
+  else if (key === 'vacuum-database') { await handleMaintenanceAction('vacuum') }
+  else if (key === 'analyze-database') { await handleMaintenanceAction('analyze') }
+  else if (key === 'reindex-database') { await handleMaintenanceAction('reindex') }
+  else if (key === 'inspect-roles') { await openInspectionQuery('roles') }
+  else if (key === 'inspect-sessions') { await openInspectionQuery('sessions') }
+  else if (key === 'inspect-locks') { await openInspectionQuery('locks') }
+  else if (key === 'inspect-blocking') { await openInspectionQuery('blocking') }
+  else if (key === 'inspect-object-grants') { await openInspectionQuery('object-grants') }
   else if (key === 'rename-column') { openRenameModal('column') }
   else if (key === 'drop-column') { await handleDropColumn() }
   else if (key === 'copy-object-definition') { await handleCopyObjectDefinition() }
@@ -1477,6 +1554,14 @@ function openRenameModal(mode: 'table' | 'column' | 'schema' | 'create-schema' =
   showRenameModal.value = true
 }
 
+function openInstallExtensionModal() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  installExtensionName.value = ''
+  installExtensionSchema.value = ''
+  showInstallExtensionModal.value = true
+}
+
 async function submitRename() {
   const node = selectedNode.value
   if (!node) return
@@ -1520,6 +1605,32 @@ async function submitRename() {
     message.error(getErrorMessage(e))
   } finally {
     renameSubmitting.value = false
+  }
+}
+
+async function submitInstallExtension() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  const extensionName = installExtensionName.value.trim()
+  const targetSchema = installExtensionSchema.value.trim()
+  if (!extensionName) {
+    message.warning(t('tree.install_extension_empty'))
+    return
+  }
+
+  installExtensionSubmitting.value = true
+  try {
+    const sql = targetSchema
+      ? `CREATE EXTENSION ${quoteIdent(extensionName)} SCHEMA ${quoteIdent(targetSchema)}`
+      : `CREATE EXTENSION ${quoteIdent(extensionName)}`
+    await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'name') || metaStr(node, 'database') || null)
+    showInstallExtensionModal.value = false
+    message.success(t('tree.install_extension_success', { name: extensionName }))
+    await refreshDatabaseChildNode(metaStr(node, 'name') || metaStr(node, 'database'), 'database-extensions')
+  } catch (e: unknown) {
+    message.error(getErrorMessage(e))
+  } finally {
+    installExtensionSubmitting.value = false
   }
 }
 
@@ -2124,6 +2235,196 @@ async function handleCopyExtensionInfo() {
   const info = [name, version ? `v${version}` : '', schema ? `schema=${schema}` : ''].filter(Boolean).join(' ')
   await writeClipboardText(info)
   message.success(t('common.copy'))
+}
+
+async function handleUninstallExtension() {
+  const node = selectedNode.value
+  if (!node || node.type !== 'extension' || props.dbType !== 'postgresql') return
+  const extensionName = metaStr(node, 'name') || node.title
+  Modal.confirm({
+    title: t('tree.uninstall_extension'),
+    content: t('tree.uninstall_extension_confirm', { name: extensionName }),
+    okText: t('common.delete'),
+    okType: 'danger',
+    async onOk() {
+      try {
+        const sql = `DROP EXTENSION ${quoteIdent(extensionName)}`
+        await queryApi.executeQuery(props.connectionId!, sql, metaStr(node, 'database') || null)
+        message.success(t('tree.uninstall_extension_success', { name: extensionName }))
+        await refreshDatabaseChildNode(metaStr(node, 'database'), 'database-extensions')
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function handleMaintenanceAction(action: 'vacuum' | 'analyze' | 'reindex') {
+  const node = selectedNode.value
+  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  const databaseName = metaStr(node, 'name') || metaStr(node, 'database')
+  const sql = action === 'vacuum'
+    ? 'VACUUM;'
+    : action === 'analyze'
+      ? 'ANALYZE;'
+      : `REINDEX DATABASE ${quoteIdent(databaseName)};`
+  const titleKey = action === 'vacuum'
+    ? 'tree.vacuum_database'
+    : action === 'analyze'
+      ? 'tree.analyze_database'
+      : 'tree.reindex_database'
+  const confirmKey = action === 'vacuum'
+    ? 'tree.vacuum_database_confirm'
+    : action === 'analyze'
+      ? 'tree.analyze_database_confirm'
+      : 'tree.reindex_database_confirm'
+  const successKey = action === 'vacuum'
+    ? 'tree.vacuum_database_success'
+    : action === 'analyze'
+      ? 'tree.analyze_database_success'
+      : 'tree.reindex_database_success'
+
+  Modal.confirm({
+    title: t(titleKey),
+    content: t(confirmKey, { name: databaseName }),
+    okText: t('common.ok'),
+    async onOk() {
+      try {
+        await queryApi.executeQuery(props.connectionId!, sql, databaseName || null)
+        message.success(t(successKey, { name: databaseName }))
+      } catch (e: unknown) {
+        message.error(getErrorMessage(e))
+      }
+    }
+  })
+}
+
+async function openInspectionQuery(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants') {
+  const node = selectedNode.value
+  if (!node || props.dbType !== 'postgresql') return
+  const database = metaStr(node, 'database') || metaStr(node, 'name') || ''
+  const sql = buildInspectionSql(kind, node)
+  if (!sql) return
+  emit('generate-sql', {
+    sql,
+    database,
+    connectionId: props.connectionId,
+    title: getInspectionTitle(kind, node),
+    autoExecuteNonce: `${kind}:${node.key}:${Date.now()}`,
+  })
+}
+
+function getInspectionTitle(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants', node: TreeNode) {
+  if (kind === 'roles') return t('right_panel.inspect.roles')
+  if (kind === 'sessions') return t('right_panel.inspect.sessions')
+  if (kind === 'locks') return t('right_panel.inspect.locks')
+  if (kind === 'blocking') return t('right_panel.inspect.blocking')
+  return `${t('right_panel.inspect.grants')} · ${metaStr(node, 'name') || node.title}`
+}
+
+function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants', node: TreeNode): string {
+  if (kind === 'roles') {
+    return [
+      'SELECT',
+      '  rolname AS role_name,',
+      '  rolsuper AS is_superuser,',
+      '  rolinherit AS inherit,',
+      '  rolcreaterole AS can_create_role,',
+      '  rolcreatedb AS can_create_db,',
+      '  rolcanlogin AS can_login,',
+      '  rolreplication AS replication,',
+      '  rolconnlimit AS connection_limit',
+      'FROM pg_roles',
+      'ORDER BY rolname;'
+    ].join('\n')
+  }
+
+  if (kind === 'sessions') {
+    return [
+      'SELECT',
+      '  pid,',
+      '  usename,',
+      '  datname,',
+      '  application_name,',
+      '  client_addr,',
+      '  state,',
+      '  wait_event_type,',
+      '  wait_event,',
+      '  backend_start,',
+      '  xact_start,',
+      '  query_start,',
+      '  LEFT(query, 500) AS query',
+      'FROM pg_stat_activity',
+      "WHERE pid <> pg_backend_pid()",
+      'ORDER BY query_start DESC NULLS LAST;'
+    ].join('\n')
+  }
+
+  if (kind === 'locks') {
+    return [
+      'SELECT',
+      '  a.pid,',
+      '  a.usename,',
+      '  a.datname,',
+      '  l.locktype,',
+      '  l.mode,',
+      '  l.granted,',
+      '  l.relation::regclass AS relation_name,',
+      '  l.page,',
+      '  l.tuple,',
+      '  l.virtualtransaction,',
+      '  l.transactionid,',
+      '  a.wait_event_type,',
+      '  a.wait_event,',
+      '  LEFT(a.query, 300) AS query',
+      'FROM pg_locks l',
+      'LEFT JOIN pg_stat_activity a ON a.pid = l.pid',
+      'ORDER BY l.granted ASC, a.query_start DESC NULLS LAST;'
+    ].join('\n')
+  }
+
+  if (kind === 'blocking') {
+    return [
+      'SELECT',
+      '  blocked.pid AS blocked_pid,',
+      '  blocked.usename AS blocked_user,',
+      '  blocker.pid AS blocking_pid,',
+      '  blocker.usename AS blocking_user,',
+      '  blocked.wait_event_type,',
+      '  blocked.wait_event,',
+      '  LEFT(blocked.query, 300) AS blocked_query,',
+      '  LEFT(blocker.query, 300) AS blocking_query',
+      'FROM pg_stat_activity blocked',
+      'JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS blocking_pid(pid) ON true',
+      'JOIN pg_stat_activity blocker ON blocker.pid = blocking_pid.pid',
+      'ORDER BY blocked.pid;'
+    ].join('\n')
+  }
+
+  if (node.type === 'schema') {
+    const schemaName = metaStr(node, 'name') || node.title
+    return [
+      'SELECT',
+      `  COALESCE(NULLIF(pg_get_userbyid(acl.grantee), ''), 'PUBLIC') AS grantee,`,
+      `  pg_get_userbyid(acl.grantor) AS grantor,`,
+      '  acl.privilege_type,',
+      '  acl.is_grantable',
+      `FROM aclexplode(COALESCE((SELECT nspacl FROM pg_namespace WHERE nspname = ${escapeSqlLiteral(schemaName)}), ARRAY[]::aclitem[])) AS acl`,
+      'ORDER BY grantee, acl.privilege_type;'
+    ].join('\n')
+  }
+  const objectName = metaStr(node, 'name') || node.title
+  const schemaName = metaStr(node, 'schema')
+  const qualifiedName = schemaName ? `${schemaName}.${objectName}` : objectName
+  return [
+    'SELECT',
+    `  COALESCE(NULLIF(pg_get_userbyid(acl.grantee), ''), 'PUBLIC') AS grantee,`,
+    `  pg_get_userbyid(acl.grantor) AS grantor,`,
+    '  acl.privilege_type,',
+    '  acl.is_grantable',
+    `FROM aclexplode(COALESCE((SELECT relacl FROM pg_class WHERE oid = ${escapeSqlLiteral(qualifiedName)}::regclass), ARRAY[]::aclitem[])) AS acl`,
+    'ORDER BY grantee, acl.privilege_type;'
+  ].join('\n')
 }
 
 function formatObjectDefinition(node: TreeNode) {

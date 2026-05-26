@@ -13,6 +13,7 @@ export interface SqlDocumentInput {
   filePath?: string
   title?: string
   content?: string
+  autoExecuteNonce?: string
 }
 
 interface SqlDocumentActionsOptions {
@@ -98,6 +99,7 @@ export function useSqlDocumentActions(options: SqlDocumentActionsOptions) {
       filePath: data.filePath,
       dirty: false,
       isUntitled: !isOpeningFile,
+      autoExecuteNonce: data.autoExecuteNonce,
     })
 
     return true
