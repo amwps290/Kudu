@@ -174,14 +174,46 @@ impl DatabaseOperations for SqliteDatabase {
     }
 
     async fn get_databases(&self) -> DbResult<Vec<DatabaseInfo>> {
-        Ok(vec![DatabaseInfo { name: "main".into(), charset: None, collation: None }])
+        Ok(vec![DatabaseInfo {
+            name: "main".into(),
+            charset: None,
+            collation: None,
+            ctype: None,
+            owner: None,
+            tablespace: None,
+            size_bytes: None,
+            allow_connections: None,
+            connection_limit: None,
+            is_template: None,
+        }])
     }
 
     async fn get_tables(&self, _database: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let state = self.state.lock().await;
         let conn = state.conn.as_ref().ok_or(DbError::not_connected())?;
         let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").map_err(|e| DbError::QueryFailed(e.to_string()))?;
-        let rows = stmt.query_map([], |row| Ok(TableInfo { name: row.get(0)?, schema: None, table_type: "TABLE".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] })).map_err(|e| DbError::QueryFailed(e.to_string()))?;
+        let rows = stmt.query_map([], |row| Ok(TableInfo {
+            oid: None,
+            name: row.get(0)?,
+            schema: None,
+            table_type: "TABLE".into(),
+            engine: None,
+            owner: None,
+            tablespace: None,
+            rows: None,
+            size_mb: None,
+            size_bytes: None,
+            main_size_bytes: None,
+            toast_size_bytes: None,
+            persistence: None,
+            fillfactor: None,
+            comment: None,
+            is_partitioned: false,
+            partition_key: None,
+            partition_parent: None,
+            partition_bound: None,
+            partitions: vec![],
+        })).map_err(|e| DbError::QueryFailed(e.to_string()))?;
         Ok(rows.map(|r| r.unwrap()).collect())
     }
 
@@ -195,6 +227,7 @@ impl DatabaseOperations for SqliteDatabase {
                 name: row.get(1)?, data_type: row.get(2)?, nullable: row.get::<usize, i64>(3)? == 0,
                 default_value: row.get(4).ok(), is_primary_key: pk > 0,
                 is_auto_increment: false, comment: None, character_maximum_length: None, numeric_precision: None, numeric_scale: None,
+                collation: None, is_identity: None, identity_generation: None, generated_expression: None,
             })
         }).map_err(|e| DbError::QueryFailed(e.to_string()))?;
         Ok(rows.map(|r| r.unwrap()).collect())
@@ -280,9 +313,10 @@ impl DatabaseOperations for SqliteDatabase {
                 if let Some(col_res) = col_res_vec.first() {
                     let columns = col_res.rows.iter().map(|cr| cr.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string()).collect();
                     indexes.push(IndexInfo { 
+                        oid: None,
                         name, columns, 
                         is_unique: r.get("unique").and_then(|v| v.as_i64()).map(|n| n > 0).or_else(|| r.get("unique").and_then(|v| v.as_str()).map(|s| s == "1")).unwrap_or(false), 
-                        is_primary: false, index_type: "BTREE".to_string(), size_bytes: None, include_columns: None, predicate: None
+                        is_primary: false, index_type: "BTREE".to_string(), tablespace: None, size_bytes: None, fillfactor: None, include_columns: None, predicate: None, definition: None
                     });
                 }
             }
@@ -334,6 +368,7 @@ impl DatabaseOperations for SqliteDatabase {
                     timing,
                     event,
                     enabled: None,
+                    orientation: None,
                     definition,
                 }
             }).collect())

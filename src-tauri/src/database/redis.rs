@@ -197,7 +197,18 @@ impl DatabaseOperations for RedisDatabase {
     }
 
     async fn get_databases(&self) -> DbResult<Vec<DatabaseInfo>> {
-        Ok((0..16).map(|i| DatabaseInfo { name: format!("db{}", i), charset: None, collation: None }).collect())
+        Ok((0..16).map(|i| DatabaseInfo {
+            name: format!("db{}", i),
+            charset: None,
+            collation: None,
+            ctype: None,
+            owner: None,
+            tablespace: None,
+            size_bytes: None,
+            allow_connections: None,
+            connection_limit: None,
+            is_template: None,
+        }).collect())
     }
 
     async fn get_tables(&self, _database: Option<&str>) -> DbResult<Vec<TableInfo>> {

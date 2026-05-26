@@ -496,15 +496,58 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn get_databases(&self) -> DbResult<Vec<DatabaseInfo>> {
         let client = self.get_client_arc().await?;
-        let rows = client.query("SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname", &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| DatabaseInfo { name: r.get(0), charset: None, collation: None }).collect())
+        let sql = "
+            SELECT
+                d.datname,
+                pg_encoding_to_char(d.encoding) AS charset,
+                d.datcollate,
+                d.datctype,
+                pg_catalog.pg_get_userbyid(d.datdba) AS owner,
+                COALESCE(ts.spcname, 'pg_default') AS tablespace,
+                pg_database_size(d.datname)::int8 AS size_bytes,
+                d.datallowconn,
+                d.datconnlimit,
+                d.datistemplate
+            FROM pg_database d
+            LEFT JOIN pg_tablespace ts ON ts.oid = d.dattablespace
+            WHERE d.datistemplate = false
+            ORDER BY d.datname
+        ";
+        let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
+        Ok(rows.into_iter().map(|r| DatabaseInfo {
+            name: r.get(0),
+            charset: r.try_get(1).ok(),
+            collation: r.try_get(2).ok(),
+            ctype: r.try_get(3).ok(),
+            owner: r.try_get(4).ok(),
+            tablespace: r.try_get(5).ok(),
+            size_bytes: r.try_get(6).ok(),
+            allow_connections: r.try_get(7).ok(),
+            connection_limit: r.try_get(8).ok(),
+            is_template: r.try_get(9).ok(),
+        }).collect())
     }
 
     async fn get_schemas(&self, _db: Option<&str>) -> DbResult<Vec<SchemaInfo>> {
         let client = self.get_client_arc().await?;
-        let sql = "SELECT nspname, pg_catalog.pg_get_userbyid(nspowner) FROM pg_catalog.pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname != 'information_schema' ORDER BY nspname";
+        let sql = "
+            SELECT
+                n.oid::int8,
+                n.nspname,
+                pg_catalog.pg_get_userbyid(n.nspowner),
+                pg_catalog.obj_description(n.oid, 'pg_namespace')
+            FROM pg_catalog.pg_namespace n
+            WHERE n.nspname NOT LIKE 'pg_%'
+              AND n.nspname != 'information_schema'
+            ORDER BY n.nspname
+        ";
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| SchemaInfo { name: r.get(0), owner: r.try_get(1).ok(), comment: None }).collect())
+        Ok(rows.into_iter().map(|r| SchemaInfo {
+            oid: r.try_get(0).ok(),
+            name: r.get(1),
+            owner: r.try_get(2).ok(),
+            comment: r.try_get(3).ok(),
+        }).collect())
     }
 
     async fn get_tables(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
@@ -515,14 +558,22 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 n.nspname,
                 c.relname,
                 c.relkind::text,
+                pg_catalog.pg_get_userbyid(c.relowner) AS owner,
+                COALESCE(ts.spcname, 'pg_default') AS tablespace,
                 obj_description(c.oid),
+                pg_total_relation_size(c.oid)::int8 AS size_bytes,
+                pg_relation_size(c.oid)::int8 AS main_size_bytes,
+                CASE WHEN c.reltoastrelid <> 0 THEN pg_total_relation_size(c.reltoastrelid)::int8 END AS toast_size_bytes,
                 pg_total_relation_size(c.oid)::float8 / 1024 / 1024,
+                CASE c.relpersistence WHEN 'p' THEN 'PERMANENT' WHEN 'u' THEN 'UNLOGGED' WHEN 't' THEN 'TEMPORARY' ELSE c.relpersistence::text END AS persistence,
+                COALESCE((SELECT option_value FROM pg_options_to_table(c.reloptions) WHERE option_name = 'fillfactor' LIMIT 1), '100') AS fillfactor,
                 CASE WHEN c.relkind = 'p' THEN pg_get_partkeydef(c.oid) END AS partition_key,
                 CASE WHEN pc.relkind = 'p' THEN pn.nspname END AS parent_schema,
                 CASE WHEN pc.relkind = 'p' THEN pc.relname END AS parent_name,
                 CASE WHEN pc.relkind = 'p' THEN pg_get_expr(c.relpartbound, c.oid, true) END AS partition_bound
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_tablespace ts ON ts.oid = c.reltablespace
             LEFT JOIN pg_inherits inh ON inh.inhrelid = c.oid
             LEFT JOIN pg_class pc ON pc.oid = inh.inhparent
             LEFT JOIN pg_namespace pn ON pn.oid = pc.relnamespace
@@ -569,25 +620,33 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(rows.into_iter().map(|r| {
             let oid: i64 = r.get(0);
             let relkind: String = r.get(3);
-            let parent_schema: Option<String> = r.try_get(7).ok();
-            let parent_name: Option<String> = r.try_get(8).ok();
+            let parent_schema: Option<String> = r.try_get(14).ok();
+            let parent_name: Option<String> = r.try_get(15).ok();
             let partition_parent = match (parent_schema, parent_name) {
                 (Some(schema), Some(name)) => Some(format!("{}.{}", schema, name)),
                 _ => None,
             };
 
             TableInfo {
+                oid: Some(oid),
                 name: r.get(2),
                 schema: Some(r.get(1)),
                 table_type: if relkind == "p" { "PARTITIONED TABLE".into() } else if partition_parent.is_some() { "PARTITION".into() } else { "TABLE".into() },
                 engine: None,
+                owner: r.try_get(4).ok(),
+                tablespace: r.try_get(5).ok(),
                 rows: None,
-                size_mb: r.try_get(5).ok(),
-                comment: r.try_get(4).ok(),
+                size_mb: r.try_get(10).ok(),
+                size_bytes: r.try_get(7).ok(),
+                main_size_bytes: r.try_get(8).ok(),
+                toast_size_bytes: r.try_get(9).ok(),
+                persistence: r.try_get(11).ok(),
+                fillfactor: r.try_get(12).ok(),
+                comment: r.try_get(6).ok(),
                 is_partitioned: relkind == "p",
-                partition_key: r.try_get(6).ok(),
+                partition_key: r.try_get(13).ok(),
                 partition_parent,
-                partition_bound: r.try_get(9).ok(),
+                partition_bound: r.try_get(16).ok(),
                 partitions: partitions_by_parent.remove(&oid).unwrap_or_default(),
             }
         }).collect())
@@ -595,31 +654,74 @@ impl DatabaseOperations for PostgreSqlDatabase {
 
     async fn get_views(&self, _db: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
-        let sql = "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind = 'v' AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY n.nspname, c.relname";
+        let sql = "
+            SELECT
+                n.nspname,
+                c.relname,
+                pg_catalog.pg_get_userbyid(c.relowner) AS owner,
+                COALESCE(ts.spcname, 'pg_default') AS tablespace,
+                obj_description(c.oid)
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_tablespace ts ON ts.oid = c.reltablespace
+            WHERE c.relkind = 'v'
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+            ORDER BY n.nspname, c.relname
+        ";
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| TableInfo { name: r.get(1), schema: Some(r.get(0)), table_type: "VIEW".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] }).collect())
+        Ok(rows.into_iter().map(|r| TableInfo {
+            oid: None,
+            name: r.get(1),
+            schema: Some(r.get(0)),
+            table_type: "VIEW".into(),
+            engine: None,
+            owner: r.try_get(2).ok(),
+            tablespace: r.try_get(3).ok(),
+            rows: None,
+            size_mb: None,
+            size_bytes: None,
+            main_size_bytes: None,
+            toast_size_bytes: None,
+            persistence: None,
+            fillfactor: None,
+            comment: r.try_get(4).ok(),
+            is_partitioned: false,
+            partition_key: None,
+            partition_parent: None,
+            partition_bound: None,
+            partitions: vec![],
+        }).collect())
     }
 
     async fn get_materialized_views(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<TableInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "
-            SELECT n.nspname, c.relname, obj_description(c.oid), pg_total_relation_size(c.oid)::float8 / 1024 / 1024
+            SELECT n.nspname, c.relname, pg_catalog.pg_get_userbyid(c.relowner), COALESCE(ts.spcname, 'pg_default'), obj_description(c.oid), pg_total_relation_size(c.oid)::int8, pg_total_relation_size(c.oid)::float8 / 1024 / 1024
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_tablespace ts ON ts.oid = c.reltablespace
             WHERE c.relkind = 'm'
               AND n.nspname = $1
             ORDER BY n.nspname, c.relname
         ";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         Ok(rows.into_iter().map(|r| TableInfo {
+            oid: None,
             name: r.get(1),
             schema: Some(r.get(0)),
             table_type: "MATERIALIZED VIEW".into(),
             engine: None,
+            owner: r.try_get(2).ok(),
+            tablespace: r.try_get(3).ok(),
             rows: None,
-            size_mb: r.try_get(3).ok(),
-            comment: r.try_get(2).ok(),
+            size_mb: r.try_get(6).ok(),
+            size_bytes: r.try_get(5).ok(),
+            main_size_bytes: None,
+            toast_size_bytes: None,
+            persistence: None,
+            fillfactor: None,
+            comment: r.try_get(4).ok(),
             is_partitioned: false,
             partition_key: None,
             partition_parent: None,
@@ -633,8 +735,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         
         let sql = "
-            SELECT a.attname, format_type(a.atttypid, a.atttypmod), CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END, pg_get_expr(d.adbin, d.adrelid), CASE WHEN a.attlen = -1 THEN 0 ELSE a.attlen END
-            FROM pg_attribute a JOIN pg_class c ON a.attrelid = c.oid JOIN pg_namespace n ON c.relnamespace = n.oid LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+            SELECT
+                a.attname,
+                format_type(a.atttypid, a.atttypmod),
+                CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END,
+                pg_get_expr(d.adbin, d.adrelid),
+                CASE WHEN a.attlen = -1 THEN 0 ELSE a.attlen END,
+                coll.collname,
+                a.attidentity::text,
+                pg_get_expr(ad.adbin, ad.adrelid)
+            FROM pg_attribute a
+            JOIN pg_class c ON a.attrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+            LEFT JOIN pg_collation coll ON coll.oid = a.attcollation AND a.attcollation <> 0
+            LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum AND a.attgenerated <> ''
             WHERE c.relname = $1 AND n.nspname = $2 AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum;
         ";
         let rows = client.query(sql, &[&table, &schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
@@ -654,6 +769,18 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 default_value: r.try_get(3).ok(), is_primary_key: is_pk, is_auto_increment: false,
                 comment: None, character_maximum_length: if max_len > 0 { Some(max_len as i64) } else { None }, 
                 numeric_precision: None, numeric_scale: None,
+                collation: r.try_get(5).ok(),
+                is_identity: r.try_get::<_, String>(6).ok().map(|value| !value.is_empty()),
+                identity_generation: r.try_get::<_, String>(6).ok().and_then(|value| {
+                    if value == "a" {
+                        Some("ALWAYS".to_string())
+                    } else if value == "d" {
+                        Some("BY DEFAULT".to_string())
+                    } else {
+                        None
+                    }
+                }),
+                generated_expression: r.try_get(7).ok(),
             }
         }).collect())
     }
@@ -786,11 +913,14 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "
             SELECT
+                i.oid::int8,
                 i.relname AS index_name,
                 ix.indisunique,
                 ix.indisprimary,
                 am.amname,
+                COALESCE(ts.spcname, 'pg_default') AS tablespace,
                 pg_relation_size(i.oid)::int8,
+                COALESCE((SELECT option_value FROM pg_options_to_table(i.reloptions) WHERE option_name = 'fillfactor' LIMIT 1), '90') AS fillfactor,
                 COALESCE((
                     SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
                     FROM generate_series(1, ix.indnkeyatts) AS pos
@@ -802,12 +932,14 @@ impl DatabaseOperations for PostgreSqlDatabase {
                     ), ARRAY[]::text[])
                     ELSE ARRAY[]::text[]
                 END AS include_columns,
-                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate
+                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate,
+                pg_get_indexdef(ix.indexrelid) AS definition
             FROM pg_class t
             JOIN pg_index ix ON t.oid = ix.indrelid
             JOIN pg_class i ON i.oid = ix.indexrelid
             JOIN pg_am am ON am.oid = i.relam
             JOIN pg_namespace n ON n.oid = t.relnamespace
+            LEFT JOIN pg_tablespace ts ON ts.oid = i.reltablespace
             WHERE t.relname = $1
               AND n.nspname = $2
             ORDER BY i.relname
@@ -820,17 +952,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
         Ok(rows
             .into_iter()
             .map(|r| IndexInfo {
-                name: r.get(0),
-                is_unique: r.get(1),
-                is_primary: r.get(2),
-                index_type: r.get::<_, String>(3).to_uppercase(),
-                size_bytes: Some(r.get(4)),
-                columns: r.get::<_, Vec<String>>(5),
+                oid: r.try_get(0).ok(),
+                name: r.get(1),
+                is_unique: r.get(2),
+                is_primary: r.get(3),
+                index_type: r.get::<_, String>(4).to_uppercase(),
+                tablespace: r.try_get(5).ok(),
+                size_bytes: Some(r.get(6)),
+                fillfactor: r.try_get(7).ok(),
+                columns: r.get::<_, Vec<String>>(8),
                 include_columns: {
-                    let cols: Vec<String> = r.get(6);
+                    let cols: Vec<String> = r.get(9);
                     if cols.is_empty() { None } else { Some(cols) }
                 },
-                predicate: r.get(7),
+                predicate: r.get(10),
+                definition: r.try_get(11).ok(),
             })
             .collect())
     }
@@ -840,11 +976,14 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "
             SELECT
+                i.oid::int8,
                 i.relname AS index_name,
                 ix.indisunique,
                 ix.indisprimary,
                 am.amname,
+                COALESCE(ts.spcname, 'pg_default') AS tablespace,
                 pg_relation_size(i.oid)::int8,
+                COALESCE((SELECT option_value FROM pg_options_to_table(i.reloptions) WHERE option_name = 'fillfactor' LIMIT 1), '90') AS fillfactor,
                 COALESCE((
                     SELECT array_agg(pg_get_indexdef(ix.indexrelid, pos, true) ORDER BY pos)
                     FROM generate_series(1, ix.indnkeyatts) AS pos
@@ -856,12 +995,14 @@ impl DatabaseOperations for PostgreSqlDatabase {
                     ), ARRAY[]::text[])
                     ELSE ARRAY[]::text[]
                 END AS include_columns,
-                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate
+                pg_get_expr(ix.indpred, ix.indrelid, true) AS predicate,
+                pg_get_indexdef(ix.indexrelid) AS definition
             FROM pg_index ix
             JOIN pg_class i ON i.oid = ix.indexrelid
             JOIN pg_am am ON am.oid = i.relam
             JOIN pg_class t ON t.oid = ix.indrelid
             JOIN pg_namespace n ON n.oid = i.relnamespace
+            LEFT JOIN pg_tablespace ts ON ts.oid = i.reltablespace
             WHERE n.nspname = $1
             ORDER BY i.relname
         ";
@@ -872,17 +1013,21 @@ impl DatabaseOperations for PostgreSqlDatabase {
         let indexes: Vec<IndexInfo> = rows
             .into_iter()
             .map(|r| IndexInfo {
-                name: r.get(0),
-                is_unique: r.get(1),
-                is_primary: r.get(2),
-                index_type: r.get::<_, String>(3).to_uppercase(),
-                size_bytes: Some(r.get(4)),
-                columns: r.get::<_, Vec<String>>(5),
+                oid: r.try_get(0).ok(),
+                name: r.get(1),
+                is_unique: r.get(2),
+                is_primary: r.get(3),
+                index_type: r.get::<_, String>(4).to_uppercase(),
+                tablespace: r.try_get(5).ok(),
+                size_bytes: Some(r.get(6)),
+                fillfactor: r.try_get(7).ok(),
+                columns: r.get::<_, Vec<String>>(8),
                 include_columns: {
-                    let cols: Vec<String> = r.get(6);
+                    let cols: Vec<String> = r.get(9);
                     if cols.is_empty() { None } else { Some(cols) }
                 },
-                predicate: r.get(7),
+                predicate: r.get(10),
+                definition: r.try_get(11).ok(),
             })
             .collect();
         debug!(count = indexes.len(), sc = %schema_name, "已获取 PostgreSQL 索引");
@@ -948,6 +1093,7 @@ impl DatabaseOperations for PostgreSqlDatabase {
                     CASE WHEN (tg.tgtype & 16) = 16 THEN 'UPDATE' END,
                     CASE WHEN (tg.tgtype & 32) = 32 THEN 'TRUNCATE' END
                 ) AS event,
+                CASE WHEN (tg.tgtype & 1) = 1 THEN 'ROW' ELSE 'STATEMENT' END AS orientation,
                 tg.tgenabled::text,
                 pg_get_triggerdef(tg.oid, true)
             FROM pg_trigger tg
@@ -964,8 +1110,9 @@ impl DatabaseOperations for PostgreSqlDatabase {
                 table_name: r.get(1),
                 timing: Some(r.get(2)),
                 event: Some(r.get(3)),
+                orientation: r.try_get(4).ok(),
                 enabled: Some(enabled != "D"),
-                definition: Some(r.get(5)),
+                definition: Some(r.get(6)),
             }
         }).collect())
     }
@@ -1277,27 +1424,27 @@ impl DatabaseOperations for PostgreSqlDatabase {
     async fn get_functions(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'f' ORDER BY p.proname, p.oid";
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, CASE p.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END, p.prosecdef, CASE p.proparallel WHEN 's' THEN 'SAFE' WHEN 'r' THEN 'RESTRICTED' ELSE 'UNSAFE' END, p.proisstrict, p.proleakproof, p.procost::float8, p.prorows::float8, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'f' ORDER BY p.proname, p.oid";
         
         debug!(sc = %schema_name, "正在查询 PostgreSQL 函数...");
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         debug!(count = rows.len(), "已获取函数列表");
         
-        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: r.try_get(6).ok(), function_type: "function".into(), comment: r.try_get(7).ok() }).collect())
+        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: r.try_get(6).ok(), function_type: "function".into(), volatility: r.try_get(7).ok(), security_definer: r.try_get(8).ok(), parallel: r.try_get(9).ok(), is_strict: r.try_get(10).ok(), leakproof: r.try_get(11).ok(), estimated_cost: r.try_get(12).ok(), estimated_rows: r.try_get(13).ok(), comment: r.try_get(14).ok() }).collect())
     }
 
     async fn get_aggregate_functions(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.prokind = 'a' ORDER BY p.proname, p.oid";
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_result(p.oid), pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), CASE p.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END, p.prosecdef, CASE p.proparallel WHEN 's' THEN 'SAFE' WHEN 'r' THEN 'RESTRICTED' ELSE 'UNSAFE' END, p.proisstrict, p.proleakproof, p.procost::float8, p.prorows::float8, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1 AND p.prokind = 'a' ORDER BY p.proname, p.oid";
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
-        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: None, function_type: "aggregate".into(), comment: r.try_get(6).ok() }).collect())
+        Ok(rows.into_iter().map(|r| FunctionInfo { oid: r.try_get(0).ok(), name: r.get(1), schema: Some(r.get(2)), return_type: r.try_get(3).ok(), arguments: r.try_get(4).ok(), identity_arguments: r.try_get(5).ok(), language: None, function_type: "aggregate".into(), volatility: r.try_get(6).ok(), security_definer: r.try_get(7).ok(), parallel: r.try_get(8).ok(), is_strict: r.try_get(9).ok(), leakproof: r.try_get(10).ok(), estimated_cost: r.try_get(11).ok(), estimated_rows: r.try_get(12).ok(), comment: r.try_get(13).ok() }).collect())
     }
 
     async fn get_procedures(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<FunctionInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
-        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'p' ORDER BY p.proname, p.oid";
+        let sql = "SELECT p.oid::int8, p.proname, n.nspname, pg_catalog.pg_get_function_arguments(p.oid), pg_catalog.pg_get_function_identity_arguments(p.oid), l.lanname, CASE p.provolatile WHEN 'i' THEN 'IMMUTABLE' WHEN 's' THEN 'STABLE' ELSE 'VOLATILE' END, p.prosecdef, CASE p.proparallel WHEN 's' THEN 'SAFE' WHEN 'r' THEN 'RESTRICTED' ELSE 'UNSAFE' END, p.proisstrict, p.proleakproof, p.procost::float8, p.prorows::float8, obj_description(p.oid, 'pg_proc') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang WHERE n.nspname = $1 AND p.prokind = 'p' ORDER BY p.proname, p.oid";
 
         debug!(sc = %schema_name, "正在查询 PostgreSQL 存储过程...");
         let rows = client.query(sql, &[&schema_name]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
@@ -1312,28 +1459,47 @@ impl DatabaseOperations for PostgreSqlDatabase {
             identity_arguments: r.try_get(4).ok(),
             language: r.try_get(5).ok(),
             function_type: "procedure".into(),
-            comment: r.try_get(6).ok(),
+            volatility: r.try_get(6).ok(),
+            security_definer: r.try_get(7).ok(),
+            parallel: r.try_get(8).ok(),
+            is_strict: r.try_get(9).ok(),
+            leakproof: r.try_get(10).ok(),
+            estimated_cost: r.try_get(11).ok(),
+            estimated_rows: r.try_get(12).ok(),
+            comment: r.try_get(13).ok(),
         }).collect())
     }
 
     async fn get_extensions(&self, _database: Option<&str>) -> DbResult<Vec<ExtensionInfo>> {
         let client = self.get_client_arc().await?;
-        let sql = "SELECT extname, extversion, n.nspname, obj_description(e.oid, 'pg_extension') FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY extname";
+        let sql = "SELECT e.oid::int8, extname, extversion, n.nspname, e.extrelocatable, obj_description(e.oid, 'pg_extension') FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY extname";
         
         debug!("正在查询 PostgreSQL 扩展...");
         let rows = client.query(sql, &[]).await.map_err(|e| DbError::QueryFailed(Self::format_pg_error(&e)))?;
         debug!(count = rows.len(), "已获取扩展列表");
         
-        Ok(rows.into_iter().map(|r| ExtensionInfo { name: r.get(0), version: r.get(1), schema: Some(r.get(2)), comment: r.try_get(3).ok() }).collect())
+        Ok(rows.into_iter().map(|r| ExtensionInfo { oid: r.try_get(0).ok(), name: r.get(1), version: r.get(2), schema: Some(r.get(3)), relocatable: r.try_get(4).ok(), comment: r.try_get(5).ok() }).collect())
     }
 
     async fn get_sequences(&self, _database: Option<&str>, schema: Option<&str>) -> DbResult<Vec<SequenceInfo>> {
         let client = self.get_client_arc().await?;
         let schema_name = schema.unwrap_or(PG_DEFAULT_SCHEMA);
         let sql = "
-            SELECT c.oid::int8, c.relname, n.nspname, obj_description(c.oid, 'pg_class')
+            SELECT
+                c.oid::int8,
+                c.relname,
+                n.nspname,
+                format_type(s.seqtypid, NULL),
+                s.seqstart::int8,
+                s.seqmin::int8,
+                s.seqmax::int8,
+                s.seqincrement::int8,
+                s.seqcache::int8,
+                s.seqcycle,
+                obj_description(c.oid, 'pg_class')
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_sequence s ON s.seqrelid = c.oid
             WHERE n.nspname = $1
               AND c.relkind = 'S'
             ORDER BY c.relname
@@ -1343,7 +1509,14 @@ impl DatabaseOperations for PostgreSqlDatabase {
             oid: r.try_get(0).ok(),
             name: r.get(1),
             schema: Some(r.get(2)),
-            comment: r.try_get(3).ok(),
+            data_type: r.try_get(3).ok(),
+            start_value: r.try_get(4).ok(),
+            min_value: r.try_get(5).ok(),
+            max_value: r.try_get(6).ok(),
+            increment_by: r.try_get(7).ok(),
+            cache_size: r.try_get(8).ok(),
+            cycle: r.try_get(9).ok(),
+            comment: r.try_get(10).ok(),
         }).collect())
     }
 

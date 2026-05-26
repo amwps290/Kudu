@@ -95,7 +95,18 @@ impl DatabaseOperations for MongoDatabase {
         let state = self.state.lock().await;
         let client = state.client.as_ref().ok_or(DbError::not_connected())?;
         let names = client.list_database_names().await.map_err(|e| DbError::QueryFailed(e.to_string()))?;
-        Ok(names.into_iter().map(|n| DatabaseInfo { name: n, charset: None, collation: None }).collect())
+        Ok(names.into_iter().map(|n| DatabaseInfo {
+            name: n,
+            charset: None,
+            collation: None,
+            ctype: None,
+            owner: None,
+            tablespace: None,
+            size_bytes: None,
+            allow_connections: None,
+            connection_limit: None,
+            is_template: None,
+        }).collect())
     }
 
     async fn get_tables(&self, database: Option<&str>) -> DbResult<Vec<TableInfo>> {
@@ -103,7 +114,28 @@ impl DatabaseOperations for MongoDatabase {
         let client = state.client.as_ref().ok_or(DbError::not_connected())?;
         let db_name = database.ok_or(DbError::QueryFailed("未指定数据库".into()))?;
         let names = client.database(db_name).list_collection_names().await.map_err(|e| DbError::QueryFailed(e.to_string()))?;
-        Ok(names.into_iter().map(|n| TableInfo { name: n, schema: None, table_type: "COLLECTION".into(), engine: None, rows: None, size_mb: None, comment: None, is_partitioned: false, partition_key: None, partition_parent: None, partition_bound: None, partitions: vec![] }).collect())
+        Ok(names.into_iter().map(|n| TableInfo {
+            oid: None,
+            name: n,
+            schema: None,
+            table_type: "COLLECTION".into(),
+            engine: None,
+            owner: None,
+            tablespace: None,
+            rows: None,
+            size_mb: None,
+            size_bytes: None,
+            main_size_bytes: None,
+            toast_size_bytes: None,
+            persistence: None,
+            fillfactor: None,
+            comment: None,
+            is_partitioned: false,
+            partition_key: None,
+            partition_parent: None,
+            partition_bound: None,
+            partitions: vec![],
+        }).collect())
     }
 
     async fn get_table_structure(&self, _table: &str, _schema: Option<&str>, _database: Option<&str>) -> DbResult<Vec<ColumnInfo>> {

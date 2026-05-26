@@ -638,7 +638,7 @@ async function onLoadData(treeNode: TreeNode) {
   else if (treeNode.type === 'schemas') {
     try {
       const res = await metadataApi.getSchemas(connId, treeNode.metadata.database)
-      const children = res.map(s => ({ key: `${treeNode.key}-${s.name}`, title: s.name, type: 'schema', isLeaf: false, metadata: { database: treeNode.metadata.database, name: s.name } }))
+      const children = res.map(s => ({ key: `${treeNode.key}-${s.name}`, title: s.name, type: 'schema', isLeaf: false, metadata: { ...s, database: treeNode.metadata.database, name: s.name } }))
       updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children)
       treeData.value = [...treeData.value]
     } catch (e: unknown) { message.error(getErrorMessage(e)) }

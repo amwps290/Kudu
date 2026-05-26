@@ -112,6 +112,13 @@ pub struct DatabaseInfo {
     pub name: String,
     pub charset: Option<String>,
     pub collation: Option<String>,
+    pub ctype: Option<String>,
+    pub owner: Option<String>,
+    pub tablespace: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub allow_connections: Option<bool>,
+    pub connection_limit: Option<i32>,
+    pub is_template: Option<bool>,
 }
 
 /// PostgreSQL partition child metadata.
@@ -125,12 +132,20 @@ pub struct TablePartitionInfo {
 /// 数据库元数据 - 表信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableInfo {
+    pub oid: Option<i64>,
     pub name: String,
     pub schema: Option<String>,
     pub table_type: String,
     pub engine: Option<String>,
+    pub owner: Option<String>,
+    pub tablespace: Option<String>,
     pub rows: Option<u64>,
     pub size_mb: Option<f64>,
+    pub size_bytes: Option<i64>,
+    pub main_size_bytes: Option<i64>,
+    pub toast_size_bytes: Option<i64>,
+    pub persistence: Option<String>,
+    pub fillfactor: Option<String>,
     pub comment: Option<String>,
     #[serde(default)]
     pub is_partitioned: bool,
@@ -154,25 +169,34 @@ pub struct ColumnInfo {
     pub character_maximum_length: Option<i64>,
     pub numeric_precision: Option<i64>,
     pub numeric_scale: Option<i64>,
+    pub collation: Option<String>,
+    pub is_identity: Option<bool>,
+    pub identity_generation: Option<String>,
+    pub generated_expression: Option<String>,
 }
 
 /// 数据库元数据 - 索引信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexInfo {
+    pub oid: Option<i64>,
     pub name: String,
     pub columns: Vec<String>,
     pub is_unique: bool,
     pub is_primary: bool,
     pub index_type: String,
+    pub tablespace: Option<String>,
     pub size_bytes: Option<i64>,
+    pub fillfactor: Option<String>,
     pub include_columns: Option<Vec<String>>,
     pub predicate: Option<String>,
+    pub definition: Option<String>,
 }
 
 /// 数据库元数据 - Schema 信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaInfo {
     pub name: String,
+    pub oid: Option<i64>,
     pub owner: Option<String>,
     pub comment: Option<String>,
 }
@@ -188,15 +212,24 @@ pub struct FunctionInfo {
     pub identity_arguments: Option<String>,
     pub language: Option<String>,
     pub function_type: String, // "function" 或 "aggregate"
+    pub volatility: Option<String>,
+    pub security_definer: Option<bool>,
+    pub parallel: Option<String>,
+    pub is_strict: Option<bool>,
+    pub leakproof: Option<bool>,
+    pub estimated_cost: Option<f64>,
+    pub estimated_rows: Option<f64>,
     pub comment: Option<String>,
 }
 
 /// 数据库元数据 - 扩展信息 (PostgreSQL 专用)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionInfo {
+    pub oid: Option<i64>,
     pub name: String,
     pub version: String,
     pub schema: Option<String>,
+    pub relocatable: Option<bool>,
     pub comment: Option<String>,
 }
 
@@ -206,6 +239,13 @@ pub struct SequenceInfo {
     pub oid: Option<i64>,
     pub name: String,
     pub schema: Option<String>,
+    pub data_type: Option<String>,
+    pub start_value: Option<i64>,
+    pub min_value: Option<i64>,
+    pub max_value: Option<i64>,
+    pub increment_by: Option<i64>,
+    pub cache_size: Option<i64>,
+    pub cycle: Option<bool>,
     pub comment: Option<String>,
 }
 
@@ -288,6 +328,7 @@ pub struct TriggerInfo {
     pub timing: Option<String>,
     pub event: Option<String>,
     pub enabled: Option<bool>,
+    pub orientation: Option<String>,
     pub definition: Option<String>,
 }
 

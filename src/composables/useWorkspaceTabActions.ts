@@ -80,6 +80,9 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
       if (data.type === 'column') return 'column'
       if (data.type === 'index') return 'index'
       if (data.type === 'foreign-key') return 'foreign-key'
+      if (data.type === 'unique-constraint') return 'unique-constraint'
+      if (data.type === 'check-constraint') return 'check-constraint'
+      if (data.type === 'exclude-constraint') return 'exclude-constraint'
       if (data.type === 'trigger') return 'trigger'
       if (data.type === 'rule') return 'rule'
       if (data.type === 'function') return 'function'
@@ -87,8 +90,13 @@ export function useWorkspaceTabActions(options: WorkspaceTabActionsOptions) {
       if (data.type === 'aggregate') return 'aggregate'
       if (data.type === 'sequence') return 'sequence'
       if (data.type === 'enum-type') return 'enum-type'
+      if (data.type === 'enum-label') return 'enum-label'
       if (data.type === 'domain-type') return 'domain-type'
+      if (data.type === 'domain-detail') return 'domain-detail'
+      if (data.type === 'domain-constraint') return 'domain-constraint'
       if (data.type === 'composite-type') return 'composite-type'
+      if (data.type === 'composite-field') return 'composite-field'
+      if (data.type === 'partition-key') return 'partition-key'
       if (data.type === 'extension') return 'extension'
       return undefined
     })()

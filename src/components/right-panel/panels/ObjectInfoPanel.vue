@@ -53,6 +53,9 @@ const objectTypeLabel = computed(() => {
     column: t('tree.columns'),
     index: t('tree.indexes'),
     'foreign-key': t('tree.foreign_keys'),
+    'unique-constraint': t('tree.uniques'),
+    'check-constraint': t('tree.checks'),
+    'exclude-constraint': t('tree.excludes'),
     trigger: t('tree.triggers'),
     rule: t('tree.rules'),
     function: t('tree.functions'),
@@ -60,8 +63,13 @@ const objectTypeLabel = computed(() => {
     aggregate: t('tree.aggregates'),
     sequence: t('tree.sequences'),
     'enum-type': t('tree.enum_types'),
+    'enum-label': t('right_panel.fields.enum_label'),
     'domain-type': t('tree.domain_types'),
+    'domain-detail': t('right_panel.fields.domain_detail'),
+    'domain-constraint': t('right_panel.fields.domain_constraint'),
     'composite-type': t('tree.composite_types'),
+    'composite-field': t('right_panel.fields.composite_field'),
+    'partition-key': t('right_panel.fields.partition_key'),
     extension: t('tree.extensions'),
     'redis-key': 'Redis Key',
     unknown: t('common.type'),
@@ -82,11 +90,33 @@ const detailDefinitions = computed(() => {
     { key: '__read_only', label: t('right_panel.fields.read_only') },
   ]
 
+  if (objectType === 'database') {
+    definitions.push(
+      { key: 'owner', label: t('right_panel.fields.owner') },
+      { key: 'tablespace', label: t('right_panel.fields.tablespace') },
+      { key: 'charset', label: t('right_panel.fields.charset') },
+      { key: 'collation', label: t('right_panel.fields.collation') },
+      { key: 'ctype', label: t('right_panel.fields.ctype') },
+      { key: 'size_bytes', label: t('right_panel.fields.database_size') },
+      { key: 'allow_connections', label: t('right_panel.fields.allow_connections') },
+      { key: 'connection_limit', label: t('right_panel.fields.connection_limit') },
+      { key: 'is_template', label: t('right_panel.fields.is_template') },
+    )
+  }
+
   if (objectType === 'table' || objectType === 'view' || objectType === 'materialized-view') {
     definitions.push(
+      { key: 'oid', label: 'OID' },
       { key: 'rows', label: t('right_panel.fields.rows') },
+      { key: 'owner', label: t('right_panel.fields.owner') },
+      { key: 'tablespace', label: t('right_panel.fields.tablespace') },
       { key: 'size_mb', label: t('right_panel.fields.table_size') },
+      { key: 'size_bytes', label: t('right_panel.fields.storage_bytes') },
+      { key: 'main_size_bytes', label: t('right_panel.fields.main_storage_size') },
+      { key: 'toast_size_bytes', label: t('right_panel.fields.toast_storage_size') },
       { key: 'table_type', label: t('right_panel.fields.table_type') },
+      { key: 'persistence', label: t('right_panel.fields.persistence') },
+      { key: 'fillfactor', label: t('right_panel.fields.fillfactor') },
       { key: 'engine', label: t('right_panel.fields.engine') },
       { key: 'partition_key', label: t('right_panel.fields.partition_key') },
       { key: 'partition_parent', label: t('right_panel.fields.partition_parent') },
@@ -96,14 +126,26 @@ const detailDefinitions = computed(() => {
 
   if (objectType === 'index') {
     definitions.push(
+      { key: 'oid', label: 'OID' },
+      { key: 'table', label: t('right_panel.fields.table_name') },
+      { key: 'tablespace', label: t('right_panel.fields.tablespace') },
       { key: 'size_bytes', label: t('right_panel.fields.index_size') },
+      { key: 'fillfactor', label: t('right_panel.fields.fillfactor') },
       { key: 'index_type', label: t('right_panel.fields.index_type') },
       { key: 'predicate', label: t('right_panel.fields.predicate') },
     )
   }
 
+  if (['unique-constraint', 'check-constraint', 'exclude-constraint'].includes(objectType || '')) {
+    definitions.push(
+      { key: 'table', label: t('right_panel.fields.table_name') },
+      { key: 'constraint_type', label: t('right_panel.fields.constraint_type') },
+    )
+  }
+
   if (objectType === 'schema') {
     definitions.push(
+      { key: 'oid', label: 'OID' },
       { key: 'owner', label: t('right_panel.fields.owner') },
       { key: 'comment', label: t('common.description') },
     )
@@ -111,14 +153,23 @@ const detailDefinitions = computed(() => {
 
   if (objectType === 'column') {
     definitions.push(
+      { key: 'table', label: t('right_panel.fields.table_name') },
       { key: 'data_type', label: t('right_panel.fields.data_type') },
-      { key: 'default_value', label: t('right_panel.fields.default_value') },
+      { key: 'collation', label: t('right_panel.fields.collation') },
       { key: 'nullable', label: t('right_panel.fields.nullable') },
+      { key: 'character_maximum_length', label: t('right_panel.fields.max_length') },
+      { key: 'numeric_precision', label: t('right_panel.fields.numeric_precision') },
+      { key: 'numeric_scale', label: t('right_panel.fields.numeric_scale') },
+      { key: 'default_value', label: t('right_panel.fields.default_value') },
+      { key: 'is_identity', label: t('right_panel.fields.identity_column') },
+      { key: 'identity_generation', label: t('right_panel.fields.identity_generation') },
+      { key: 'generated_expression', label: t('right_panel.fields.generated_expression') },
     )
   }
 
   if (objectType === 'foreign-key') {
     definitions.push(
+      { key: 'table', label: t('right_panel.fields.table_name') },
       { key: 'column_name', label: t('right_panel.fields.column_name') },
       { key: 'referenced_table_name', label: t('right_panel.fields.referenced_table') },
       { key: 'referenced_column_name', label: t('right_panel.fields.referenced_column') },
@@ -129,8 +180,11 @@ const detailDefinitions = computed(() => {
 
   if (objectType === 'trigger') {
     definitions.push(
+      { key: 'table_name', label: t('right_panel.fields.table_name') },
       { key: 'timing', label: t('right_panel.fields.timing') },
+      { key: 'orientation', label: t('right_panel.fields.orientation') },
       { key: 'event', label: t('right_panel.fields.event') },
+      { key: 'enabled', label: t('right_panel.fields.enabled') },
     )
   }
 
@@ -143,29 +197,56 @@ const detailDefinitions = computed(() => {
 
   if (['function', 'procedure', 'aggregate'].includes(objectType || '')) {
     definitions.push(
+      { key: 'oid', label: 'OID' },
       { key: 'return_type', label: t('right_panel.fields.return_type') },
       { key: 'language', label: t('right_panel.fields.language') },
       { key: 'function_type', label: t('right_panel.fields.function_type') },
       { key: 'arguments', label: t('right_panel.fields.arguments') },
+      { key: 'identity_arguments', label: t('right_panel.fields.identity_arguments') },
+      { key: 'volatility', label: t('right_panel.fields.volatility') },
+      { key: 'security_definer', label: t('right_panel.fields.security_definer') },
+      { key: 'parallel', label: t('right_panel.fields.parallel') },
+      { key: 'is_strict', label: t('right_panel.fields.is_strict') },
+      { key: 'leakproof', label: t('right_panel.fields.leakproof') },
+      { key: 'estimated_cost', label: t('right_panel.fields.estimated_cost') },
+      { key: 'estimated_rows', label: t('right_panel.fields.estimated_rows') },
     )
   }
 
   if (objectType === 'sequence') {
     definitions.push(
+      { key: 'oid', label: 'OID' },
+      { key: 'data_type', label: t('right_panel.fields.data_type') },
+      { key: 'increment_by', label: t('right_panel.fields.increment_by') },
+      { key: 'start_value', label: t('right_panel.fields.start_value') },
+      { key: 'min_value', label: t('right_panel.fields.min_value') },
+      { key: 'max_value', label: t('right_panel.fields.max_value') },
+      { key: 'cache_size', label: t('right_panel.fields.cache_size') },
+      { key: 'cycle', label: t('right_panel.fields.cycle') },
       { key: 'last_value', label: t('right_panel.fields.last_value') },
       { key: 'next_value', label: t('right_panel.fields.next_value') },
-      { key: 'start_value', label: t('right_panel.fields.start_value') },
-      { key: 'increment_by', label: t('right_panel.fields.increment_by') },
       { key: 'is_called', label: t('right_panel.fields.is_called') },
     )
   }
 
   if (objectType === 'extension') {
-    definitions.push({ key: 'version', label: t('right_panel.fields.version') })
+    definitions.push(
+      { key: 'oid', label: 'OID' },
+      { key: 'version', label: t('right_panel.fields.version') },
+      { key: 'schema', label: t('right_panel.fields.schema') },
+      { key: 'relocatable', label: t('right_panel.fields.relocatable') },
+    )
+  }
+
+  if (objectType === 'enum-type') {
+    definitions.push(
+      { key: 'oid', label: 'OID' },
+    )
   }
 
   if (objectType === 'domain-type') {
     definitions.push(
+      { key: 'oid', label: 'OID' },
       { key: 'base_type', label: t('right_panel.fields.base_type') },
       { key: 'default_value', label: t('right_panel.fields.default_value') },
       { key: 'nullable', label: t('right_panel.fields.nullable') },
@@ -174,6 +255,38 @@ const detailDefinitions = computed(() => {
 
   if (objectType === 'composite-type') {
     definitions.push({ key: 'oid', label: 'OID' })
+  }
+
+  if (objectType === 'enum-label') {
+    definitions.push(
+      { key: 'enum_name', label: t('right_panel.fields.enum_name') },
+      { key: 'label', label: t('right_panel.fields.enum_label') },
+      { key: 'oid', label: 'OID' },
+    )
+  }
+
+  if (objectType === 'domain-detail' || objectType === 'domain-constraint') {
+    definitions.push(
+      { key: 'name', label: t('common.name') },
+      { key: 'definition', label: t('tree.view_definition') },
+      { key: 'constraint_type', label: t('right_panel.fields.constraint_type') },
+    )
+  }
+
+  if (objectType === 'composite-field') {
+    definitions.push(
+      { key: 'composite_name', label: t('right_panel.fields.composite_name') },
+      { key: 'name', label: t('common.name') },
+      { key: 'data_type', label: t('right_panel.fields.data_type') },
+      { key: 'oid', label: 'OID' },
+    )
+  }
+
+  if (objectType === 'partition-key') {
+    definitions.push(
+      { key: 'table', label: t('right_panel.fields.table_name') },
+      { key: 'partition_key', label: t('right_panel.fields.partition_key') },
+    )
   }
 
   return definitions
@@ -188,6 +301,7 @@ const listRows = computed(() => {
     { key: 'fields', label: t('tree.columns') },
     { key: 'constraints', label: t('right_panel.fields.constraints') },
     { key: 'partitions', label: t('tree.partitions') },
+    { key: 'tags', label: t('right_panel.fields.tags') },
   ]
 
   for (const item of candidates) {
@@ -245,6 +359,8 @@ const definitionText = computed(() => {
     const parts = [metadata.value.name, metadata.value.data_type]
     if (metadata.value.nullable === false) parts.push('NOT NULL')
     if (metadata.value.default_value) parts.push(`DEFAULT ${metadata.value.default_value}`)
+    if (metadata.value.identity_generation) parts.push(`GENERATED ${metadata.value.identity_generation} AS IDENTITY`)
+    if (metadata.value.generated_expression) parts.push(`GENERATED ALWAYS AS (${metadata.value.generated_expression}) STORED`)
     if (metadata.value.is_primary_key) parts.push('PRIMARY KEY')
     if (metadata.value.is_auto_increment) parts.push('AUTO_INCREMENT')
     return parts.filter(Boolean).join(' ')
@@ -271,6 +387,9 @@ function resolveValue(key: string) {
   if (key === '__read_only') return props.context?.readOnly ? t('common.yes') : t('common.no')
   if (key === 'size_mb') return formatStorageSize(Number(metadata.value.size_mb) * 1024 * 1024)
   if (key === 'size_bytes') return formatStorageSize(Number(metadata.value.size_bytes))
+  if (key === 'main_size_bytes') return formatStorageSize(Number(metadata.value.main_size_bytes))
+  if (key === 'toast_size_bytes') return formatStorageSize(Number(metadata.value.toast_size_bytes))
+  if (key === 'schema' && typeof metadata.value.schema === 'string') return metadata.value.schema
   return normalizeDisplayValue(metadata.value[key])
 }
 

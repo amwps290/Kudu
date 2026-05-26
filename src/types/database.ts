@@ -51,6 +51,13 @@ export interface DatabaseInfo {
   name: string
   charset?: string
   collation?: string
+  ctype?: string
+  owner?: string
+  tablespace?: string
+  size_bytes?: number
+  allow_connections?: boolean
+  connection_limit?: number
+  is_template?: boolean
 }
 
 export interface TablePartitionInfo {
@@ -63,12 +70,20 @@ export interface TablePartitionInfo {
  * 表信息
  */
 export interface TableInfo {
+  oid?: number
   name: string
   schema?: string
   table_type: string
   engine?: string
+  owner?: string
+  tablespace?: string
   rows?: number
   size_mb?: number
+  size_bytes?: number
+  main_size_bytes?: number
+  toast_size_bytes?: number
+  persistence?: string
+  fillfactor?: string
   comment?: string
   is_partitioned?: boolean
   partition_key?: string
@@ -91,20 +106,28 @@ export interface ColumnInfo {
   character_maximum_length?: number
   numeric_precision?: number
   numeric_scale?: number
+  collation?: string
+  is_identity?: boolean
+  identity_generation?: string
+  generated_expression?: string
 }
 
 /**
  * 索引信息
  */
 export interface IndexInfo {
+  oid?: number
   name: string
   columns: string[]
   is_unique: boolean
   is_primary: boolean
   index_type: string
+  tablespace?: string
   size_bytes?: number
+  fillfactor?: string
   include_columns?: string[]
   predicate?: string | null
+  definition?: string | null
 }
 
 /**
@@ -128,6 +151,7 @@ export interface TriggerInfo {
   timing?: string
   event?: string
   enabled?: boolean
+  orientation?: string
   definition?: string
 }
 
@@ -156,6 +180,7 @@ export interface RuleInfo {
  */
 export interface SchemaInfo {
   name: string
+  oid?: number
   owner?: string
   comment?: string
 }
@@ -172,6 +197,13 @@ export interface FunctionInfo {
   identity_arguments?: string
   language?: string
   function_type: string
+  volatility?: string
+  security_definer?: boolean
+  parallel?: string
+  is_strict?: boolean
+  leakproof?: boolean
+  estimated_cost?: number
+  estimated_rows?: number
   comment?: string
 }
 
@@ -179,9 +211,11 @@ export interface FunctionInfo {
  * 扩展信息
  */
 export interface ExtensionInfo {
+  oid?: number
   name: string
   version: string
   schema?: string
+  relocatable?: boolean
   comment?: string
 }
 
@@ -189,6 +223,13 @@ export interface SequenceInfo {
   oid?: number
   name: string
   schema?: string
+  data_type?: string
+  start_value?: number | null
+  min_value?: number | null
+  max_value?: number | null
+  increment_by?: number | null
+  cache_size?: number | null
+  cycle?: boolean | null
   comment?: string
 }
 

@@ -374,7 +374,9 @@ impl DatabaseOperations for MySqlDatabase {
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| DatabaseInfo { 
                 name: r.values().next().and_then(|v| v.as_str()).unwrap_or("").to_string(), 
-                charset: None, collation: None 
+                charset: None, collation: None, ctype: None,
+                owner: None, tablespace: None, size_bytes: None,
+                allow_connections: None, connection_limit: None, is_template: None,
             }).collect())
         } else {
             Ok(vec![])
@@ -391,12 +393,20 @@ impl DatabaseOperations for MySqlDatabase {
         let results = self.execute_query(&sql, None, None).await?;
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| TableInfo {
+                oid: None,
                 name: r.get("TABLE_NAME").or_else(|| r.values().next()).and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 schema: r.get("TABLE_SCHEMA").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 table_type: "TABLE".into(),
                 engine: None,
+                owner: None,
+                tablespace: None,
                 rows: r.get("TABLE_ROWS").and_then(|v| v.as_u64()),
                 size_mb: r.get("TOTAL_LENGTH").and_then(|v| v.as_f64()).map(|s| s / 1024.0 / 1024.0),
+                size_bytes: r.get("TOTAL_LENGTH").and_then(|v| v.as_i64()).or_else(|| r.get("TOTAL_LENGTH").and_then(|v| v.as_u64()).map(|v| v as i64)),
+                main_size_bytes: None,
+                toast_size_bytes: None,
+                persistence: None,
+                fillfactor: None,
                 comment: r.get("TABLE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 is_partitioned: false,
                 partition_key: None,
@@ -419,12 +429,20 @@ impl DatabaseOperations for MySqlDatabase {
         let results = self.execute_query(&sql, None, None).await?;
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| TableInfo {
+                oid: None,
                 name: r.get("TABLE_NAME").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 schema: r.get("TABLE_SCHEMA").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 table_type: "VIEW".into(),
                 engine: None,
+                owner: None,
+                tablespace: None,
                 rows: None,
                 size_mb: None,
+                size_bytes: None,
+                main_size_bytes: None,
+                toast_size_bytes: None,
+                persistence: None,
+                fillfactor: None,
                 comment: r.get("TABLE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 is_partitioned: false,
                 partition_key: None,
@@ -456,6 +474,10 @@ impl DatabaseOperations for MySqlDatabase {
                     character_maximum_length: r.get("CHARACTER_MAXIMUM_LENGTH").and_then(|v| v.as_i64()),
                     numeric_precision: r.get("NUMERIC_PRECISION").and_then(|v| v.as_i64()),
                     numeric_scale: r.get("NUMERIC_SCALE").and_then(|v| v.as_i64()),
+                    collation: None,
+                    is_identity: None,
+                    identity_generation: None,
+                    generated_expression: None,
                 }
             }).collect())
         } else {
@@ -547,14 +569,18 @@ impl DatabaseOperations for MySqlDatabase {
                 let non_unique = r.get("Non_unique").and_then(|v| v.as_i64()).unwrap_or(1);
                 
                 let entry = map.entry(name.clone()).or_insert(IndexInfo {
+                    oid: None,
                     name,
                     columns: vec![],
                     is_unique: non_unique == 0,
                     is_primary: r.get("Key_name").and_then(|v| v.as_str()) == Some("PRIMARY"),
                     index_type: r.get("Index_type").and_then(|v| v.as_str()).unwrap_or("BTREE").to_string(),
+                    tablespace: None,
                     size_bytes: None,
+                    fillfactor: None,
                     include_columns: None,
                     predicate: None,
+                    definition: None,
                 });
                 entry.columns.push(col);
             }
@@ -566,6 +592,7 @@ impl DatabaseOperations for MySqlDatabase {
         if let Some(database_name) = database {
             return Ok(vec![SchemaInfo {
                 name: database_name.to_string(),
+                oid: None,
                 owner: None,
                 comment: None,
             }]);
@@ -576,6 +603,7 @@ impl DatabaseOperations for MySqlDatabase {
         if let Some(res) = results.first() {
             Ok(res.rows.iter().map(|r| SchemaInfo {
                 name: r.get("SCHEMA_NAME").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                oid: None,
                 owner: None,
                 comment: None,
             }).collect())
@@ -616,6 +644,13 @@ impl DatabaseOperations for MySqlDatabase {
                 identity_arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 language: r.get("ROUTINE_BODY").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 function_type: "function".into(),
+                volatility: None,
+                security_definer: None,
+                parallel: None,
+                is_strict: None,
+                leakproof: None,
+                estimated_cost: None,
+                estimated_rows: None,
                 comment: r.get("ROUTINE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
             }).collect())
         } else {
@@ -655,6 +690,13 @@ impl DatabaseOperations for MySqlDatabase {
                 identity_arguments: r.get("ARGUMENTS").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 language: r.get("ROUTINE_BODY").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 function_type: "procedure".into(),
+                volatility: None,
+                security_definer: None,
+                parallel: None,
+                is_strict: None,
+                leakproof: None,
+                estimated_cost: None,
+                estimated_rows: None,
                 comment: r.get("ROUTINE_COMMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
             }).collect())
         } else {
@@ -699,6 +741,7 @@ impl DatabaseOperations for MySqlDatabase {
                 timing: r.get("ACTION_TIMING").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 event: r.get("EVENT_MANIPULATION").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 enabled: None,
+                orientation: None,
                 definition: r.get("ACTION_STATEMENT").and_then(|v| v.as_str()).map(|s| s.to_string()),
             }).collect())
         } else {
