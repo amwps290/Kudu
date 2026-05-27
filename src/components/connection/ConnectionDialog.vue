@@ -21,6 +21,7 @@
         <a-select v-model:value="formData.db_type" :placeholder="$t('connection.form.placeholders.type')">
           <a-select-option value="mysql">{{ getTypeOptionLabel('mysql', 'MySQL') }}</a-select-option>
           <a-select-option value="postgresql">{{ getTypeOptionLabel('postgresql', 'PostgreSQL') }}</a-select-option>
+          <a-select-option value="opengauss">{{ getTypeOptionLabel('opengauss', 'openGauss') }}</a-select-option>
           <a-select-option value="sqlite">{{ getTypeOptionLabel('sqlite', 'SQLite') }}</a-select-option>
           <a-select-option value="mongodb">{{ getTypeOptionLabel('mongodb', 'MongoDB') }}</a-select-option>
           <a-select-option value="redis">{{ getTypeOptionLabel('redis', 'Redis') }}</a-select-option>
@@ -269,6 +270,7 @@ watch(() => formData.db_type, (type) => {
     const portMap: Record<string, number> = {
       mysql: 3306,
       postgresql: 5432,
+      opengauss: 5432,
       mongodb: 27017,
       redis: 6379,
       sqlite: 0,

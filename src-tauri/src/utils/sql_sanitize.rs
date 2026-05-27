@@ -8,6 +8,12 @@ pub fn escape_pg_id(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 
+/// openGauss 标识符转义：使用双引号包裹，内部双引号双写
+/// 与 PostgreSQL 规则相同
+pub fn escape_opengauss_id(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
 /// SQLite 标识符转义：使用双引号包裹，内部双引号双写
 pub fn escape_sqlite_id(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
