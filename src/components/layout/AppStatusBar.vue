@@ -90,18 +90,18 @@ const taskStatusLabel = computed(() => {
 
 <style scoped>
 .status-bar {
-  height: 30px;
-  min-height: 30px;
+  height: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 12px;
+  padding: 2px 12px;
   border-top: 1px solid var(--border-color);
   background: var(--surface-secondary, #f7f8fa);
   color: var(--app-text-subtle);
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.25;
 }
 
 .status-group {
@@ -131,7 +131,7 @@ const taskStatusLabel = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 22px;
+  height: 24px;
   padding: 0 8px;
   border: 0;
   border-radius: 6px;
@@ -143,15 +143,15 @@ const taskStatusLabel = computed(() => {
 }
 
 .status-toggle--icon {
-  width: 22px;
-  min-width: 22px;
+  width: 24px;
+  min-width: 24px;
   padding: 0;
   border: 1px solid var(--border-color);
   border-radius: 999px;
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
   font-size: 13px;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .status-toggle:hover {
@@ -182,12 +182,13 @@ const taskStatusLabel = computed(() => {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  height: 18px;
-  padding: 0 8px;
+  min-height: 20px;
+  padding: 1px 8px;
   border-radius: 999px;
   background: var(--surface-hover);
   color: var(--app-text);
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .status-badge--readonly {
@@ -214,7 +215,7 @@ const taskStatusLabel = computed(() => {
 @media (max-width: 960px) {
   .status-bar {
     height: auto;
-    min-height: 30px;
+    min-height: 34px;
     padding: 6px 12px;
     flex-direction: column;
     align-items: flex-start;
