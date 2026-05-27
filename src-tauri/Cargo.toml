@@ -1,6 +1,6 @@
 [package]
 name = "kudu"
-version = "0.1.0"
+version = "0.1.1"
 description = "Kudu - 轻量级桌面数据库客户端"
 authors = ["Kudu Contributors"]
 license = "GPL-3.0"
