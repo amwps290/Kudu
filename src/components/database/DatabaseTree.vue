@@ -33,7 +33,7 @@
               <a-menu-item v-if="supportProfile.supportsBackupRestore" key="restore-database"><template #icon><UploadOutlined /></template>{{ $t('tree.restore_database') }}</a-menu-item>
               <a-menu-divider v-if="supportProfile.supportsBackupRestore" />
             </template>
-            <template v-if="props.dbType === 'postgresql'">
+            <template v-if="isPgLike">
               <a-sub-menu key="sub-postgres-admin" :disabled="isSelectedNodeReadOnly">
                 <template #icon><EditOutlined /></template>
                 <template #title>{{ $t('tree.postgres_admin') }}</template>
@@ -85,7 +85,7 @@
               <a-menu-item key="gen-update">{{ $t('tree.gen_update') }}</a-menu-item>
               <a-menu-item key="gen-delete">{{ $t('tree.gen_delete') }}</a-menu-item>
             </a-sub-menu>
-            <a-sub-menu v-if="props.dbType === 'postgresql'" key="sub-object-inspect">
+            <a-sub-menu v-if="isPgLike" key="sub-object-inspect">
               <template #icon><NumberOutlined /></template>
               <template #title>{{ $t('tree.postgres_inspect') }}</template>
               <a-menu-item key="inspect-object-grants">{{ $t('tree.inspect_object_grants') }}</a-menu-item>
@@ -107,7 +107,7 @@
             <a-menu-item key="view-ddl"><template #icon><CodeOutlined /></template>{{ $t('tree.view_definition') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="gen-select"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_select') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
+            <a-menu-item v-if="isPgLike" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="copy-view-definition"><template #icon><CopyOutlined /></template>{{ $t('tree.copy_definition') }}</a-menu-item>
             <a-menu-item key="rename-table" :disabled="isSelectedNodeReadOnly || !supportsViewRename"><template #icon><EditOutlined /></template>{{ $t('tree.rename_view') }}</a-menu-item>
@@ -221,12 +221,12 @@
 
           <template v-else-if="selectedNode?.type === 'schema'">
             <a-menu-item key="new-query"><template #icon><FileTextOutlined /></template>{{ $t('tree.new_query') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="rename-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_schema') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema') }}</a-menu-item>
-            <a-menu-item v-if="props.dbType === 'postgresql'" key="drop-schema-cascade" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema_cascade') }}</a-menu-item>
-            <a-menu-divider v-if="props.dbType === 'postgresql'" />
+            <a-menu-item v-if="isPgLike" key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
+            <a-menu-item v-if="isPgLike" key="rename-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.rename_schema') }}</a-menu-item>
+            <a-menu-item v-if="isPgLike" key="inspect-object-grants"><template #icon><NumberOutlined /></template>{{ $t('tree.inspect_object_grants') }}</a-menu-item>
+            <a-menu-item v-if="isPgLike" key="drop-schema" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema') }}</a-menu-item>
+            <a-menu-item v-if="isPgLike" key="drop-schema-cascade" danger :disabled="isSelectedNodeReadOnly"><template #icon><DeleteOutlined /></template>{{ $t('tree.drop_schema_cascade') }}</a-menu-item>
+            <a-menu-divider v-if="isPgLike" />
             <a-menu-item key="gen-create-table"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_table') }}</a-menu-item>
             <a-menu-item key="gen-create-view"><template #icon><FileTextOutlined /></template>{{ $t('tree.gen_create_view') }}</a-menu-item>
             <a-menu-divider />
@@ -234,7 +234,7 @@
             <a-menu-divider />
           </template>
 
-          <template v-else-if="selectedNode?.type === 'schemas' && props.dbType === 'postgresql'">
+          <template v-else-if="selectedNode?.type === 'schemas' && isPgLike">
             <a-menu-item key="create-schema" :disabled="isSelectedNodeReadOnly"><template #icon><EditOutlined /></template>{{ $t('tree.create_schema') }}</a-menu-item>
             <a-menu-divider />
             <a-menu-item key="refresh"><template #icon><ReloadOutlined /></template>{{ $t('common.refresh') }}</a-menu-item>
@@ -376,6 +376,8 @@ const props = defineProps<{ connectionId: string | null; dbType?: string; search
 const emit = defineEmits(['table-selected', 'database-selected', 'object-selected', 'new-query', 'design-table', 'view-structure', 'open-scripts', 'generate-sql', 'open-er-diagram', 'updateMatchesCount'])
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
+const normalizedDbType = computed(() => supportProfile.value.dbType)
+const isPgLike = computed(() => normalizedDbType.value === 'postgresql' || normalizedDbType.value === 'opengauss')
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
 const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'schema-composite-types']
@@ -455,7 +457,7 @@ const isTableChildObjectNode = computed(() => TABLE_CHILD_OBJECT_NODE_TYPES.incl
 const isConstraintNode = computed(() => ['unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
 const isDroppableTableChildNode = computed(() => ['trigger', 'rule', 'unique-constraint', 'check-constraint', 'exclude-constraint'].includes(selectedNode.value?.type || ''))
 const isSelectedNodeReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
-const supportsViewRename = computed(() => props.dbType === 'postgresql')
+const supportsViewRename = computed(() => isPgLike.value)
 const isEnumLabelNode = computed(() => ENUM_LABEL_NODE_TYPES.includes(selectedNode.value?.type || ''))
 const isDomainDetailNode = computed(() => DOMAIN_DETAIL_NODE_TYPES.includes(selectedNode.value?.type || ''))
 
@@ -617,22 +619,17 @@ async function onLoadData(treeNode: TreeNode) {
 
     const dbName = treeNode.metadata.name
     let children: TreeNode[] = []
-    if (props.dbType === 'postgresql') {
+    if (isPgLike.value) {
       children = [
         { key: `${treeNode.key}-schemas`, title: 'Schemas', type: 'schemas', isLeaf: false, metadata: { database: dbName } },
         { key: `${treeNode.key}-extensions`, title: t('tree.extensions'), type: 'database-extensions', isLeaf: false, metadata: { database: dbName } }
       ]
-    } else if (props.dbType === 'mysql') {
+    } else if (normalizedDbType.value === 'mysql') {
       children = [
         { key: `${treeNode.key}-tables`, title: t('tree.tables'), type: 'tables', isLeaf: false, metadata: { database: dbName } },
         { key: `${treeNode.key}-views`, title: t('tree.views'), type: 'views', isLeaf: false, metadata: { database: dbName } },
         { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'functions', isLeaf: false, metadata: { database: dbName, schema: dbName } },
         { key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'procedures', isLeaf: false, metadata: { database: dbName, schema: dbName } }
-      ]
-    } else if (props.dbType === 'postgresql') {
-      children = [
-        { key: `${treeNode.key}-schemas`, title: 'Schemas', type: 'schemas', isLeaf: false, metadata: { database: dbName } },
-        { key: `${treeNode.key}-extensions`, title: t('tree.extensions'), type: 'database-extensions', isLeaf: false, metadata: { database: dbName } }
       ]
     } else {
       children = [
@@ -659,10 +656,10 @@ async function onLoadData(treeNode: TreeNode) {
       { key: `${treeNode.key}-materialized-views`, title: t('tree.materialized_views'), type: 'schema-materialized-views', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-functions`, title: t('tree.functions'), type: 'schema-functions', isLeaf: false, metadata: { database: db, schema } },
       { key: `${treeNode.key}-sequences`, title: t('tree.sequences'), type: 'schema-sequences', isLeaf: false, metadata: { database: db, schema } },
-      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-enum-types`, title: t('tree.enum_types'), type: 'schema-enum-types', isLeaf: false, metadata: { database: db, schema } }] : []),
-      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-domain-types`, title: t('tree.domain_types'), type: 'schema-domain-types', isLeaf: false, metadata: { database: db, schema } }] : []),
-      ...(props.dbType === 'postgresql' ? [{ key: `${treeNode.key}-composite-types`, title: t('tree.composite_types'), type: 'schema-composite-types', isLeaf: false, metadata: { database: db, schema } }] : []),
-      ...(props.dbType === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(isPgLike.value ? [{ key: `${treeNode.key}-enum-types`, title: t('tree.enum_types'), type: 'schema-enum-types', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(isPgLike.value ? [{ key: `${treeNode.key}-domain-types`, title: t('tree.domain_types'), type: 'schema-domain-types', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(isPgLike.value ? [{ key: `${treeNode.key}-composite-types`, title: t('tree.composite_types'), type: 'schema-composite-types', isLeaf: false, metadata: { database: db, schema } }] : []),
+      ...(normalizedDbType.value === 'mysql' ? [{ key: `${treeNode.key}-procedures`, title: t('tree.procedures'), type: 'schema-procedures', isLeaf: false, metadata: { database: db, schema } }] : []),
       { key: `${treeNode.key}-aggregates`, title: t('tree.aggregates'), type: 'schema-aggregates', isLeaf: false, metadata: { database: db, schema } }
     ]
     updateNodeInTree(treeData.value, treeNode.key, (n) => n.children = children)
@@ -1572,7 +1569,7 @@ function openRenameModal(mode: 'table' | 'column' | 'schema' | 'create-schema' =
 
 async function openInstallExtensionModal() {
   const node = selectedNode.value
-  if (!node || node.type !== 'database' || props.dbType !== 'postgresql' || !props.connectionId) return
+  if (!node || node.type !== 'database' || !isPgLike.value || !props.connectionId) return
   installExtensionName.value = ''
   installExtensionSchema.value = ''
   availableExtensionOptions.value = []
@@ -1646,7 +1643,7 @@ async function submitRename() {
 
 async function submitInstallExtension() {
   const node = selectedNode.value
-  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  if (!node || node.type !== 'database' || !isPgLike.value) return
   const extensionName = installExtensionName.value.trim()
   const targetSchema = installExtensionSchema.value.trim()
   if (!extensionName) {
@@ -1709,7 +1706,7 @@ async function renameTableLike(node: TreeNode, oldName: string, newName: string)
   if (props.dbType === 'mysql') {
     if (node.type !== 'table') throw new Error(t('tree.rename_unsupported'))
     sql = `RENAME TABLE ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} TO ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(newName)}`
-  } else if (props.dbType === 'postgresql') {
+  } else if (isPgLike.value) {
     const objectType = node.type === 'view' ? 'ALTER VIEW' : node.type === 'sequence' ? 'ALTER SEQUENCE' : 'ALTER TABLE'
     sql = `${objectType} ${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
   } else if (props.dbType === 'sqlite') {
@@ -1722,7 +1719,7 @@ async function renameTableLike(node: TreeNode, oldName: string, newName: string)
 }
 
 async function createSchema(node: TreeNode, schemaName: string, comment?: string) {
-  if (props.dbType !== 'postgresql') throw new Error(t('tree.schema_ddl_unsupported'))
+  if (!isPgLike.value) throw new Error(t('tree.schema_ddl_unsupported'))
   const database = metaStr(node, 'database') || metaStr(node, 'name') || null
   const statements = [`CREATE SCHEMA ${quoteIdent(schemaName)}`]
   if (comment) {
@@ -1733,7 +1730,7 @@ async function createSchema(node: TreeNode, schemaName: string, comment?: string
 }
 
 async function renameSchema(node: TreeNode, oldName: string, newName: string) {
-  if (props.dbType !== 'postgresql') throw new Error(t('tree.schema_ddl_unsupported'))
+  if (!isPgLike.value) throw new Error(t('tree.schema_ddl_unsupported'))
   const database = metaStr(node, 'database') || null
   const sql = `ALTER SCHEMA ${quoteIdent(oldName)} RENAME TO ${quoteIdent(newName)}`
   await queryApi.executeQuery(props.connectionId!, sql, database)
@@ -1742,7 +1739,7 @@ async function renameSchema(node: TreeNode, oldName: string, newName: string) {
 async function handleDropSchema(cascade = false) {
   const node = selectedNode.value
   if (!node || node.type !== 'schema') return
-  if (props.dbType !== 'postgresql') {
+  if (!isPgLike.value) {
     message.warning(t('tree.schema_ddl_unsupported'))
     return
   }
@@ -1794,7 +1791,7 @@ async function renameColumn(node: TreeNode, oldName: string, newName: string) {
 
 function quoteIdent(name: string): string {
   const dbType = props.dbType || 'mysql'
-  if (dbType === 'sqlite' || dbType === 'postgresql') return `"${name.replace(/"/g, '""')}"`
+  if (dbType === 'sqlite' || dbType === 'postgresql' || dbType === 'opengauss') return `"${name.replace(/"/g, '""')}"`
   return `\`${name.replace(/`/g, '``')}\``
 }
 
@@ -2280,7 +2277,7 @@ async function handleCopyExtensionInfo() {
 
 async function handleUninstallExtension() {
   const node = selectedNode.value
-  if (!node || node.type !== 'extension' || props.dbType !== 'postgresql') return
+  if (!node || node.type !== 'extension' || !isPgLike.value) return
   const extensionName = metaStr(node, 'name') || node.title
   Modal.confirm({
     title: t('tree.uninstall_extension'),
@@ -2302,7 +2299,7 @@ async function handleUninstallExtension() {
 
 async function handleMaintenanceAction(action: 'vacuum' | 'analyze' | 'reindex') {
   const node = selectedNode.value
-  if (!node || node.type !== 'database' || props.dbType !== 'postgresql') return
+  if (!node || node.type !== 'database' || !isPgLike.value) return
   const databaseName = metaStr(node, 'name') || metaStr(node, 'database')
   const sql = action === 'vacuum'
     ? 'VACUUM;'
@@ -2342,7 +2339,7 @@ async function handleMaintenanceAction(action: 'vacuum' | 'analyze' | 'reindex')
 
 async function openInspectionQuery(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants') {
   const node = selectedNode.value
-  if (!node || props.dbType !== 'postgresql') return
+  if (!node || !isPgLike.value) return
   const database = metaStr(node, 'database') || metaStr(node, 'name') || ''
   const sql = buildInspectionSql(kind, node)
   if (!sql) return
@@ -2364,6 +2361,8 @@ function getInspectionTitle(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 
 }
 
 function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants', node: TreeNode): string {
+  const useOpenGaussCompat = normalizedDbType.value === 'opengauss'
+
   if (kind === 'roles') {
     return [
       'SELECT',
@@ -2381,6 +2380,26 @@ function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 
   }
 
   if (kind === 'sessions') {
+    if (useOpenGaussCompat) {
+      return [
+        'SELECT',
+        '  pid,',
+        '  usename,',
+        '  datname,',
+        '  application_name,',
+        '  client_addr,',
+        '  state,',
+        '  NULL::text AS wait_event_type,',
+        '  NULL::text AS wait_event,',
+        '  backend_start,',
+        '  xact_start,',
+        '  query_start,',
+        '  LEFT(query, 500) AS query',
+        'FROM pg_stat_activity',
+        "WHERE pid <> pg_backend_pid()",
+        'ORDER BY query_start DESC NULLS LAST;'
+      ].join('\n')
+    }
     return [
       'SELECT',
       '  pid,',
@@ -2402,6 +2421,28 @@ function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 
   }
 
   if (kind === 'locks') {
+    if (useOpenGaussCompat) {
+      return [
+        'SELECT',
+        '  a.pid,',
+        '  a.usename,',
+        '  a.datname,',
+        '  l.locktype,',
+        '  l.mode,',
+        '  l.granted,',
+        '  l.relation::regclass AS relation_name,',
+        '  l.page,',
+        '  l.tuple,',
+        '  l.virtualtransaction,',
+        '  l.transactionid,',
+        '  NULL::text AS wait_event_type,',
+        '  NULL::text AS wait_event,',
+        '  LEFT(a.query, 300) AS query',
+        'FROM pg_locks l',
+        'LEFT JOIN pg_stat_activity a ON a.pid = l.pid',
+        'ORDER BY l.granted ASC, a.query_start DESC NULLS LAST;'
+      ].join('\n')
+    }
     return [
       'SELECT',
       '  a.pid,',
@@ -2425,6 +2466,36 @@ function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 
   }
 
   if (kind === 'blocking') {
+    if (useOpenGaussCompat) {
+      return [
+        'SELECT',
+        '  blocked.pid AS blocked_pid,',
+        '  blocked.usename AS blocked_user,',
+        '  blocker.pid AS blocking_pid,',
+        '  blocker.usename AS blocking_user,',
+        '  NULL::text AS wait_event_type,',
+        '  NULL::text AS wait_event,',
+        '  LEFT(blocked.query, 300) AS blocked_query,',
+        '  LEFT(blocker.query, 300) AS blocking_query',
+        'FROM pg_locks bl',
+        'JOIN pg_stat_activity blocked ON blocked.pid = bl.pid',
+        'JOIN pg_locks kl ON kl.locktype = bl.locktype',
+        '  AND kl.database IS NOT DISTINCT FROM bl.database',
+        '  AND kl.relation IS NOT DISTINCT FROM bl.relation',
+        '  AND kl.page IS NOT DISTINCT FROM bl.page',
+        '  AND kl.tuple IS NOT DISTINCT FROM bl.tuple',
+        '  AND kl.virtualxid IS NOT DISTINCT FROM bl.virtualxid',
+        '  AND kl.transactionid IS NOT DISTINCT FROM bl.transactionid',
+        '  AND kl.classid IS NOT DISTINCT FROM bl.classid',
+        '  AND kl.objid IS NOT DISTINCT FROM bl.objid',
+        '  AND kl.objsubid IS NOT DISTINCT FROM bl.objsubid',
+        '  AND kl.pid <> bl.pid',
+        'JOIN pg_stat_activity blocker ON blocker.pid = kl.pid',
+        'WHERE NOT bl.granted',
+        '  AND kl.granted',
+        'ORDER BY blocked.pid;'
+      ].join('\n')
+    }
     return [
       'SELECT',
       '  blocked.pid AS blocked_pid,',
@@ -2479,13 +2550,13 @@ function formatObjectDefinition(node: TreeNode) {
     const qualifiedTable = schema ? `${quoteIdent(schema)}.${quoteIdent(table)}` : quoteIdent(table)
 
     if (node.metadata?.is_primary) {
-      return props.dbType === 'postgresql'
+      return isPgLike.value
         ? `ALTER TABLE ${qualifiedTable} ADD CONSTRAINT ${quoteIdent(name)} PRIMARY KEY (${columns})`
         : `ALTER TABLE ${qualifiedTable} ADD PRIMARY KEY (${columns})`
     }
 
     const indexKeyword = node.metadata?.is_unique ? 'UNIQUE INDEX' : 'INDEX'
-    const usingClause = props.dbType === 'postgresql' && metaStr(node, 'index_type')
+    const usingClause = isPgLike.value && metaStr(node, 'index_type')
       ? ` USING ${metaStr(node, 'index_type')}`
       : ''
     return `CREATE ${indexKeyword} ${quoteIdent(name)} ON ${qualifiedTable}${usingClause} (${columns})`
@@ -2692,7 +2763,7 @@ function buildDropTriggerSql(node: TreeNode) {
   const triggerName = metaStr(node, 'name')
   const tableName = metaStr(node, 'table')
   const schema = metaStr(node, 'schema')
-  if (props.dbType === 'postgresql') {
+  if (isPgLike.value) {
     const tableIdent = `${schema ? `${quoteIdent(schema)}.` : ''}${quoteIdent(tableName)}`
     return `DROP TRIGGER ${quoteIdent(triggerName)} ON ${tableIdent}`
   }
@@ -2706,7 +2777,7 @@ function buildDropTriggerSql(node: TreeNode) {
 }
 
 function buildDropRuleSql(node: TreeNode) {
-  if (props.dbType !== 'postgresql') {
+  if (!isPgLike.value) {
     throw new Error(t('tree.drop_unsupported'))
   }
   const ruleName = metaStr(node, 'name')
@@ -2716,7 +2787,7 @@ function buildDropRuleSql(node: TreeNode) {
 }
 
 function buildDropConstraintSql(node: TreeNode) {
-  if (props.dbType !== 'postgresql') {
+  if (!isPgLike.value) {
     throw new Error(t('tree.drop_unsupported'))
   }
   const constraintName = metaStr(node, 'name')

@@ -385,7 +385,11 @@ function resolveValue(key: string) {
   }
   if (key === '__tab_type') return props.context?.tabType || '-'
   if (key === '__read_only') return props.context?.readOnly ? t('common.yes') : t('common.no')
-  if (key === 'size_mb') return formatStorageSize(Number(metadata.value.size_mb) * 1024 * 1024)
+  if (key === 'size_mb') {
+    const sizeMb = Number(metadata.value.size_mb)
+    if (Number.isFinite(sizeMb)) return formatStorageSize(sizeMb * 1024 * 1024)
+    return formatStorageSize(Number(metadata.value.size_bytes))
+  }
   if (key === 'size_bytes') return formatStorageSize(Number(metadata.value.size_bytes))
   if (key === 'main_size_bytes') return formatStorageSize(Number(metadata.value.main_size_bytes))
   if (key === 'toast_size_bytes') return formatStorageSize(Number(metadata.value.toast_size_bytes))
@@ -422,7 +426,7 @@ function normalizeListItem(item: unknown): string {
 }
 
 function formatStorageSize(sizeInBytes?: number | null) {
-  if (!sizeInBytes || sizeInBytes < 0) return ''
+  if (sizeInBytes === null || sizeInBytes === undefined || Number.isNaN(sizeInBytes) || sizeInBytes < 0) return ''
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
   let value = sizeInBytes
   let unitIndex = 0

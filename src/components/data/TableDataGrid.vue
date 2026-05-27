@@ -246,8 +246,9 @@ const pagination = reactive({ current: 1, pageSize: 100 })
 const currentConnection = computed(() => connectionStore.connections.find(c => c.id === props.connectionId) || null)
 const isReadOnly = computed(() => Boolean(currentConnection.value?.read_only))
 const dbType = computed(() => currentConnection.value?.db_type || 'mysql')
+const isPgLike = computed(() => dbType.value === 'postgresql' || dbType.value === 'opengauss')
 const tableRef = computed(() => {
-  const schema = dbType.value === 'postgresql' ? (props.schema || 'public') : null
+  const schema = isPgLike.value ? (props.schema || 'public') : null
   const q = (n: string) => quoteIdentifier(n, dbType.value)
   return schema ? `${q(schema)}.${q(props.table)}` : q(props.table)
 })

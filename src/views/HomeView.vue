@@ -414,9 +414,23 @@ const statusBarDatabaseName = computed(() =>
   activeTab.value?.database || statusBarConnection.value?.database || t('status_bar.not_available')
 )
 
-const statusBarSchemaName = computed(() =>
-  activeTab.value?.schema || t('status_bar.default_schema')
-)
+function getPrimarySearchPathSchema(searchPath: string): string {
+  return searchPath
+    .split(',')
+    .map(item => item.trim())
+    .find(item => item.length > 0 && item !== '"$user"' && item !== '$user')
+    || ''
+}
+
+const statusBarSchemaName = computed(() => {
+  if (activeTab.value?.schema) return activeTab.value.schema
+  const connectionId = statusBarConnection.value?.id
+  if (connectionId) {
+    const schema = getPrimarySearchPathSchema(connectionStore.getSearchPath(connectionId))
+    if (schema) return schema
+  }
+  return t('status_bar.default_schema')
+})
 
 const statusBarReadOnly = computed(() => Boolean(statusBarConnection.value?.read_only))
 

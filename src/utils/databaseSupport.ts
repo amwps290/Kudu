@@ -43,6 +43,19 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
     supportsTableDataView: true,
     supportsTableDesign: true,
   },
+  opengauss: {
+    dbType: 'opengauss',
+    level: 'experimental',
+    supportsSqlWorkspace: true,
+    supportsQueryBuilder: true,
+    supportsDataCompare: true,
+    supportsErDiagram: true,
+    supportsConnectionScripts: true,
+    supportsBackupRestore: false,
+    supportsDatabaseTreeChildren: true,
+    supportsTableDataView: true,
+    supportsTableDesign: true,
+  },
   sqlite: {
     dbType: 'sqlite',
     level: 'stable',
@@ -87,7 +100,7 @@ const DATABASE_SUPPORT_PROFILES: Record<DatabaseType, DatabaseSupportProfile> = 
 function normalizeDatabaseType(dbType?: DatabaseType | string | null): DatabaseType {
   if (dbType === 'postgres') return 'postgresql'
   if (dbType === 'mongo') return 'mongodb'
-  if (dbType === 'mysql' || dbType === 'postgresql' || dbType === 'sqlite' || dbType === 'redis' || dbType === 'mongodb') {
+  if (dbType === 'mysql' || dbType === 'postgresql' || dbType === 'opengauss' || dbType === 'sqlite' || dbType === 'redis' || dbType === 'mongodb') {
     return dbType
   }
   return 'mongodb'

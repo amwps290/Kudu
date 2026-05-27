@@ -238,7 +238,7 @@ function quoteIdentifier(name: string) {
 function buildMainTableSql() {
   if (!selectedTableInfo.value) return ''
 
-  if (currentDbType.value === 'postgresql') {
+  if (currentDbType.value === 'postgresql' || currentDbType.value === 'opengauss') {
     return `${quoteIdentifier(selectedTableInfo.value.schema || 'public')}.${quoteIdentifier(selectedTableInfo.value.name)}`
   }
 

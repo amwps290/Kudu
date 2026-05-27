@@ -263,7 +263,10 @@ const selectedDatabase = ref(props.initialDatabase || '')
 
 // ── search_path (PostgreSQL) ──
 const searchPath = ref('')
-const supportsSearchPath = computed(() => currentConnection.value?.db_type === 'postgresql')
+const supportsSearchPath = computed(() => {
+  const dbType = currentConnection.value?.db_type
+  return dbType === 'postgresql' || dbType === 'opengauss'
+})
 
 async function loadSearchPath() {
   if (!supportsSearchPath.value) return
@@ -271,7 +274,11 @@ async function loadSearchPath() {
   if (!connId) return
   try {
     searchPath.value = await queryApi.getSearchPath(connId)
-  } catch { searchPath.value = '' }
+    connectionStore.setSearchPath(connId, searchPath.value)
+  } catch {
+    searchPath.value = ''
+    connectionStore.setSearchPath(connId, '')
+  }
 }
 
 async function handleSearchPathChange(newPath: string) {
@@ -279,6 +286,10 @@ async function handleSearchPathChange(newPath: string) {
   if (!newPath) return
   try {
     await queryApi.setSearchPath(sessionConnectionId.value, newPath)
+    const connId = props.connectionId || connectionStore.activeConnectionId
+    if (connId) {
+      connectionStore.setSearchPath(connId, newPath)
+    }
     updateAutocompleteContext()
   } catch (e: unknown) { message.error(getErrorMessage(e)) }
 }

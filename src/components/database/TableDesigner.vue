@@ -377,7 +377,7 @@ function quoteIdentifier(name: string) {
 }
 
 function tableIdentifier() {
-  if (dbType.value === 'postgresql') {
+  if (dbType.value === 'postgresql' || dbType.value === 'opengauss') {
     return `${quoteIdentifier(props.schema || 'public')}.${quoteIdentifier(props.table)}`
   }
   if (dbType.value === 'mysql' && props.database) {

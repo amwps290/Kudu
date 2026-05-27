@@ -28,6 +28,7 @@ pub struct ConnectionConfig {
 pub enum DatabaseType {
     MySQL,
     PostgreSQL,
+    OpenGauss,
     SQLite,
     MongoDB,
     Redis,
@@ -40,6 +41,7 @@ impl std::str::FromStr for DatabaseType {
         match s.to_lowercase().as_str() {
             "mysql" => Ok(DatabaseType::MySQL),
             "postgresql" | "postgres" => Ok(DatabaseType::PostgreSQL),
+            "opengauss" | "open_gauss" => Ok(DatabaseType::OpenGauss),
             "sqlite" => Ok(DatabaseType::SQLite),
             "mongodb" | "mongo" => Ok(DatabaseType::MongoDB),
             "redis" => Ok(DatabaseType::Redis),
@@ -53,6 +55,7 @@ impl std::fmt::Display for DatabaseType {
         let s = match self {
             DatabaseType::MySQL => "mysql",
             DatabaseType::PostgreSQL => "postgresql",
+            DatabaseType::OpenGauss => "opengauss",
             DatabaseType::SQLite => "sqlite",
             DatabaseType::MongoDB => "mongodb",
             DatabaseType::Redis => "redis",

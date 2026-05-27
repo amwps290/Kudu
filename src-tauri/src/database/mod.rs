@@ -9,6 +9,9 @@ pub mod mysql;
 #[cfg(feature = "postgresql")]
 pub mod postgresql;
 
+#[cfg(feature = "opengauss")]
+pub mod opengauss;
+
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
@@ -20,4 +23,3 @@ pub mod redis;
 
 pub use traits::*;
 pub use manager::ConnectionManager;
-

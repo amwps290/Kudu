@@ -2,7 +2,7 @@
  * 数据库类型定义
  */
 
-export type DatabaseType = 'mysql' | 'postgresql' | 'sqlite' | 'mongodb' | 'redis'
+export type DatabaseType = 'mysql' | 'postgresql' | 'opengauss' | 'sqlite' | 'mongodb' | 'redis'
 
 /**
  * 连接配置

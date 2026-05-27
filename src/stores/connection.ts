@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ConnectionConfig, ConnectionStatus, StoredConnection } from '@/types/database'
 import { connectionApi } from '@/api'
+import { queryApi } from '@/api/query'
 import { withErrorHandler } from '@/utils/errorHandler'
 import { useAppStore } from './app'
 import i18n from '@/i18n'
@@ -17,6 +18,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const connections = ref<ConnectionConfig[]>([])
   const activeConnectionId = ref<string | null>(null)
   const connectionStatuses = ref<Map<string, ConnectionStatus>>(new Map())
+  const searchPaths = ref<Map<string, string>>(new Map())
   let fetchConnectionsPromise: Promise<void> | null = null
 
   // 获取所有连接
@@ -158,6 +160,16 @@ export const useConnectionStore = defineStore('connection', () => {
     return withErrorHandler(async () => {
       updateConnectionStatus(id, 'connecting')
       await connectionApi.createConnection(id, getConnectionOverrides(conn))
+      if (conn.db_type === 'postgresql' || conn.db_type === 'opengauss') {
+        try {
+          const searchPath = await queryApi.getSearchPath(id)
+          searchPaths.value.set(id, searchPath)
+        } catch {
+          searchPaths.value.set(id, '')
+        }
+      } else {
+        searchPaths.value.delete(id)
+      }
       updateConnectionStatus(id, 'connected')
     }, {
       showMessage: showErrorMessage,
@@ -170,8 +182,17 @@ export const useConnectionStore = defineStore('connection', () => {
   async function disconnectFromDatabase(id: string) {
     return withErrorHandler(async () => {
       await connectionApi.disconnectDatabase(id)
+      searchPaths.value.delete(id)
       updateConnectionStatus(id, 'disconnected')
     }, { messagePrefix: t('connection.errors.disconnect') })
+  }
+
+  function setSearchPath(id: string, searchPath: string) {
+    searchPaths.value.set(id, searchPath)
+  }
+
+  function getSearchPath(id: string): string {
+    return searchPaths.value.get(id) || ''
   }
 
   // 设置活动连接
@@ -199,6 +220,7 @@ export const useConnectionStore = defineStore('connection', () => {
     connections,
     activeConnectionId,
     connectionStatuses,
+    searchPaths,
     fetchConnections,
     saveConnection,
     updateConnection,
@@ -206,6 +228,8 @@ export const useConnectionStore = defineStore('connection', () => {
     testConnection,
     connectToDatabase,
     disconnectFromDatabase,
+    setSearchPath,
+    getSearchPath,
     setActiveConnection,
     updateConnectionStatus,
     getConnectionStatus,

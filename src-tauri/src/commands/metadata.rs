@@ -460,7 +460,7 @@ pub async fn get_functions(
             .into_iter()
             .map(|item| item.name)
             .collect(),
-        DatabaseType::PostgreSQL => {
+        DatabaseType::PostgreSQL | DatabaseType::OpenGauss => {
             let schemas = manager.get_schemas(&connection_id, Some(&database)).await.unwrap_or_default();
             let schema_names = if schemas.is_empty() {
                 vec!["public".to_string()]
@@ -500,7 +500,7 @@ pub async fn get_procedures(
             "SELECT ROUTINE_NAME FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = '{}' AND ROUTINE_TYPE = 'PROCEDURE' ORDER BY ROUTINE_NAME",
             database.replace('\'', "''")
         ),
-        DatabaseType::PostgreSQL => return Ok(Vec::new()),
+        DatabaseType::PostgreSQL | DatabaseType::OpenGauss => return Ok(Vec::new()),
         _ => return Ok(Vec::new()),
     };
 
@@ -549,7 +549,7 @@ pub async fn get_autocomplete_data(
 
     let mut tables = Vec::new();
     let mut functions = Vec::new();
-    let guc_parameters = if matches!(db_type, DatabaseType::PostgreSQL) {
+    let guc_parameters = if matches!(db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss) {
         manager
             .execute_query(&connection_id, "SELECT name FROM pg_settings ORDER BY name", None, None)
             .await
@@ -633,7 +633,7 @@ pub async fn get_autocomplete_data(
             });
         }
 
-        if matches!(db_type, DatabaseType::PostgreSQL) {
+        if matches!(db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss) {
             function_schemas.insert("pg_catalog".to_string());
 
             if schemas.is_empty() {
