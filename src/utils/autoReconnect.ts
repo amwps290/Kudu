@@ -37,7 +37,7 @@ function supportsAutoReconnect(connectionId: string) {
   const store = useConnectionStore()
   const conn = store.connections.find(item => item.id === connectionId)
   if (!conn) return false
-  return conn.db_type === 'mysql' || conn.db_type === 'postgresql'
+  return conn.db_type === 'mysql' || conn.db_type === 'postgresql' || conn.db_type === 'opengauss' || conn.db_type === 'gaussdb'
 }
 
 async function reconnectConnection(connectionId: string) {

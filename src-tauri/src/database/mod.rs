@@ -12,6 +12,9 @@ pub mod postgresql;
 #[cfg(feature = "opengauss")]
 pub mod opengauss;
 
+#[cfg(feature = "gaussdb")]
+pub mod gaussdb;
+
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 

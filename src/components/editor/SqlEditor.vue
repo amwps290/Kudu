@@ -265,7 +265,7 @@ const selectedDatabase = ref(props.initialDatabase || '')
 const searchPath = ref('')
 const supportsSearchPath = computed(() => {
   const dbType = currentConnection.value?.db_type
-  return dbType === 'postgresql' || dbType === 'opengauss'
+  return dbType === 'postgresql' || dbType === 'opengauss' || dbType === 'gaussdb'
 })
 
 async function loadSearchPath() {

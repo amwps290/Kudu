@@ -297,7 +297,7 @@ impl<'a> SqlScriptParser<'a> {
     }
 
     fn try_consume_dollar_quote(&mut self) -> bool {
-        if !matches!(self.db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss) || self.peek_char() != Some('$') {
+        if !matches!(self.db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss | DatabaseType::GaussDB) || self.peek_char() != Some('$') {
             return false;
         }
 
@@ -446,7 +446,7 @@ fn lex_keywords(sql: &str, db_type: &DatabaseType) -> Vec<String> {
             continue;
         }
 
-        if matches!(db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss) && ch == '$' {
+        if matches!(db_type, DatabaseType::PostgreSQL | DatabaseType::OpenGauss | DatabaseType::GaussDB) && ch == '$' {
             let mut local = SqlScriptParser::new(remaining, db_type);
             if local.try_consume_dollar_quote() {
                 position += local.position;

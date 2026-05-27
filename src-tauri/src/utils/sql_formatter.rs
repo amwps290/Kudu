@@ -117,7 +117,7 @@ impl SqlFormatter {
                     Self::quote_identifier(db_type, table)
                 )
             }
-            DatabaseType::PostgreSQL | DatabaseType::OpenGauss => {
+            DatabaseType::PostgreSQL | DatabaseType::OpenGauss | DatabaseType::GaussDB => {
                 let schema_name = schema.unwrap_or("public");
                 format!(
                     "{}.{}",
@@ -138,7 +138,7 @@ impl SqlFormatter {
     /// 根据数据库类型引用标识符（列名、表名等）
     pub fn quote_identifier(db_type: &DatabaseType, identifier: &str) -> String {
         match db_type {
-            DatabaseType::SQLite | DatabaseType::PostgreSQL | DatabaseType::OpenGauss => {
+            DatabaseType::SQLite | DatabaseType::PostgreSQL | DatabaseType::OpenGauss | DatabaseType::GaussDB => {
                 format!("\"{}\"", identifier)
             }
             DatabaseType::MySQL => {

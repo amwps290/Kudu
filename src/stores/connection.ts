@@ -160,7 +160,7 @@ export const useConnectionStore = defineStore('connection', () => {
     return withErrorHandler(async () => {
       updateConnectionStatus(id, 'connecting')
       await connectionApi.createConnection(id, getConnectionOverrides(conn))
-      if (conn.db_type === 'postgresql' || conn.db_type === 'opengauss') {
+      if (conn.db_type === 'postgresql' || conn.db_type === 'opengauss' || conn.db_type === 'gaussdb') {
         try {
           const searchPath = await queryApi.getSearchPath(id)
           searchPaths.value.set(id, searchPath)

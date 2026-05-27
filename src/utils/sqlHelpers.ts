@@ -14,7 +14,7 @@ export function escapeSqlLiteral(value: unknown): string {
 
 /** 根据数据库类型返回正确的标识符引用符 */
 export function quoteIdentifier(name: string, dbType: string): string {
-  if (dbType === 'sqlite' || dbType === 'postgresql' || dbType === 'opengauss') return `"${name}"`
+  if (dbType === 'sqlite' || dbType === 'postgresql' || dbType === 'opengauss' || dbType === 'gaussdb') return `"${name}"`
   return `\`${name}\``
 }
 

@@ -168,6 +168,8 @@ impl ConnectionManager {
             DatabaseType::PostgreSQL => Ok(Box::new(super::postgresql::PostgreSqlDatabase::new())),
             #[cfg(feature = "opengauss")]
             DatabaseType::OpenGauss => Ok(Box::new(super::opengauss::OpenGaussDatabase::new())),
+            #[cfg(feature = "gaussdb")]
+            DatabaseType::GaussDB => Ok(Box::new(super::gaussdb::GaussDbDatabase::new())),
             #[cfg(feature = "sqlite")]
             DatabaseType::SQLite => Ok(Box::new(super::sqlite::SqliteDatabase::new())),
             #[cfg(feature = "mongodb-support")]

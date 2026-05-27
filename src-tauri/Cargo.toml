@@ -64,10 +64,11 @@ libc = "0.2"
 tauri-plugin-clipboard-manager = "2.3.2"
 
 [features]
-default = ["mysql", "postgresql", "opengauss", "sqlite", "mongodb-support", "redis-support"]
+default = ["mysql", "postgresql", "opengauss", "gaussdb", "sqlite", "mongodb-support", "redis-support"]
 mysql = ["dep:mysql_async"]
 postgresql = []
 opengauss = []
+gaussdb = []
 sqlite = ["dep:rusqlite"]
 mongodb-support = ["mongodb"]
 redis-support = ["redis"]

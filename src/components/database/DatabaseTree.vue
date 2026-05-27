@@ -36,7 +36,7 @@
             <template v-if="isPgLike">
               <a-sub-menu key="sub-postgres-admin" :disabled="isSelectedNodeReadOnly">
                 <template #icon><EditOutlined /></template>
-                <template #title>{{ $t('tree.postgres_admin') }}</template>
+                <template #title>{{ $t('tree.database_admin') }}</template>
                 <a-menu-item key="install-extension">{{ $t('tree.install_extension') }}</a-menu-item>
                 <a-menu-divider />
                 <a-menu-item key="vacuum-database">{{ $t('tree.vacuum_database') }}</a-menu-item>
@@ -45,7 +45,7 @@
               </a-sub-menu>
               <a-sub-menu key="sub-postgres-inspect">
                 <template #icon><NumberOutlined /></template>
-                <template #title>{{ $t('tree.postgres_inspect') }}</template>
+                <template #title>{{ $t('tree.database_inspect') }}</template>
                 <a-menu-item key="inspect-roles">{{ $t('tree.inspect_roles') }}</a-menu-item>
                 <a-menu-item key="inspect-sessions">{{ $t('tree.inspect_sessions') }}</a-menu-item>
                 <a-menu-item key="inspect-locks">{{ $t('tree.inspect_locks') }}</a-menu-item>
@@ -87,7 +87,7 @@
             </a-sub-menu>
             <a-sub-menu v-if="isPgLike" key="sub-object-inspect">
               <template #icon><NumberOutlined /></template>
-              <template #title>{{ $t('tree.postgres_inspect') }}</template>
+              <template #title>{{ $t('tree.database_inspect') }}</template>
               <a-menu-item key="inspect-object-grants">{{ $t('tree.inspect_object_grants') }}</a-menu-item>
             </a-sub-menu>
             <a-menu-divider />
@@ -377,7 +377,7 @@ const emit = defineEmits(['table-selected', 'database-selected', 'object-selecte
 const connectionStore = useConnectionStore()
 const supportProfile = computed(() => getDatabaseSupportProfile(props.dbType || null))
 const normalizedDbType = computed(() => supportProfile.value.dbType)
-const isPgLike = computed(() => normalizedDbType.value === 'postgresql' || normalizedDbType.value === 'opengauss')
+const isPgLike = computed(() => normalizedDbType.value === 'postgresql' || normalizedDbType.value === 'opengauss' || normalizedDbType.value === 'gaussdb')
 const currentConnection = computed(() => props.connectionId ? connectionStore.connections.find(connection => connection.id === props.connectionId) || null : null)
 
 const REFRESHABLE_NODE_TYPES = ['schema', 'tables', 'views', 'schemas', 'functions', 'procedures', 'schema-tables', 'schema-views', 'schema-materialized-views', 'schema-functions', 'schema-procedures', 'schema-sequences', 'schema-enum-types', 'schema-domain-types', 'schema-composite-types']
@@ -1791,7 +1791,7 @@ async function renameColumn(node: TreeNode, oldName: string, newName: string) {
 
 function quoteIdent(name: string): string {
   const dbType = props.dbType || 'mysql'
-  if (dbType === 'sqlite' || dbType === 'postgresql' || dbType === 'opengauss') return `"${name.replace(/"/g, '""')}"`
+  if (dbType === 'sqlite' || dbType === 'postgresql' || dbType === 'opengauss' || dbType === 'gaussdb') return `"${name.replace(/"/g, '""')}"`
   return `\`${name.replace(/`/g, '``')}\``
 }
 
@@ -2361,7 +2361,7 @@ function getInspectionTitle(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 
 }
 
 function buildInspectionSql(kind: 'roles' | 'sessions' | 'locks' | 'blocking' | 'object-grants', node: TreeNode): string {
-  const useOpenGaussCompat = normalizedDbType.value === 'opengauss'
+  const useOpenGaussCompat = normalizedDbType.value === 'opengauss' || normalizedDbType.value === 'gaussdb'
 
   if (kind === 'roles') {
     return [

@@ -212,7 +212,7 @@ function quoteIdentifier(name: string) {
 }
 
 function buildTableIdentifier(table: TableInfo) {
-  if (currentDbType.value === 'postgresql' || currentDbType.value === 'opengauss') {
+  if (currentDbType.value === 'postgresql' || currentDbType.value === 'opengauss' || currentDbType.value === 'gaussdb') {
     return `${quoteIdentifier(table.schema || 'public')}.${quoteIdentifier(table.name)}`
   }
 
