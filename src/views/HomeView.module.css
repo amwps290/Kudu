@@ -131,10 +131,11 @@
 
 .workspaceTabs :global(.ant-tabs-tab-active) {
   background: var(--tab-active-bg) !important;
+  box-shadow: inset 0 2px 0 var(--color-primary);
 }
 
 .workspaceTabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) {
-  color: var(--color-primary);
+  color: var(--app-text);
 }
 
 .workspaceTabs :global(.ant-tabs-tab-btn) {
@@ -226,7 +227,7 @@
 }
 
 .tabDirtyIndicator {
-  color: var(--color-warning);
+  color: var(--color-primary);
   font-weight: 700;
 }
 

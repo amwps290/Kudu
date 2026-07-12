@@ -16,7 +16,7 @@ ModuleRegistry.registerModules([AllCommunityModule])
 /**
  * 查询结果只读表格（D7：AG Grid Community）。
  * 对齐 Vue 版 VXE 结果表实际用到的特性面：纵向虚拟滚动 / 列宽拖拽 / 行 hover 与当前行 /
- * 固定行高 36 / NULL 灰字 / cell 点击上报（供 TSV 复制）/ 触底加载。
+ * 固定行高 32 / NULL 灰字 / cell 点击上报（供 TSV 复制）/ 触底加载。
  * 区域选择/内建右键菜单/剪贴板等 Enterprise 能力本就未使用。
  */
 
