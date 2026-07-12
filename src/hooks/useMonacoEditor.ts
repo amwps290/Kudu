@@ -16,7 +16,7 @@ import { useAppStore, useAppTheme, selectTheme } from '../stores/appStore'
 export interface MonacoEditorHookOptions {
   language?: string
   readOnly?: boolean
-  /** 覆盖主题（默认跟随 appStore：dark→vs-dark / light→vs） */
+  /** 覆盖主题（默认跟随 appStore：dark→kudu-dark / light→kudu-light） */
   theme?: string
   minimap?: boolean
   lineNumbers?: 'on' | 'off'
@@ -57,7 +57,7 @@ export function useMonacoEditor(
       const opts = optionsRef.current
       const settings = useAppStore.getState().editorSettings
       const resolvedTheme = opts.theme
-        || (selectTheme(useAppStore.getState()) === 'dark' ? 'vs-dark' : 'vs')
+        || (selectTheme(useAppStore.getState()) === 'dark' ? 'kudu-dark' : 'kudu-light')
 
       editorRef.current = monaco.editor.create(containerRef.current, {
         language: opts.language || 'sql',
@@ -94,7 +94,7 @@ export function useMonacoEditor(
     const monaco = monacoRef.current
     if (!editor || !monaco) return
     const opts = optionsRef.current
-    monaco.editor.setTheme(opts.theme || (theme === 'dark' ? 'vs-dark' : 'vs'))
+    monaco.editor.setTheme(opts.theme || (theme === 'dark' ? 'kudu-dark' : 'kudu-light'))
     editor.updateOptions({
       readOnly: opts.readOnly ?? false,
       domReadOnly: false,
