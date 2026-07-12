@@ -74,6 +74,8 @@ const CSS_VAR_MAP: ReadonlyArray<readonly [string, keyof AppThemeTokens]> = [
   ['--icon-color-gray', 'iconColorGray'],
   ['--icon-color-muted', 'iconColorMuted'],
   ['--indicator-ring-soft', 'indicatorRingSoft'],
+  ['--brand-accent', 'brandAccent'],
+  ['--brand-accent-soft-bg', 'brandAccentSoftBg'],
   ['--radius-sm', 'radiusSm'],
   ['--radius-md', 'radiusMd'],
 ]
