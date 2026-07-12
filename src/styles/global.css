@@ -20,12 +20,13 @@
   --space-6: 24px;
   --menu-item-height: 28px;
   /* 密度 token（主题无关；设计文档 §5） */
-  --font-size-base: 13px;
+  /* reserved for future density wiring (grid/tree heights currently driven by JS constants) */
+  --font-size-base: 13px;      /* reserved for future use */
   --font-size-sm: 12px;
-  --row-height-tree: 26px;
-  --row-height-grid: 32px;
+  --row-height-tree: 26px;     /* reserved for future use */
+  --row-height-grid: 32px;     /* reserved for future use */
   --toolbar-height: 32px;
-  --tabbar-height: 32px;
+  --tabbar-height: 32px;       /* reserved for future use */
   --statusbar-height: 24px;
   --activitybar-width: 40px;
 }

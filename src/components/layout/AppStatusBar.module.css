@@ -47,6 +47,9 @@
   font-size: 11px;
   line-height: 1;
   white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pillDot {
@@ -54,6 +57,16 @@
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Bare text node inside inline-flex can't ellipsis; text lives in its own
+   flex item so the connection name truncates instead of pushing siblings. */
+.pillText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pillConnected { background: var(--color-success-soft-bg); color: var(--color-success-text); }

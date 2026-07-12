@@ -51,7 +51,7 @@ export default function AppStatusBar({
       <div className={styles.segment}>
         <span className={`${styles.pill} ${styles[STATUS_PILL_CLASS[connectionStatus]]}`}>
           <span className={styles.pillDot} />
-          {connectionName}
+          <span className={styles.pillText}>{connectionName}</span>
         </span>
         <span className={styles.item} title={t('status_bar.database')}>
           <DatabaseOutlined className={styles.itemIcon} />
