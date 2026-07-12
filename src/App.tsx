@@ -23,6 +23,8 @@ export default function App() {
         algorithm: isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
         token: {
           fontFamily: interfaceFontFamily,
+          fontSize: 13,
+          controlHeight: 28,
           colorPrimary: activeTokens.primary,
           colorBgBase: activeTokens.appBg,
           colorBgContainer: activeTokens.surface,
@@ -30,7 +32,7 @@ export default function App() {
           colorBorder: activeTokens.border,
           colorText: activeTokens.appText,
           colorTextSecondary: activeTokens.appTextSubtle,
-          borderRadius: Number.parseInt(activeTokens.radiusMd, 10) || 10,
+          borderRadius: Number.parseInt(activeTokens.radiusSm, 10) || 4,
         },
       }}
     >

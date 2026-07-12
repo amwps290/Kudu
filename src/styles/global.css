@@ -19,6 +19,15 @@
   --space-4: 16px;
   --space-6: 24px;
   --menu-item-height: 28px;
+  /* 密度 token（主题无关；设计文档 §5） */
+  --font-size-base: 13px;
+  --font-size-sm: 12px;
+  --row-height-tree: 26px;
+  --row-height-grid: 32px;
+  --toolbar-height: 32px;
+  --tabbar-height: 32px;
+  --statusbar-height: 24px;
+  --activitybar-width: 40px;
 }
 
 html,
