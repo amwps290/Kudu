@@ -166,3 +166,24 @@
 - 不做动效体系（保留现有 error 脉冲等既有动画）。
 - 不引入新 UI 依赖（antd + CSS Modules + CSS 变量足够）。
 - 连接色 8 色板语义不变（用户已选颜色继续有效）。
+
+## 10. 实施完成记录
+
+**完成日期：** 2026-07-12 — 全部 8 个实现任务合入 `migration/vue-to-react`。
+
+| 批次 | 任务 | Commit |
+|---|---|---|
+| A | T1 token 全量重绘（中性灰 IDE 调色板 + 工具蓝） | `731b01d` |
+| B | T2 antd 密度收紧 + 密度 CSS token | `a739e4c` |
+| B | T3 32px 网格密度 + 静音表头 | `fa5044c` |
+| C | T4 VSCode 风格活动图标栏 | `019a476` |
+| C | T5 状态栏重组（上下文段 + 反馈段） | `9433a0e` |
+| C | T6 SQL 工具栏重排（溢出菜单 + 图标态） | `56b83b4` |
+| D | T7 Kudu Monaco 主题（kudu-dark / kudu-light） | `0dbceff` |
+| D | T8 细节打磨（tab 强调条 + dirty 圆点）与遗留色清扫 | `9d9b1e5` |
+
+**T8 收口结论：**
+- `grep -rn "1677ff\|177ddc" src/` = 0 命中（出厂蓝已清）。
+- 树图标 `getIconConfig` 全部走 `var(--icon-color-*)`，无硬编码色值。
+- `npm run build` 通过；`npx vitest run` 36/36 全绿。
+- 遗留待办（超出色值清扫范围，记录供后续）：DatabaseOutputPanel severity pill 三元色板（缺 `--color-info`/`-notice` 及 warning/success 的 `-border` token，深色下浅底待改造）、ErDiagram PK/FK 语义色、`global.css` `--app-bg` 的 `#1a1a2e` FOUC 回退、`TreeNodeItem` 引用未定义的 `--icon-color-sky`。
