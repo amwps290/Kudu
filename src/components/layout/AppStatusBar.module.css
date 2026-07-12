@@ -1,142 +1,95 @@
-/* 移植自 Vue 版 AppStatusBar.vue scoped 样式 */
-
 .statusBar {
-  height: 34px;
-  min-height: 34px;
+  height: var(--statusbar-height);
+  min-height: var(--statusbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 2px 12px;
+  padding: 0 10px;
   border-top: 1px solid var(--border-color);
-  background: var(--surface-secondary, #f7f8fa);
+  background: var(--surface-muted);
   color: var(--app-text-subtle);
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: var(--font-size-sm);
+  line-height: 1;
 }
 
-.statusGroup {
+.segment {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
-  flex: 0 0 auto;
 }
 
-.statusGroupLeft {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.statusItem {
+.item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-}
-
-.statusToggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--app-text-subtle);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.statusToggleIcon {
-  width: 24px;
-  min-width: 24px;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-style: italic;
-  font-size: 13px;
-  line-height: 1.1;
-}
-
-.statusToggle:hover {
-  background: var(--surface-hover);
-  color: var(--app-text);
-}
-
-.statusLabel {
-  color: var(--app-text-muted);
-  white-space: nowrap;
-}
-
-.statusValue {
-  color: var(--app-text);
-  white-space: nowrap;
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  white-space: nowrap;
+  color: var(--app-text-subtle);
 }
 
-.statusDivider {
-  width: 1px;
-  height: 12px;
-  background: var(--border-color);
+.itemIcon {
+  font-size: 11px;
   opacity: 0.8;
 }
 
-.statusBadge {
+.pill {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
-  padding: 1px 8px;
+  gap: 5px;
+  height: 16px;
+  padding: 0 8px;
   border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pillDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pillConnected { background: var(--color-success-soft-bg); color: var(--color-success-text); }
+.pillConnecting { background: var(--color-primary-soft-bg); color: var(--color-primary); }
+.pillDisconnected { background: var(--surface-hover); color: var(--app-text-subtle); }
+.pillError { background: var(--color-danger-soft-bg); color: var(--color-danger); }
+
+.pillReadonly {
+  background: var(--brand-accent-soft-bg);
+  color: var(--brand-accent);
+}
+
+.panelToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--app-text-subtle);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.panelToggle:hover {
   background: var(--surface-hover);
   color: var(--app-text);
-  white-space: nowrap;
-  line-height: 1.2;
 }
 
-.statusBadgeReadonly {
-  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-  color: var(--color-warning-text, #8a5a00);
-}
-
-.statusBadgeConnected {
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
-  color: var(--color-success-text, #1f7a3d);
-}
-
-.statusBadgeConnecting {
-  background: color-mix(in srgb, var(--color-info, #1677ff) 14%, transparent);
-  color: var(--color-info, #1677ff);
-}
-
-.statusBadgeDisconnected,
-.statusBadgeError {
-  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-  color: var(--color-danger);
-}
-
-@media (max-width: 960px) {
-  .statusBar {
-    height: auto;
-    min-height: 34px;
-    padding: 6px 12px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  .statusGroup {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .statusValue {
-    max-width: 160px;
-  }
+.panelToggleActive {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
 }

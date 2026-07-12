@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { DatabaseOutlined, LoadingOutlined, PartitionOutlined } from '@ant-design/icons'
 import type { ConnectionStatus } from '@/types/database'
 import type { SqlExecutionState } from '@/types/sqlExecution'
 import styles from './AppStatusBar.module.css'
@@ -10,16 +11,15 @@ export interface AppStatusBarProps {
   readOnly: boolean
   connectionStatus: ConnectionStatus
   executionState: SqlExecutionState | null
-  /** 右侧面板折叠态与切换（Slice 13 接入 rightPanelStore 前由父级传占位） */
   rightPanelCollapsed?: boolean
   onToggleRightPanel?: () => void
 }
 
-const STATUS_BADGE_CLASS: Record<ConnectionStatus, string> = {
-  connected: 'statusBadgeConnected',
-  connecting: 'statusBadgeConnecting',
-  disconnected: 'statusBadgeDisconnected',
-  error: 'statusBadgeError',
+const STATUS_PILL_CLASS: Record<ConnectionStatus, string> = {
+  connected: 'pillConnected',
+  connecting: 'pillConnecting',
+  disconnected: 'pillDisconnected',
+  error: 'pillError',
 }
 
 export default function AppStatusBar({
@@ -34,15 +34,7 @@ export default function AppStatusBar({
 }: AppStatusBarProps) {
   const { t } = useTranslation()
 
-  const connectionStatusLabel = (() => {
-    switch (connectionStatus) {
-      case 'connected': return t('status_bar.connected')
-      case 'connecting': return t('status_bar.connecting')
-      case 'error': return t('status_bar.error')
-      default: return t('status_bar.disconnected')
-    }
-  })()
-
+  const running = executionState?.status === 'running'
   const taskStatusLabel = (() => {
     const state = executionState
     if (!state || state.status === 'idle') return t('status_bar.idle')
@@ -55,49 +47,39 @@ export default function AppStatusBar({
 
   return (
     <footer className={styles.statusBar}>
-      <div className={`${styles.statusGroup} ${styles.statusGroupLeft}`}>
-        <span className={styles.statusItem}>
-          <span className={styles.statusLabel}>{t('status_bar.connection')}</span>
-          <span className={styles.statusValue}>{connectionName}</span>
+      {/* 左段：连接上下文（设计文档 §6.2） */}
+      <div className={styles.segment}>
+        <span className={`${styles.pill} ${styles[STATUS_PILL_CLASS[connectionStatus]]}`}>
+          <span className={styles.pillDot} />
+          {connectionName}
         </span>
-        <span className={styles.statusDivider} />
-        <span className={styles.statusItem}>
-          <span className={styles.statusLabel}>{t('status_bar.database')}</span>
-          <span className={styles.statusValue}>{databaseName}</span>
+        <span className={styles.item} title={t('status_bar.database')}>
+          <DatabaseOutlined className={styles.itemIcon} />
+          {databaseName}
         </span>
-        <span className={styles.statusDivider} />
-        <span className={styles.statusItem}>
-          <span className={styles.statusLabel}>{t('status_bar.schema')}</span>
-          <span className={styles.statusValue}>{schemaName}</span>
+        <span className={styles.item} title={t('status_bar.schema')}>
+          <PartitionOutlined className={styles.itemIcon} />
+          {schemaName}
         </span>
         {readOnly && (
-          <span className={`${styles.statusBadge} ${styles.statusBadgeReadonly}`}>
-            {t('status_bar.read_only')}
-          </span>
+          <span className={`${styles.pill} ${styles.pillReadonly}`}>{t('status_bar.read_only')}</span>
         )}
       </div>
 
-      <div className={styles.statusGroup}>
+      {/* 右段：执行反馈 + 面板开关 */}
+      <div className={styles.segment}>
+        <span className={styles.item}>
+          {running && <LoadingOutlined className={styles.itemIcon} spin />}
+          {taskStatusLabel}
+        </span>
         <button
           type="button"
-          className={`${styles.statusToggle} ${styles.statusToggleIcon}`}
+          className={`${styles.panelToggle} ${!rightPanelCollapsed ? styles.panelToggleActive : ''}`}
           title={rightPanelCollapsed ? t('right_panel.show') : t('right_panel.hide')}
           onClick={() => onToggleRightPanel?.()}
         >
           i
         </button>
-        <span className={styles.statusDivider} />
-        <span className={styles.statusItem}>
-          <span className={styles.statusLabel}>{t('status_bar.connection_status')}</span>
-          <span className={`${styles.statusBadge} ${styles[STATUS_BADGE_CLASS[connectionStatus]]}`}>
-            {connectionStatusLabel}
-          </span>
-        </span>
-        <span className={styles.statusDivider} />
-        <span className={styles.statusItem}>
-          <span className={styles.statusLabel}>{t('status_bar.task_status')}</span>
-          <span className={styles.statusValue}>{taskStatusLabel}</span>
-        </span>
       </div>
     </footer>
   )
