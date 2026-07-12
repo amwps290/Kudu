@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Divider, Input, Popover, Select, Space, Tag, Tooltip } from 'antd'
+import { Button, Divider, Dropdown, Input, Popover, Select, Space, Tag, Tooltip } from 'antd'
 import type { InputRef } from 'antd'
+import type { MenuProps } from 'antd'
 import {
-  ApartmentOutlined, ClearOutlined, CodeOutlined, FileAddOutlined, FormatPainterOutlined,
-  HistoryOutlined, PlayCircleFilled, PlusOutlined, SaveOutlined, SearchOutlined,
-  StopOutlined, SyncOutlined, TableOutlined,
+  ApartmentOutlined, ClearOutlined, CodeOutlined, DatabaseOutlined, EllipsisOutlined,
+  FileAddOutlined, FormatPainterOutlined, HistoryOutlined, PlayCircleFilled, PlusOutlined,
+  SaveOutlined, SearchOutlined, StopOutlined, SyncOutlined, TableOutlined,
 } from '@ant-design/icons'
 import type { DatabaseInfo } from '@/types/database'
 import styles from './SqlToolbar.module.css'
@@ -127,6 +128,12 @@ export default function SqlToolbar({
     </div>
   )
 
+  const overflowItems: MenuProps['items'] = [
+    { key: 'saveAsFile', icon: <FileAddOutlined />, label: t('editor.save_as') },
+    { key: 'clearEditor', icon: <ClearOutlined />, label: t('common.clear') },
+    { key: 'refreshAutocomplete', icon: <SyncOutlined />, label: t('common.refresh') },
+  ]
+
   return (
     <div className={styles.toolbar}>
       <div className={styles.toolbarLeft}>
@@ -139,9 +146,6 @@ export default function SqlToolbar({
               onClick={() => onAction('executeQuery')}
             />
           </Tooltip>
-          <Tooltip title={t('common.explain')}>
-            <Button type="text" size="small" disabled={executing} icon={<SearchOutlined />} onClick={() => onAction('explainQuery')} />
-          </Tooltip>
           <Tooltip title={t('common.stop')}>
             <Button
               type="text" size="small" disabled={!executing}
@@ -150,20 +154,17 @@ export default function SqlToolbar({
               onClick={() => onAction('stopExecution')}
             />
           </Tooltip>
+          <Tooltip title={t('common.explain')}>
+            <Button type="text" size="small" disabled={executing} icon={<SearchOutlined />} onClick={() => onAction('explainQuery')} />
+          </Tooltip>
         </div>
         <Divider type="vertical" />
         <div className={styles.toolbarGroup}>
-          <Tooltip title={`${t('common.save')} (Ctrl+S)`}>
-            <Button type="text" size="small" icon={<SaveOutlined />} onClick={() => onAction('handleSave')} />
-          </Tooltip>
-          <Tooltip title={t('editor.save_as')}>
-            <Button type="text" size="small" icon={<FileAddOutlined />} onClick={() => onAction('saveAsFile')} />
-          </Tooltip>
           <Tooltip title={t('common.format')}>
             <Button type="text" size="small" icon={<FormatPainterOutlined />} onClick={() => onAction('formatSql')} />
           </Tooltip>
-          <Tooltip title={t('common.clear')}>
-            <Button type="text" size="small" icon={<ClearOutlined />} onClick={() => onAction('clearEditor')} />
+          <Tooltip title={`${t('common.save')} (Ctrl+S)`}>
+            <Button type="text" size="small" icon={<SaveOutlined />} onClick={() => onAction('handleSave')} />
           </Tooltip>
         </div>
         <Divider type="vertical" />
@@ -174,15 +175,18 @@ export default function SqlToolbar({
           <Tooltip title={t('common.snippets')}>
             <Button type="text" size="small" icon={<CodeOutlined />} onClick={() => onAction('openSnippets')} />
           </Tooltip>
-          <Tooltip title={t('common.refresh')}>
-            <Button type="text" size="small" icon={<SyncOutlined />} onClick={() => onAction('refreshAutocomplete')} />
-          </Tooltip>
+          <Dropdown
+            menu={{ items: overflowItems, onClick: ({ key }) => onAction(key as SqlToolbarAction) }}
+            trigger={['click']}
+          >
+            <Button type="text" size="small" icon={<EllipsisOutlined />} />
+          </Dropdown>
         </div>
       </div>
 
       <div className={styles.toolbarRight}>
         <div className={styles.toolbarRightSection}>
-          <span className={styles.toolbarLabel}>{t('common.database')}</span>
+          <DatabaseOutlined className={styles.contextIcon} />
           <Select
             value={selectedDatabase}
             placeholder={t('common.database')}
@@ -195,10 +199,8 @@ export default function SqlToolbar({
             ]}
           />
         </div>
-        <Divider type="vertical" />
         {showSearchPath && (
           <div className={styles.toolbarRightSection}>
-            <span className={styles.toolbarLabel}>{t('editor.search_path_label')}</span>
             <Popover
               open={searchPathEditorOpen}
               onOpenChange={setSearchPathEditorOpen}
