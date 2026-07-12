@@ -49,3 +49,4 @@ src/components.d.ts
 # OS files
 Thumbs.db
 
+.superpowers/
