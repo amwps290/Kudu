@@ -20,7 +20,7 @@ ModuleRegistry.registerModules([AllCommunityModule])
  * 区域选择/内建右键菜单/剪贴板等 Enterprise 能力本就未使用。
  */
 
-export const RESULT_GRID_ROW_HEIGHT = 36
+export const RESULT_GRID_ROW_HEIGHT = 32
 
 export interface ResultCellClickPayload {
   row: Record<string, unknown>

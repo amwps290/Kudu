@@ -26,7 +26,7 @@ ModuleRegistry.registerModules([AllCommunityModule])
  * 经 getCellVisual 回调查询；父组件状态变化时递增 refreshToken 触发 refreshCells。
  */
 
-export const DATA_GRID_ROW_HEIGHT = 36
+export const DATA_GRID_ROW_HEIGHT = 32
 
 export type CellVisualState = 'pending-delete' | 'new' | 'modified' | null
 
