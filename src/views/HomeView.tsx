@@ -7,6 +7,7 @@ import {
   RetweetOutlined, SettingOutlined, TableOutlined,
 } from '@ant-design/icons'
 import { message } from '../ui/antd'
+import ActivityBar from '../components/layout/ActivityBar'
 import AppHeader from '../components/layout/AppHeader'
 import AppStatusBar from '../components/layout/AppStatusBar'
 import ConnectionPanel from '../components/connection/ConnectionPanel'
@@ -798,6 +799,10 @@ export default function HomeView() {
       />
 
       <div className={styles.contentContainer}>
+        <ActivityBar
+          onOpenSearch={() => setShowGlobalSearch(true)}
+          onOpenSettings={openSettings}
+        />
         <div
           className={styles.sidebarWrapper}
           style={{ width: sidebarCollapsed ? 0 : `${sidebarWidth}px` }}
