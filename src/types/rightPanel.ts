@@ -1,4 +1,3 @@
-import type { Component } from 'vue'
 import type { DbMessage } from '@/types/database'
 
 export type RightPanelId = 'cell' | 'output' | 'object'
@@ -45,14 +44,6 @@ export interface RightPanelContext {
   tabType?: string
   readOnly?: boolean
   metadata?: Record<string, unknown>
-}
-
-export interface RightPanelDefinition {
-  id: RightPanelId
-  titleKey: string
-  component: Component
-  order: number
-  visibleWhen?: (context: RightPanelContext | null) => boolean
 }
 
 export interface RightPanelSettings {

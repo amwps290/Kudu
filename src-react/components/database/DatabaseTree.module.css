@@ -1,0 +1,29 @@
+.databaseTree {
+  height: 100%;
+  overflow: visible;
+  padding: 0;
+  user-select: none;
+}
+
+.customTree {
+  width: 100%;
+}
+
+.renameForm {
+  display: grid;
+  gap: 10px;
+}
+
+.sequenceStatePanel { display: grid; gap: 10px; }
+.sequenceStateRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color-muted);
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary);
+}
+.sequenceStateRow span { color: var(--app-text-subtle); }
+.sequenceStateRow strong { font-variant-numeric: tabular-nums; }
+.sequenceValueHint { margin-top: 10px; color: var(--app-text-subtle); font-size: 12px; }

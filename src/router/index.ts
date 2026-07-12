@@ -7,6 +7,8 @@ const router = createRouter({
     {
       path: '/',
       name: 'Home',
+      // 迁移期：Slice 12 入口切换后 Vue 版经 /react.html 作为对照入口加载（Slice 27 一并删除）
+      alias: '/react.html',
       meta: { keepAlive: true },
       component: HomeView,
     },

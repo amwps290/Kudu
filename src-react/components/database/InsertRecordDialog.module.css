@@ -1,0 +1,25 @@
+.insertForm :global(.ant-form-item) {
+  margin-bottom: 16px;
+}
+
+.insertField {
+  width: 100%;
+}
+
+.insertFieldMeta,
+.insertFieldComment {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--app-text-subtle);
+}
+
+.insertFieldMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.insertFieldOptions {
+  min-height: 22px;
+  margin-top: 4px;
+}

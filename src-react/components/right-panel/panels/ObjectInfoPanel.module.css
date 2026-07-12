@@ -1,0 +1,50 @@
+.panelShell { display: grid; gap: 12px; align-content: start; }
+.panelHeader { display: grid; gap: 4px; }
+.panelTitle {
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+  user-select: text;
+}
+.panelSubtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--app-text-subtle);
+  font-size: 12px;
+  user-select: text;
+}
+.panelSubtitleDivider { opacity: 0.6; user-select: text; }
+.propertyTableWrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.propertyTable { min-width: 640px; }
+.propertyRow {
+  display: grid;
+  grid-template-columns: 150px minmax(360px, 1fr);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+.propertyRow:last-child { border-bottom: 0; }
+.propertyRowHead {
+  background: color-mix(in srgb, var(--surface-hover) 65%, white 10%);
+  color: var(--app-text-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  user-select: text;
+}
+.propertyKey,
+.propertyValue {
+  padding: 9px 12px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+}
+.propertyRowHead > div { padding: 9px 12px; }
+.propertyKey { color: var(--app-text-subtle); font-size: 12px; }
+.propertyValue { color: var(--app-text); font-size: 12px; }

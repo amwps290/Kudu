@@ -1,5 +1,17 @@
-import { defineAsyncComponent } from 'vue'
-import type { RightPanelDefinition } from '@/types/rightPanel'
+import { defineAsyncComponent, type Component } from 'vue'
+import type { RightPanelContext, RightPanelId } from '@/types/rightPanel'
+
+/**
+ * 面板注册定义。含 Vue 组件引用，因此放在组件层；
+ * @/types/rightPanel 只保留框架无关的数据类型。
+ */
+export interface RightPanelDefinition {
+  id: RightPanelId
+  titleKey: string
+  component: Component
+  order: number
+  visibleWhen?: (context: RightPanelContext | null) => boolean
+}
 
 const CellViewerPanel = defineAsyncComponent(() => import('@/components/right-panel/panels/CellViewerPanel.vue'))
 const DatabaseOutputPanel = defineAsyncComponent(() => import('@/components/right-panel/panels/DatabaseOutputPanel.vue'))

@@ -1,0 +1,9 @@
+.redisKeyViewer {
+  padding: 16px;
+  height: 100%;
+  overflow: auto;
+}
+
+.keyEditorActions {
+  margin-top: 12px;
+}

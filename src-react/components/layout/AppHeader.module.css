@@ -1,0 +1,174 @@
+/* 移植自 Vue 版 AppHeader.vue scoped 样式；:deep(...) 改为 :global(...) */
+
+.header {
+  height: var(--header-height);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  flex-shrink: 0;
+  z-index: 100;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.headerDragHandle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--color-primary);
+  padding: 0 12px;
+  height: 100%;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+}
+
+.brandMark {
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.headerMenu {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  flex: 0 0 auto;
+  min-width: max-content;
+  margin-left: 6px;
+  position: relative;
+  z-index: 3;
+}
+
+.topMenu {
+  border-bottom: none;
+  background: transparent;
+  height: 100%;
+  line-height: var(--header-height);
+  min-width: max-content;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+}
+
+.topMenu :global(.ant-menu-overflow) {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.topMenu :global(.ant-menu-overflow-item) {
+  padding-inline: 0 !important;
+}
+
+.topMenu :global(.ant-menu-submenu-title) {
+  height: var(--header-height) !important;
+  line-height: var(--header-height) !important;
+  padding: 0 10px;
+}
+
+.topMenu :global(.ant-menu-title-content) {
+  line-height: var(--header-height);
+}
+
+.headerDragSpacer {
+  flex: 1 1 auto;
+  min-width: 16px;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  pointer-events: auto;
+  padding-right: 0;
+  margin-left: auto;
+  position: relative;
+  z-index: 3;
+}
+
+.settingsBtn {
+  margin-right: 4px;
+}
+
+.themeBtn {
+  margin-right: 4px;
+  color: var(--app-text);
+}
+
+.themeBtn :global(.iconify) {
+  font-size: 18px;
+  opacity: 0.95;
+}
+
+.searchBtn {
+  margin-right: 6px;
+}
+
+.menuIcon {
+  margin-right: 8px;
+}
+
+.headerActions :global(.ant-btn.ant-btn-sm) {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.windowControls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 100%;
+  padding: 0 2px 0 0;
+}
+
+.winBtn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 13px;
+  color: var(--app-text-subtle);
+}
+
+.winBtn:hover {
+  background-color: var(--surface-hover);
+}
+
+.winBtnClose:hover {
+  background-color: var(--window-close-hover-bg) !important;
+  color: var(--color-on-danger) !important;
+}

@@ -1,0 +1,10 @@
+.commandInputSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.editorWrapper {
+  flex: 1;
+  min-height: 300px;
+  border-bottom: 1px solid var(--border-color);
+}

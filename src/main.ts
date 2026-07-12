@@ -6,6 +6,10 @@ import router from './router'
 import i18n from './i18n'
 import './style.css'
 import { logStartupStage, createStartupTimer } from './utils/startupProfiler'
+import { message } from '@/ui/antd'
+import { setErrorNotifier } from './utils/errorHandler'
+import { setAutoReconnectStoreProvider } from './utils/autoReconnect'
+import { useConnectionStore } from './stores/connection'
 
 
 // 设置 Monaco Editor 的 Worker 配置
@@ -30,6 +34,18 @@ void logStartupStage('vue app created')
 app.use(pinia)
 app.use(router)
 app.use(i18n)
+
+// 注入共享层的宿主实现（Vue 侧）：错误提示走 antdv message，
+// 自动重连的 store 访问包装 Pinia connection store（调用时才求值，Pinia 已激活）
+setErrorNotifier((text) => { message.error(text) })
+setAutoReconnectStoreProvider(() => {
+  const store = useConnectionStore()
+  return {
+    getConnections: () => store.connections,
+    getConnectionOverrides: (config) => store.getConnectionOverrides(config),
+    updateConnectionStatus: (id, status) => store.updateConnectionStatus(id, status),
+  }
+})
 
 app.mount('#app')
 void logStartupStage('app mounted')

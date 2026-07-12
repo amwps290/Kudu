@@ -1,0 +1,71 @@
+/* 移植自 Vue 版 ConnectionDialog.vue scoped 样式 */
+
+.dialogForm :global(.ant-form-item) {
+  margin-bottom: 16px;
+}
+
+.colorPicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorSwatch {
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--swatch-ring);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.colorSwatch:hover {
+  transform: scale(1.06);
+}
+
+.colorSwatchActive {
+  border-color: var(--app-text);
+  box-shadow: var(--focus-ring-primary);
+}
+
+.colorPreview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.previewDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.fullWidthInput {
+  width: 100%;
+}
+
+.protectionItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.protectionCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.protectionTitle {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 600;
+}

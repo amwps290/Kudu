@@ -1,0 +1,98 @@
+/* 对等 Vue 版 SqlToolbar.vue scoped 样式（仅水平布局）；:deep(.ant-*) → :global */
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+  height: 32px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  gap: 0;
+}
+
+.toolbarLeft { display: flex; align-items: center; gap: 0; }
+.toolbarGroup { display: flex; align-items: center; gap: 1px; }
+
+.toolbarLeft :global(.ant-btn-text),
+.toolbarRight :global(.ant-btn-text) {
+  width: 26px;
+  min-width: 26px;
+  padding: 0;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--app-text-subtle);
+  font-size: 13px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.toolbarLeft :global(.ant-btn-text:hover),
+.toolbarRight :global(.ant-btn-text:hover) {
+  background: var(--surface-hover);
+  color: var(--app-text);
+}
+
+.toolbarRight { display: flex; align-items: center; gap: 0; margin-left: auto; }
+.toolbarRightSection { display: flex; align-items: center; gap: 5px; }
+.toolbarLabel {
+  font-size: 10px;
+  color: var(--app-text-subtle);
+  white-space: nowrap;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.toolbar :global(.ant-divider-vertical) { height: 16px; margin: 0 6px; border-color: var(--border-color); }
+
+.btnRun { color: var(--color-success) !important; }
+.btnRun:hover { background: var(--color-success-soft-bg) !important; }
+.btnRun.running { opacity: 0.5; }
+.btnStop { color: var(--color-danger) !important; }
+.btnStop.active { background: var(--color-danger-soft-bg); }
+.btnStop:hover { background: var(--color-danger-soft-bg) !important; }
+
+.resultToggleBtn.active {
+  color: var(--color-primary) !important;
+  background: var(--color-primary-hover-bg);
+}
+
+.databaseSelect { width: 130px; }
+.searchPathInput { width: 100px; }
+
+/* search_path */
+.searchPathActions {
+  margin-top: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.searchPathTrigger {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 3px;
+  max-width: 160px;
+  height: 22px !important;
+  padding: 0 5px !important;
+  min-width: auto !important;
+  width: auto !important;
+  font-size: 11px !important;
+}
+
+.searchPathText {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-text-subtle);
+  max-width: 130px;
+}
+
+.searchPathEditor { min-width: 260px; max-width: 340px; }
+.searchPathTags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; align-items: center; }
+.searchPathSqlPreview { margin-top: 6px; padding: 6px 8px; }
+.searchPathSqlPreview code { font-size: 11px; font-family: monospace; color: var(--app-text-muted); }

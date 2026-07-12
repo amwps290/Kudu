@@ -1,0 +1,163 @@
+/* 对等 Vue 版 ErDiagram.vue scoped 样式 */
+
+.erShell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-hover) 66%, white 6%), var(--surface));
+}
+
+.erToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.erToolbarMeta {
+  min-width: 0;
+}
+
+.erTitle {
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.erSubtitle {
+  margin-top: 3px;
+  color: var(--app-text-subtle);
+  font-size: 12px;
+}
+
+.erToolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.erViewport {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  cursor: grab;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--border-color) 38%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--border-color) 38%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.erViewport:active {
+  cursor: grabbing;
+}
+
+.erState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--app-text-subtle);
+  font-size: 13px;
+}
+
+.erStateError {
+  color: var(--color-danger);
+}
+
+.erCanvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+}
+
+.erLinks {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.erLinkPath {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-primary) 48%, var(--border-color));
+  stroke-width: 2;
+  opacity: 0.85;
+}
+
+.erLinkLabel {
+  fill: var(--app-text-subtle);
+  font-size: 11px;
+  text-anchor: middle;
+}
+
+.erNode {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 14px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 92%, white 8%);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  user-select: none;
+}
+
+.erNodeHeader {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 16%, white 84%), color-mix(in srgb, var(--surface-hover) 78%, white 10%));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+  cursor: move;
+}
+
+.erNodeTitle {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.erNodeSchema {
+  color: var(--app-text-subtle);
+  font-size: 11px;
+}
+
+.erNodeBody {
+  padding: 8px 0;
+}
+
+.erColumn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 0 14px;
+  min-height: 24px;
+  color: var(--app-text);
+  font-size: 12px;
+}
+
+.erColumnPk .erColumnName {
+  color: #b54708;
+  font-weight: 600;
+}
+
+.erColumnFk .erColumnName {
+  color: #175cd3;
+}
+
+.erColumnName,
+.erColumnType {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.erColumnType {
+  color: var(--app-text-subtle);
+  font-size: 11px;
+}

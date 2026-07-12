@@ -1,0 +1,216 @@
+/* 移植自 Vue 版 ConnectionPanel.vue scoped 样式 */
+
+.connectionPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+}
+
+.searchWrapper {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color-muted);
+}
+
+.searchOptions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.searchOptionItem {
+  font-size: 12px;
+}
+
+.searchMatchCount {
+  margin-left: auto;
+  color: var(--app-text-subtle);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.searchPrefixIcon {
+  color: var(--app-text-subtle);
+}
+
+.panelContent {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.connectionGroup {
+  position: relative;
+}
+
+.connectionItem {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 28px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  user-select: none;
+  position: relative;
+}
+
+.connectionItem::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background-color: var(--connection-accent, transparent);
+  opacity: 0.95;
+  transition: background-color 0.3s;
+}
+
+.connectionItem:hover {
+  background-color: var(--surface-hover);
+}
+
+.connectionItemActive {
+  background-color: var(--surface-active);
+  color: var(--color-primary);
+}
+
+.connectionItemError::before {
+  background-color: var(--color-danger) !important;
+  opacity: 0.85 !important;
+}
+
+.connectionIndentPlaceholder {
+  width: 12px;
+  display: inline-block;
+}
+
+.connectionExpandIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  font-size: 10px;
+  color: var(--app-text-subtle);
+  margin-right: 2px;
+}
+
+.reconnectIcon {
+  font-size: 12px;
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.reconnectIcon:hover {
+  color: var(--color-danger-hover);
+}
+
+.expandIcon {
+  font-size: 10px;
+}
+
+.connectingIcon {
+  color: var(--color-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.connectionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.3s;
+}
+
+.connectionIconDimmed {
+  opacity: 0.45;
+}
+
+.brandIcon {
+  font-size: 16px;
+}
+
+.connectionName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--app-text-muted);
+}
+
+.connectionNameError {
+  color: var(--color-danger) !important;
+}
+
+.connectionItemActive .connectionName {
+  color: inherit;
+}
+
+.connectionActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.6;
+}
+
+.connectionItem:hover .connectionActions {
+  opacity: 1;
+}
+
+.disconnectBtn {
+  font-size: 12px;
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.disconnectBtn:hover {
+  color: var(--color-danger-hover);
+}
+
+.reconnectActionBtn {
+  font-size: 12px;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.databaseTreeWrapper {
+  position: relative;
+}
+
+.rootTreeLine {
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--connection-accent, var(--border-color));
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+:global(.dark-mode) .rootTreeLine {
+  opacity: 0.4;
+}
+
+.treePlaceholder {
+  padding: 8px 8px 8px 28px;
+  font-size: 12px;
+  color: var(--app-text-subtle);
+}
+
+.emptyConnections {
+  margin-top: 40px;
+}

@@ -1,0 +1,70 @@
+.snippetsManager {
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.snippetsToolbar {}
+
+.categoryFilterSelect {
+  width: 160px;
+}
+
+.snippetSearchInput {
+  width: 200px;
+}
+
+.snippetsContent {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.snippetsList {
+  width: 300px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.snippetItem {
+  padding: 12px !important;
+}
+
+.snippetItem.active {
+  background-color: var(--surface-active);
+}
+
+.snippetTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.snippetDescription {
+  margin-bottom: 4px;
+}
+
+.snippetMeta {}
+
+.snippetEditor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.sqlInput {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.snippetActions {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}

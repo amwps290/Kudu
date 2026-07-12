@@ -1,0 +1,53 @@
+.resultTabs {
+  height: 450px;
+  overflow: hidden;
+}
+
+.resultTabsNav {
+  margin-left: 12px;
+}
+
+.resultTabs :global(.ant-tabs-content) {
+  height: calc(100% - 46px);
+}
+
+.resultContent,
+.messagesContent {
+  height: 100%;
+  overflow: auto;
+  padding: 12px;
+}
+
+.resultInfo {
+  margin-bottom: 12px;
+}
+
+.resultDisplay {}
+
+.resultContentWrapper {
+  max-height: 500px;
+  overflow: auto;
+}
+
+.resultJson,
+.resultText {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+.resultText {
+  color: var(--app-text);
+}
+
+.messageTime {
+  color: var(--app-text-subtle);
+  margin-right: 8px;
+}
+
+.messageText {
+  font-family: monospace;
+}

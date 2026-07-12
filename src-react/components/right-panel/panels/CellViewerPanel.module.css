@@ -1,0 +1,14 @@
+.panelShell { display: grid; gap: 12px; }
+.panelCard { background: var(--surface); border: 1px solid var(--border-color); border-radius: 10px; }
+.panelCardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px; }
+.panelCardActions { padding: 10px 12px; }
+.panelCardEditor { padding: 12px; }
+.panelEyebrow { font-size: 12px; color: var(--app-text-subtle); margin-bottom: 4px; }
+.panelTitle { font-size: 15px; font-weight: 600; color: var(--app-text); word-break: break-word; }
+.metaText { font-size: 12px; color: var(--app-text-subtle); }
+.editorToolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.viewerTextarea :global(textarea) {
+  font-family: var(--editor-font-family, "JetBrains Mono", monospace);
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}

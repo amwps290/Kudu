@@ -1,0 +1,163 @@
+.queryBuilder {
+  padding: 24px;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.builderConfig,
+.generatedSql,
+.builderHeader {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.builderHeader {
+  margin-bottom: 24px;
+}
+
+.columnsGroup {
+  width: 100%;
+}
+
+.columnOption {
+  margin-bottom: 8px;
+}
+
+.selectColumnsBtn {
+  margin-top: 8px;
+}
+
+.clearColumnsBtn {
+  margin-left: 8px;
+}
+
+.limitInput {
+  width: 200px;
+}
+
+.columnTypeTag {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-soft-bg);
+  margin-left: 4px;
+}
+
+.querySection {
+  margin-bottom: 24px;
+}
+
+.querySection h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.conditionRow {
+  margin-bottom: 12px;
+}
+
+.conditionGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 2.2fr) minmax(140px, 1.2fr) minmax(220px, 2fr) minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.conditionField {
+  min-width: 0;
+}
+
+.conditionField :global(.ant-select),
+.conditionField :global(.ant-input) {
+  width: 100%;
+}
+
+.conditionField :global(.ant-select-selector) {
+  min-height: 32px;
+}
+
+.conditionAction {
+  display: flex;
+  justify-content: center;
+}
+
+.orderGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.orderField {
+  min-width: 0;
+}
+
+.orderColumn {
+  flex: 1 1 360px;
+  max-width: 560px;
+}
+
+.orderDirection {
+  flex: 0 1 180px;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.orderField :global(.ant-select) {
+  width: 100%;
+}
+
+.generatedSql {
+  margin-top: 24px;
+}
+
+.sqlPreview pre {
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sqlActions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 960px) {
+  .conditionGrid {
+    grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px);
+  }
+
+  .orderColumn {
+    flex-basis: 280px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .queryBuilder {
+    padding: 16px;
+  }
+
+  .conditionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .orderColumn,
+  .orderDirection {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .conditionAction {
+    justify-content: flex-end;
+  }
+}

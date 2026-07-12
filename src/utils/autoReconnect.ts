@@ -1,6 +1,23 @@
-import { connectionApi } from '@/api/connection'
-import { useConnectionStore } from '@/stores/connection'
+import { connectionApi, type ConnectionOverrides } from '@/api/connection'
 import { getErrorMessage } from '@/utils/errorHandler'
+import type { ConnectionConfig, ConnectionStatus } from '@/types/database'
+
+/**
+ * 连接 store 访问器：由宿主在启动时注入（Vue 版包装 Pinia store，
+ * React 版包装 Zustand 的 getState），使本模块不直接依赖任何状态库。
+ * 未注入时自动重连整体禁用（失败直接抛出原始错误）。
+ */
+export interface AutoReconnectStoreAccess {
+  getConnections(): ConnectionConfig[]
+  getConnectionOverrides(config: ConnectionConfig): ConnectionOverrides | undefined
+  updateConnectionStatus(id: string, status: ConnectionStatus): void
+}
+
+let storeAccessProvider: (() => AutoReconnectStoreAccess) | null = null
+
+export function setAutoReconnectStoreProvider(provider: () => AutoReconnectStoreAccess) {
+  storeAccessProvider = provider
+}
 
 const RETRYABLE_CONNECTION_PATTERNS = [
   /not connected/i,
@@ -34,15 +51,17 @@ export function isRetryableConnectionError(error: unknown) {
 }
 
 function supportsAutoReconnect(connectionId: string) {
-  const store = useConnectionStore()
-  const conn = store.connections.find(item => item.id === connectionId)
+  const store = storeAccessProvider?.()
+  if (!store) return false
+  const conn = store.getConnections().find(item => item.id === connectionId)
   if (!conn) return false
   return conn.db_type === 'mysql' || conn.db_type === 'postgresql' || conn.db_type === 'opengauss' || conn.db_type === 'gaussdb'
 }
 
 async function reconnectConnection(connectionId: string) {
-  const store = useConnectionStore()
-  const conn = store.connections.find(item => item.id === connectionId)
+  const store = storeAccessProvider?.()
+  if (!store) throw new Error('连接配置不存在')
+  const conn = store.getConnections().find(item => item.id === connectionId)
   if (!conn) throw new Error('连接配置不存在')
 
   const existingTask = reconnectingTasks.get(connectionId)

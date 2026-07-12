@@ -161,7 +161,6 @@ import {
 import { message } from '@/ui/antd'
 import { useI18n } from 'vue-i18n'
 import { metadataApi } from '@/api'
-import { invoke } from '@tauri-apps/api/core'
 import type { DatabaseInfo } from '@/types/database'
 import { writeClipboardText } from '@/utils/clipboard'
 
@@ -355,10 +354,7 @@ async function handleSearch() {
       // 搜索存储过程（MySQL 等支持的数据库）
       if (!isPostgreSQL.value && (searchScope.value === 'all' || searchScope.value === 'procedures')) {
         try {
-          const procedures = await invoke<{ ROUTINE_NAME: string }[]>('get_procedures', {
-            connectionId: props.connectionId,
-            database: db.name,
-          })
+          const procedures = await metadataApi.getProcedures(props.connectionId!, db.name)
 
           for (const proc of procedures) {
             const procName = caseSensitive.value ? proc.ROUTINE_NAME : proc.ROUTINE_NAME.toLowerCase()
@@ -378,10 +374,7 @@ async function handleSearch() {
       // 搜索函数
       if (searchScope.value === 'all' || searchScope.value === 'functions') {
         try {
-          const functions = await invoke<{ ROUTINE_NAME: string }[]>('get_functions', {
-            connectionId: props.connectionId,
-            database: db.name,
-          })
+          const functions = await metadataApi.getFunctions(props.connectionId!, db.name)
 
           for (const func of functions) {
             const funcName = caseSensitive.value ? func.ROUTINE_NAME : func.ROUTINE_NAME.toLowerCase()

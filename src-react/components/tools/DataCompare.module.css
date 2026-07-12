@@ -1,0 +1,19 @@
+.dataCompare {
+  padding: 24px;
+  height: 100%;
+  overflow: auto;
+}
+
+.compareHeader {
+  margin-bottom: 24px;
+}
+
+.compareConfig {}
+
+.compareOptions {
+  margin-top: 16px;
+}
+
+.compareResult {
+  margin-top: 24px;
+}

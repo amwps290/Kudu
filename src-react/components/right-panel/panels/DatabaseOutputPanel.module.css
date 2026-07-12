@@ -1,0 +1,72 @@
+.panelShell { display: grid; gap: 12px; align-content: start; }
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.panelTitle { font-size: 15px; font-weight: 600; color: var(--app-text); user-select: text; }
+.panelSubtitle { margin-top: 4px; font-size: 12px; color: var(--app-text-subtle); user-select: text; }
+.messageTableWrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.messageTable { min-width: 720px; }
+.messageRow {
+  display: grid;
+  grid-template-columns: 110px 92px 180px minmax(280px, 1fr);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+.messageRow:last-child { border-bottom: 0; }
+.messageRowHead {
+  background: color-mix(in srgb, var(--surface-hover) 65%, white 10%);
+  color: var(--app-text-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  user-select: text;
+}
+.messageRowHead > div,
+.messageCell {
+  padding: 9px 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.messageCell {
+  color: var(--app-text);
+  font-size: 12px;
+  user-select: text;
+}
+.messageCellMono { font-family: var(--editor-font-family, "JetBrains Mono", monospace); }
+.messageCellScope { color: var(--app-text-subtle); }
+.messageCellText {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: unset;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+.severityPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.severityPill-error { color: #b42318; background: #fef3f2; border-color: #fecdca; }
+.severityPill-warning { color: #b54708; background: #fffaeb; border-color: #fedf89; }
+.severityPill-notice { color: #175cd3; background: #eff8ff; border-color: #b2ddff; }
+.severityPill-debug {
+  color: var(--app-text-subtle);
+  background: color-mix(in srgb, var(--surface-hover) 72%, white 8%);
+  border-color: color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+.severityPill-info { color: #027a48; background: #ecfdf3; border-color: #abefc6; }
+.panelEmptyState { min-height: 120px; }

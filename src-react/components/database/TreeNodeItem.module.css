@@ -1,0 +1,100 @@
+/* 对等 Vue 版 TreeNodeItem.vue scoped 样式 */
+
+.treeNode { width: 100%; position: relative; }
+.treeNodeContent {
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  height: 26px;
+  position: relative;
+}
+.treeNodeContent.selected { color: var(--color-primary); }
+.treeNodeContent.selected .treeNodeMain { background-color: var(--surface-active); border-radius: var(--radius-sm); }
+.treeNodeContent.selected .treeNodeExpand,
+.treeNodeContent.selected .treeNodeIcon { color: var(--color-primary); }
+
+.treeNodeContent:global(.interactive-row):hover {
+  background-color: transparent;
+}
+
+.treeLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--border-color-muted);
+  pointer-events: none;
+}
+.treeLineCurrent { top: 13px; }
+
+.treeNodeExpand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  margin-right: 4px;
+  z-index: 2;
+  color: var(--app-text-subtle);
+  transition: all 0.2s;
+}
+.treeNodeExpand:hover { color: var(--color-primary); transform: scale(1.2); }
+.treeNodeExpandPlaceholder { display: inline-block; width: 16px; }
+
+.arrowIcon { font-size: 11px; }
+
+.treeNodeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.loadingIcon { color: var(--color-primary); font-size: 16px; }
+.brandIcon { font-size: 16px; }
+.typeIcon { transition: transform 0.2s; }
+
+.treeNodeMain {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+}
+.treeNodeTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+.selected .treeNodeTitle { color: inherit; }
+
+.treeNodeSizeBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--app-text-subtle);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-color-muted);
+}
+.selected .treeNodeSizeBadge { color: inherit; border-color: currentColor; background: transparent; opacity: 0.9; }
+
+.treeNodeTitle.searchHighlight {
+  background-color: var(--color-warning-soft-bg);
+  color: var(--app-text);
+  border-radius: 2px;
+  padding: 0 2px;
+}

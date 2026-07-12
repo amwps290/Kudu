@@ -1,4 +1,17 @@
-import { message } from '@/ui/antd'
+/**
+ * 错误提示通知器：由宿主 UI 在启动时注入（Vue 版为 antdv 的 message.error，
+ * React 版为 antd 的 message.error）。共享层不直接依赖任一 UI 框架；
+ * 未注入时降级为 console.error。
+ */
+export type ErrorNotifier = (text: string) => void
+
+let errorNotifier: ErrorNotifier = (text) => {
+  console.error(text)
+}
+
+export function setErrorNotifier(notifier: ErrorNotifier) {
+  errorNotifier = notifier
+}
 
 /**
  * 从各种错误对象中提取可读的错误消息
@@ -53,7 +66,7 @@ export async function withErrorHandler<T>(
 
     // 显示用户友好的错误消息
     if (showMessage) {
-      message.error(`${messagePrefix}: ${errorMessage}`)
+      errorNotifier(`${messagePrefix}: ${errorMessage}`)
     }
 
     // 执行自定义回调

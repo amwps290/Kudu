@@ -3,28 +3,28 @@ import { computed, reactive, ref, watch } from 'vue'
 import { setLocale } from '@/i18n'
 import { storage } from '@/utils/storage'
 import { utilsApi } from '@/api'
+import type {
+  Theme,
+  ThemeMode,
+  Language,
+  LineNumbersMode,
+  LogLevel,
+  InterfaceSettings,
+  EditorSettings,
+  DatabaseSettings,
+} from '@/types/settings'
 
-export type Theme = 'light' | 'dark'
-export type ThemeMode = Theme | 'system'
-export type Language = 'zh-CN' | 'en-US'
-export type LineNumbersMode = 'on' | 'off'
-export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error'
-
-export interface InterfaceSettings {
-  fontFamily: string
-}
-
-export interface EditorSettings {
-  fontSize: number
-  minimap: boolean
-  lineNumbers: LineNumbersMode
-  fontFamily: string
-}
-
-export interface DatabaseSettings {
-  mysqlCharset: string
-  mysqlInitSql: string
-}
+// 设置类型已抽至 @/types/settings（框架无关层）；此处 re-export 保持既有导入路径兼容
+export type {
+  Theme,
+  ThemeMode,
+  Language,
+  LineNumbersMode,
+  LogLevel,
+  InterfaceSettings,
+  EditorSettings,
+  DatabaseSettings,
+} from '@/types/settings'
 
 export const useAppStore = defineStore('app', () => {
   const getSystemTheme = (): Theme => {

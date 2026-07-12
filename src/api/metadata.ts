@@ -4,6 +4,11 @@ import type {
 } from '@/types/database'
 import { withAutoReconnect } from '@/utils/autoReconnect'
 
+/** information_schema 例程名称行（get_functions / get_procedures 返回的行形状） */
+export interface RoutineNameInfo {
+  ROUTINE_NAME: string
+}
+
 export const metadataApi = {
   /**
    * 获取数据库列表
@@ -24,6 +29,20 @@ export const metadataApi = {
    */
   async getViews(connectionId: string, database?: string | null): Promise<TableInfo[]> {
     return withAutoReconnect(connectionId, () => invoke<TableInfo[]>('get_views', { connectionId, database }), true)
+  },
+
+  /**
+   * 获取数据库级函数名称列表（MySQL 等非 schema 引擎）
+   */
+  async getFunctions(connectionId: string, database: string): Promise<RoutineNameInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<RoutineNameInfo[]>('get_functions', { connectionId, database }), true)
+  },
+
+  /**
+   * 获取数据库级存储过程名称列表（MySQL 等非 schema 引擎）
+   */
+  async getProcedures(connectionId: string, database: string): Promise<RoutineNameInfo[]> {
+    return withAutoReconnect(connectionId, () => invoke<RoutineNameInfo[]>('get_procedures', { connectionId, database }), true)
   },
 
   /**

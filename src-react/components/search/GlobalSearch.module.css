@@ -1,0 +1,57 @@
+.globalSearch {
+  min-height: 500px;
+}
+
+.searchHeader {
+  margin-bottom: 24px;
+}
+
+.searchFilters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.searchFiltersSpaced {
+  margin-top: 12px;
+}
+
+.searchFilterSelect {
+  width: 150px;
+}
+
+.resultsSummary {
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.searchResults {
+  margin-top: 16px;
+}
+
+.resultIcon {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+.resultTagDatabase {
+  margin-left: 8px;
+}
+
+.resultTagTable {
+  margin-left: 4px;
+}
+
+.highlight {
+  background-color: var(--color-warning-soft-bg);
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.searchResults :global(.ant-list-item-meta-title) a {
+  color: inherit;
+}
+
+.searchResults :global(.ant-list-item-meta-title) a:hover {
+  color: var(--color-primary);
+}

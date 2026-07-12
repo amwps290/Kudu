@@ -1,0 +1,215 @@
+/* React 侧全局样式（对等 Vue 版 style.css 的基础段；
+   antdv 专属覆盖不在此处，随各切片按 antd React 类名逐段迁移）。
+   主题色值由 useThemeVariables 在渲染前写入 :root。 */
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --header-height: 32px;
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-lg: 14px;
+  --font-xl: 18px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --menu-item-height: 28px;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body,
+#app {
+  font-family: var(--app-font-family, Inter, 'Segoe UI', system-ui, sans-serif);
+  background: var(--app-bg, #1a1a2e);
+  color: var(--app-text, rgba(255, 255, 255, 0.85));
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 仅对可编辑区域开放文本选择（与 Vue 版 style.css 一致） */
+input,
+textarea,
+select,
+[contenteditable='true'],
+.ant-input,
+.ant-input-affix-wrapper input,
+.ant-input-number-input,
+.ant-select-selection-search-input,
+.monaco-editor,
+.monaco-editor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* ===== 以下全局工具类移植自 Vue 版 style.css（React 组件按需引用）===== */
+
+.text-caption {
+  color: var(--app-text-subtle);
+  font-size: var(--font-sm);
+}
+
+.panel-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--surface-muted);
+  flex-shrink: 0;
+}
+
+.panel-toolbar--muted-border {
+  border-bottom-color: var(--border-color-muted);
+}
+
+.panel-toolbar--strong-border {
+  border-bottom-color: var(--border-color-strong);
+}
+
+.panel-toolbar__title {
+  color: var(--app-text-subtle);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.info-panel {
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+}
+
+.help-text {
+  color: var(--app-text-subtle);
+  font-size: var(--font-xs);
+  line-height: 1.4;
+}
+
+.interactive-row {
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.interactive-row:hover {
+  background-color: var(--surface-hover);
+}
+
+.interactive-row--active {
+  background-color: var(--surface-active);
+  color: var(--color-primary);
+}
+
+/* 自绘右键菜单（全局层，配 antd Menu 内嵌使用） */
+.app-context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.app-context-menu {
+  position: absolute;
+  min-width: 186px;
+  background: var(--overlay-bg);
+  border: 1px solid var(--overlay-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-overlay), var(--shadow-soft);
+  overflow: hidden;
+  padding: 4px;
+  z-index: 10000;
+}
+
+.app-context-menu--scrollable {
+  max-width: min(360px, calc(100vw - 16px));
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.app-context-menu .ant-menu {
+  background: transparent;
+  border-inline-end: none !important;
+  font-size: var(--font-sm);
+}
+
+.app-context-menu .ant-menu-item,
+.app-context-menu .ant-menu-submenu,
+.app-context-menu .ant-menu-submenu-title {
+  margin: 0 !important;
+}
+
+.app-context-menu .ant-menu-item,
+.app-context-menu .ant-menu-submenu-title {
+  height: var(--menu-item-height) !important;
+  line-height: var(--menu-item-height) !important;
+  padding-inline: 10px !important;
+  border-radius: 7px;
+  color: var(--app-text);
+}
+
+.app-context-menu .ant-menu-item:hover,
+.app-context-menu .ant-menu-submenu-title:hover {
+  background: var(--surface-hover) !important;
+}
+
+.app-context-menu .ant-menu-item-disabled {
+  color: var(--app-text-subtle) !important;
+}
+
+.app-context-menu .ant-menu-item-selected {
+  background: var(--color-primary-hover-bg) !important;
+}
+
+.app-context-menu .ant-divider,
+.app-context-menu .ant-menu-item-divider {
+  margin: 5px 4px !important;
+}
+
+/* 关闭保护弹窗（Slice 26；对等 Vue 版 App.vue 内同名全局样式） */
+.workspace-unsaved-confirm .ant-modal-confirm-content {
+  max-width: none;
+  margin-top: 0;
+  margin-inline-start: 0;
+}
+.workspace-unsaved-confirm__content {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: normal;
+  word-break: break-word;
+}
+.workspace-unsaved-confirm__message {
+  margin: 0;
+}
+.workspace-unsaved-confirm__hint {
+  margin-top: 6px;
+  color: var(--app-text-subtle);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.workspace-unsaved-confirm__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.workspace-unsaved-confirm__button {
+  min-width: 72px;
+  height: 30px;
+}
+.dark-mode .workspace-unsaved-confirm .ant-modal-content {
+  background: var(--surface);
+}

@@ -1,0 +1,48 @@
+.tableDataGrid {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gridToolbar {}
+
+.gridWrapper {
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+  background: var(--surface);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+}
+
+.dataInfo {}
+.endText {}
+
+.loadingText {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.loadingSpinner {
+  margin-left: 8px;
+}
+
+.previewSummary {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.previewHint {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--app-text-subtle);
+}
+
+.previewSql :global(textarea) {
+  font-family: monospace;
+}

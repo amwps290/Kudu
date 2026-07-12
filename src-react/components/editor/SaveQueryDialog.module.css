@@ -1,0 +1,13 @@
+.categoryDivider {
+  margin: 4px 0;
+}
+
+.categoryAction {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.sqlPreview {
+  max-height: 150px;
+  overflow-y: auto;
+}

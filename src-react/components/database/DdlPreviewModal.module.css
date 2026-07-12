@@ -1,0 +1,5 @@
+.ddlPreviewEditor {
+  height: 500px;
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius-sm);
+}
