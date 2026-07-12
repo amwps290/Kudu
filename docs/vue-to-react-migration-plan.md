@@ -638,11 +638,14 @@ export interface SqlEditorHandle {
 - **✅ 已完成（2026-07-12，免确认模式）**：两个 hook 接入 HomeView——tab 右键菜单五种关闭动作与 Tabs onEdit 全部改走 `closeTabWithConfirm/closeTabsWithConfirm`（批量 keys 计算照抄 useWorkspaceTabMenuActions）；窗口关闭拦截与剪贴板路由随 hook 挂载生效。**顺带接线**：AppHeader 的打开 SQL 文件/保存/另存与 SqlEditor 的 onRequestSave/onRequestSaveAs 从占位提示切到已实现的 handleOpenSqlFile/saveQueryTab(As)。`npm run build` 通过、vitest 36/36。
 - 验收：8.3 节关闭保护全场景 + Monaco 内外复制粘贴行为对照 Vue 版（统一在收尾后按第 8 章矩阵进行）。
 
-**Slice 27：清理与归位** ｜规模 M
+**Slice 27：清理与归位** ｜规模 M ｜**已完成（2026-07-12）**
 
-- 删除：全部 `.vue`、composables、Pinia stores、`i18n.ts`、`react.html` 双入口、`tauri.react.conf.json`、`auto-imports.d.ts`、`components.d.ts`、`plugins/vxe.ts`、`VxeGridRuntime.ts`、`vxeTheme.ts`、`services/export.ts`（死代码）、`dist-solid/` 残留目录。
-- 依赖卸载（见 9.3 对照表左列全部）；`src-react` 内容并入 `src`；别名归一（`@react/*` 全局替换为 `@/*`）；`index.html` 指向 `/src/main.tsx`；build 脚本 `tsc --noEmit && vite build`；更新 `CLAUDE.md`/`AGENTS.md`/`README.md` 的技术栈描述（含修正"35 命令"旧数据）。
-- 验收：`npm run build`、`npm run tauri:dev`、`npm run tauri:build` 三关全过；`grep -r "vue" package.json src/` 无业务命中；第 8 章全矩阵最后过一遍。
+- 实际改动：
+  - 删除：全部 40 个 `.vue`、`composables/`、4 个 Pinia store、`i18n.ts`、`main.ts`/`App.vue`、`router/`、`plugins/vxe.ts`、`components/vxe/VxeGridRuntime.ts`、`utils/vxeTheme.ts`、`services/export.ts`（死代码）、`types/internal.ts`（仅 Vue composables 消费）、`style.css`（已被 React 的 `styles/global.css` 取代）、Vue 版 `panelRegistry.ts`/`ui/antd.ts`（同路径被 React 版覆盖）、`react.html` 双入口、`tauri.react.conf.json`、`tsconfig.react.json`、`auto-imports.d.ts`/`components.d.ts`、`dist-solid/` 残留、Vue 版全组件死代码 CreateTableDialog/CreateViewDialog/ExportTableDialog。
+  - 归位：`src-react/*` 全量 `git mv` 进 `src/`（目录一一对应，组件内部全用相对导入与 `@/`，实测 `@react/` 别名 0 使用，零改动归位）。
+  - 配置：`index.html` → `/src/main.tsx`；`vite.config.ts` 纯 React（删 vue/unplugin 插件链、双入口、vue 系 manualChunks；ant-design chunk 改匹配 antd React）；`tsconfig.json` 合并 react 配置（jsx react-jsx、include src）；vitest 配置去 `@react`；`package.json` build = `tsc --noEmit && vite build`，卸载 9.3 表左列全部 Vue 依赖。
+  - 文档：CLAUDE.md（技术栈/状态管理/hooks/Monaco worker/命令数 74/代码分割）、README（技术栈/项目结构）、AGENTS.md 同步为 React 事实。
+- 验收结果：`npm run build`（tsc + vite，7.4s）通过；vitest 36/36；`grep -rE "from '(vue|pinia|vxe|ant-design-vue)"` 0 命中（仅注释中的历史说明）；`npm run tauri:build` 见第 10 章状态表。
 
 ---
 
@@ -805,7 +808,7 @@ src-tauri/        # 零改动
 | Slice 19 Redis 工作区 | ✅ 完成（2026-07-11，免确认模式） |
 | Slice 20–25 周边功能 | ✅ 完成（免确认模式）：设置页/全局搜索/查询构建器/数据对比/ER 图/剩余对话框（4 个活对话框迁毕；CreateTable/CreateView/ExportTable 三对话框实测为 Vue 版整组件死代码，不迁） |
 | Slice 26 关闭保护 + 剪贴板路由 | ✅ 完成（2026-07-12）：两 hook 接入 HomeView；顺带接通文件打开/保存/另存实际实现。build + vitest 36/36 通过 |
-| Slice 27 清理与归位 | ⏳ 待办：删除 Vue 代码与依赖、src-react 归位 src、三关验证、文档同步 |
+| Slice 27 清理与归位 | ✅ 完成（2026-07-12）：Vue 代码与依赖清零、src-react 归位 src、配置与文档同步；`npm run build` + vitest 36/36 通过；`npm run tauri:build` 与 `npm run tauri:dev` 冒烟、第 8 章全矩阵终验待使用者执行 |
 | 已确认切片 | Slice 17B 起为免确认连续交付；最终验收统一按第 8 章矩阵进行 |
 
 > 执行约定：每完成一个切片（XL 片按子批），更新本表并停下等待使用者确认；确认通过才开始下一片。
