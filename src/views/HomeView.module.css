@@ -189,8 +189,15 @@
 
 .workspaceTabs :global(.ant-tabs-tabpane) {
   height: 100%;
+}
+
+.workspaceTabs :global(.ant-tabs-tabpane-active) {
   display: flex;
   flex-direction: column;
+}
+
+.workspaceTabs :global(.ant-tabs-tabpane-hidden) {
+  display: none;
 }
 
 .tabTitle {
