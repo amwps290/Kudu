@@ -7,7 +7,7 @@
   padding: 2px 4px;
   user-select: none;
   border-radius: var(--radius-sm);
-  height: 26px;
+  min-height: var(--row-height-tree);
   position: relative;
 }
 .treeNodeContent.selected { color: var(--color-primary); }
@@ -73,6 +73,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+  line-height: 1.35;
   color: var(--app-text-muted);
 }
 .selected .treeNodeTitle { color: inherit; }
@@ -82,10 +83,10 @@
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
-  height: 18px;
+  min-height: 18px;
   border-radius: 999px;
   font-size: 11px;
-  line-height: 18px;
+  line-height: 1.2;
   color: var(--app-text-subtle);
   background: var(--surface-secondary);
   border: 1px solid var(--border-color-muted);

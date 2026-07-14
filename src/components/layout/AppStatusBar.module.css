@@ -1,6 +1,6 @@
 .statusBar {
-  height: var(--statusbar-height);
   min-height: var(--statusbar-height);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -10,7 +10,7 @@
   background: var(--surface-muted);
   color: var(--app-text-subtle);
   font-size: var(--font-size-sm);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .segment {
@@ -18,6 +18,16 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.segment:first-child {
+  flex: 1;
+  overflow: hidden;
+}
+
+.segment:last-child {
+  flex-shrink: 0;
+  max-width: min(40%, 420px);
 }
 
 .item {
@@ -35,17 +45,25 @@
 .itemIcon {
   font-size: 11px;
   opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.itemText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 16px;
+  min-height: 16px;
   padding: 0 8px;
   border-radius: 999px;
   font-size: 11px;
-  line-height: 1;
+  line-height: 1.2;
   white-space: nowrap;
   max-width: 220px;
   overflow: hidden;
@@ -83,6 +101,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   padding: 0;

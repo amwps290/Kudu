@@ -49,17 +49,20 @@ export default function AppStatusBar({
     <footer className={styles.statusBar}>
       {/* 左段：连接上下文（设计文档 §6.2） */}
       <div className={styles.segment}>
-        <span className={`${styles.pill} ${styles[STATUS_PILL_CLASS[connectionStatus]]}`}>
+        <span
+          className={`${styles.pill} ${styles[STATUS_PILL_CLASS[connectionStatus]]}`}
+          title={connectionName}
+        >
           <span className={styles.pillDot} />
           <span className={styles.pillText}>{connectionName}</span>
         </span>
-        <span className={styles.item} title={t('status_bar.database')}>
+        <span className={styles.item} title={`${t('status_bar.database')}: ${databaseName}`}>
           <DatabaseOutlined className={styles.itemIcon} />
-          {databaseName}
+          <span className={styles.itemText}>{databaseName}</span>
         </span>
-        <span className={styles.item} title={t('status_bar.schema')}>
+        <span className={styles.item} title={`${t('status_bar.schema')}: ${schemaName}`}>
           <PartitionOutlined className={styles.itemIcon} />
-          {schemaName}
+          <span className={styles.itemText}>{schemaName}</span>
         </span>
         {readOnly && (
           <span className={`${styles.pill} ${styles.pillReadonly}`}>{t('status_bar.read_only')}</span>
@@ -68,14 +71,15 @@ export default function AppStatusBar({
 
       {/* 右段：执行反馈 + 面板开关 */}
       <div className={styles.segment}>
-        <span className={styles.item}>
+        <span className={styles.item} title={taskStatusLabel}>
           {running && <LoadingOutlined className={styles.itemIcon} spin />}
-          {taskStatusLabel}
+          <span className={styles.itemText}>{taskStatusLabel}</span>
         </span>
         <button
           type="button"
           className={`${styles.panelToggle} ${!rightPanelCollapsed ? styles.panelToggleActive : ''}`}
           title={rightPanelCollapsed ? t('right_panel.show') : t('right_panel.hide')}
+          aria-label={rightPanelCollapsed ? t('right_panel.show') : t('right_panel.hide')}
           onClick={() => onToggleRightPanel?.()}
         >
           i

@@ -2,7 +2,7 @@ import { forwardRef, lazy, Suspense, useEffect, useImperativeHandle, useRef, use
 import { useTranslation } from 'react-i18next'
 import { Button, Drawer, Dropdown, Empty, Input, List, Menu, Space, Tabs, Tag } from 'antd'
 import type { MenuProps } from 'antd'
-import { CheckCircleOutlined, CloseCircleOutlined, CopyOutlined, ExportOutlined, LoadingOutlined, StopOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CloseCircleOutlined, CloseOutlined, CopyOutlined, ExportOutlined, LoadingOutlined, StopOutlined } from '@ant-design/icons'
 import { save } from '@tauri-apps/plugin-dialog'
 import { message } from '../../ui/antd'
 import { getSqlAutocompleteManager } from '@/services/sqlAutocomplete'
@@ -1072,8 +1072,11 @@ const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(function SqlEditor
         className={styles.resultTabClose}
         type="button"
         title={t('common.close')}
+        aria-label={t('common.close')}
         onClick={(e) => { e.stopPropagation(); closeErrorTab(index) }}
-      >×</button>
+      >
+        <CloseOutlined />
+      </button>
     </span>
   )
 
@@ -1219,8 +1222,11 @@ const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(function SqlEditor
               className={styles.resultTabClose}
               type="button"
               title={t('common.close')}
+              aria-label={t('common.close')}
               onClick={(e) => { e.stopPropagation(); closeResultAt(idx) }}
-            >×</button>
+            >
+              <CloseOutlined />
+            </button>
           </span>
         ),
         children: renderResultTabContent(queryResults[idx], idx),

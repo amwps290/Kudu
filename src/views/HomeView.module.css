@@ -13,6 +13,7 @@
 
 .contentContainer {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: row;
   overflow: hidden;
@@ -23,13 +24,15 @@
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
   height: 100%;
+  min-height: 0;
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .sidebarInner {
   height: 100%;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   padding: 0 8px;
 }
 
@@ -68,6 +71,7 @@
 
 .mainWorkspace {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -86,6 +90,7 @@
 
 .workspaceTabs {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -176,12 +181,14 @@
 
 .workspaceTabs :global(.ant-tabs-content) {
   flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
 }
 
 .workspaceTabs :global(.ant-tabs-content-holder) {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -189,6 +196,7 @@
 
 .workspaceTabs :global(.ant-tabs-tabpane) {
   height: 100%;
+  min-height: 0;
 }
 
 .workspaceTabs :global(.ant-tabs-tabpane-active) {
@@ -241,6 +249,7 @@
 .tabContentWrapper {
   flex: 1;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
