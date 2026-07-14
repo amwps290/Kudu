@@ -25,7 +25,9 @@ export default defineConfig({
 
   // 构建优化
   build: {
-    target: 'esnext',
+    // Tauri on Windows uses the user's WebView2 runtime. Avoid emitting syntax
+    // that is only guaranteed by the latest Chromium releases.
+    target: 'es2020',
     minify: 'esbuild',
     chunkSizeWarningLimit: 700,
     rollupOptions: {
@@ -35,14 +37,6 @@ export default defineConfig({
 
           if (id.includes('monaco-editor')) return 'monaco-editor'
           if (id.includes('ag-grid')) return 'ag-grid'
-          if (
-            id.includes('/node_modules/react/') ||
-            id.includes('/node_modules/react-dom/') ||
-            id.includes('/node_modules/scheduler/')
-          ) return 'react-vendor'
-          if (id.includes('/node_modules/antd/') || id.includes('@ant-design')) return 'ant-design'
-          if (id.includes('@tauri-apps')) return 'tauri'
-          if (id.includes('@iconify')) return 'iconify'
         },
       },
     },
